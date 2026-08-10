@@ -388,6 +388,9 @@ function changeMyName(){
 let remote = { players: [], matchLog: [], currentMatch: null, vote: null };
 let remoteLoaded = false;
 let suppressNextSnapshot = false;
+// correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
+let clockOffsetMs = 0;
+function correctedNow(){ return Date.now() + clockOffsetMs; }
 
 function pushRemote(partial){
   // updateDoc correctly handles dot-notation nested field paths (e.g. "currentMatch.timerStartedAt")
@@ -409,7 +412,7 @@ function pushRemote(partial){
 onSnapshot(sessionRef, (snap)=>{
   if(!snap.exists()){
     // first time: initialize the shared doc with whatever we have locally (migration from old localStorage-only version)
-    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null });
+    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null, _ping: serverTimestamp() });
     return;
   }
   const data = snap.data();
@@ -417,6 +420,10 @@ onSnapshot(sessionRef, (snap)=>{
   remote.matchLog = data.matchLog || [];
   remote.currentMatch = data.currentMatch || null;
   remote.vote = data.vote || null;
+  // learn this device's clock offset from the server's authoritative clock whenever a resolved timestamp arrives
+  if(data._ping && typeof data._ping.toMillis==='function'){
+    clockOffsetMs = data._ping.toMillis() - Date.now();
+  }
   // sync into local working vars used throughout the app
   state.players = players = remote.players;
   state.matchLog = remote.matchLog;
@@ -426,6 +433,8 @@ onSnapshot(sessionRef, (snap)=>{
   if(typeof maybeResolveVote==='function')maybeResolveVote();
   renderSharedMatchArea();
 });
+// refresh the clock-offset ping once on load (in case the doc already existed and the bootstrap branch above didn't run)
+setTimeout(()=>{ pushRemote({ _ping: serverTimestamp() }); }, 300);
 
 const POSITIONS=[
   {key:"TOP",label:"탑"},{key:"JUG",label:"정글"},{key:"MID",label:"미드"},
@@ -1169,7 +1178,7 @@ if(!sharedTickInterval){
     if(!cm||cm.locked)return;
     const startMs=tsMillis(cm.timerStartedAt);
     if(!startMs)return;
-    const remain=30-Math.floor((Date.now()-startMs)/1000);
+    const remain=30-Math.floor((correctedNow()-startMs)/1000);
     const el=document.getElementById("rerollSeconds");
     if(el)el.textContent=Math.max(remain,0);
     if(remain<=0 && !cm.locked){ pushRemote({"currentMatch.locked": true}); }
