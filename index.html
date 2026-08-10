@@ -386,8 +386,17 @@ let remoteLoaded = false;
 let suppressNextSnapshot = false;
 
 function pushRemote(partial){
-  // merge partial fields into Firestore doc (creates doc if missing)
-  setDoc(sessionRef, partial, { merge: true }).catch(err=>{
+  // updateDoc correctly handles dot-notation nested field paths (e.g. "currentMatch.timerStartedAt")
+  // without wiping sibling fields. setDoc({merge:true}) does NOT do this for nested keys, so
+  // we use updateDoc for normal writes, falling back to setDoc only if the doc doesn't exist yet.
+  updateDoc(sessionRef, partial).catch(err=>{
+    if(err && err.code==='not-found'){
+      setDoc(sessionRef, partial, { merge: true }).catch(err2=>{
+        console.error("Firestore 저장 실패:", err2);
+        alert("서버 저장에 실패했어요. 인터넷 연결이나 Firebase 설정을 확인해주세요.\n("+err2.message+")");
+      });
+      return;
+    }
     console.error("Firestore 저장 실패:", err);
     alert("서버 저장에 실패했어요. 인터넷 연결이나 Firebase 설정을 확인해주세요.\n("+err.message+")");
   });
@@ -784,7 +793,7 @@ function publishDraw(best){
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   pushRemote({ currentMatch: {
     assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    rerollUsedBy: [], timerStartedAt: null, locked:false, createdAt: Date.now()
+    rerollUsedBy: [], timerStartedAt: null, autoTimer:false, locked:false, createdAt: Date.now()
   }});
 }
 // reroll: keep the same 10 players (from currentMatch assignments), redraw, tag this person as having used their reroll
@@ -811,9 +820,10 @@ function makeTeamsForReroll(){
   if(!best)return;
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   const usedBy=[...(cm.rerollUsedBy||[]), myName];
+  const wasAuto=!!cm.autoTimer;
   pushRemote({ currentMatch: {
     assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    rerollUsedBy: usedBy, timerStartedAt: null, locked:false, createdAt: Date.now()
+    rerollUsedBy: usedBy, timerStartedAt: wasAuto?Date.now():null, autoTimer: wasAuto, locked:false, createdAt: Date.now()
   }});
 }
 
@@ -1119,7 +1129,7 @@ function renderSharedMatchArea(){
   document.getElementById("blueWin").onclick=()=>recordSharedWin(0);
   document.getElementById("redWin").onclick=()=>recordSharedWin(1);
   const startBtn=document.getElementById("startRerollTimerBtn");
-  if(startBtn)startBtn.onclick=()=>{ pushRemote({"currentMatch.timerStartedAt": Date.now()}); };
+  if(startBtn)startBtn.onclick=()=>{ pushRemote({"currentMatch.timerStartedAt": Date.now(), "currentMatch.autoTimer": true}); };
   const rerollBtn=document.getElementById("rerollBtnShared");
   if(rerollBtn)rerollBtn.onclick=()=>{
     ensureMyName();
