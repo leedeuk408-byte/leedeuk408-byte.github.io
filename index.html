@@ -415,7 +415,7 @@ onSnapshot(sessionRef, (snap)=>{
     pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null, _ping: serverTimestamp() });
     return;
   }
-  const data = snap.data();
+  const data = snap.data({ serverTimestamps: 'estimate' });
   remote.players = data.players || [];
   remote.matchLog = data.matchLog || [];
   remote.currentMatch = data.currentMatch || null;
