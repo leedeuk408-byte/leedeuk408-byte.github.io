@@ -385,7 +385,7 @@ function changeMyName(){
 }
 
 /* ---------- shared remote state (Firestore) ---------- */
-let remote = { players: [], matchLog: [], currentMatch: null, vote: null };
+let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null };
 let remoteLoaded = false;
 let suppressNextSnapshot = false;
 // correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
@@ -420,6 +420,7 @@ onSnapshot(sessionRef, (snap)=>{
   remote.matchLog = data.matchLog || [];
   remote.currentMatch = data.currentMatch || null;
   remote.vote = data.vote || null;
+  remote.currentAuction = data.currentAuction || null;
   // learn this device's clock offset from the server's authoritative clock whenever a resolved timestamp arrives
   if(data._ping && typeof data._ping.toMillis==='function'){
     clockOffsetMs = data._ping.toMillis() - Date.now();
@@ -765,8 +766,8 @@ function openProfile(id){
 
 /* ---------- balancing ---------- */
 function makeTeams(){
-  if(typeof aucTimerId!=='undefined'&&aucTimerId){clearInterval(aucTimerId);aucTimerId=null;}
   ensureMyName();
+  if(remote.currentAuction&&!remote.currentAuction.done){alert("진행 중인 경매가 있어요. 먼저 마무리하거나 초기화하세요.");return;}
   if(remote.vote&&remote.vote.active){alert("아직 지난 판 BEST/WORST 투표가 안 끝났어요.");return;}
   if(remote.vote&&remote.vote.stage==='done'){alert("이전 판 결과 화면에서 '확인'을 먼저 눌러주세요.");return;}
   if(remote.currentMatch&&!remote.currentMatch.error){alert("이미 진행 중인 팀이 있어요. 승리 팀을 기록하고 다시 시도하세요.");return;}
@@ -847,7 +848,6 @@ function tierBadge(pl){const s=avgStrength(pl);return "전력 "+(Number.isIntege
 function teamStrength(key){return manual[key].reduce((s,id)=>{const pl=players.find(p=>p.id===id);return s+(pl?avgStrength(pl):0);},0);}
 document.getElementById("manualBtn").onclick=()=>{
   if(typeof rerollTimerId!=='undefined'&&rerollTimerId){clearInterval(rerollTimerId);rerollTimerId=null;}
-  if(typeof aucTimerId!=='undefined'&&aucTimerId){clearInterval(aucTimerId);aucTimerId=null;}
   const chosen=players.filter(p=>picked.has(p.id));
   if(chosen.length===0){alert("먼저 명단에서 배치할 선수를 체크하세요. (10명 권장)");return;}
   const ids=new Set(chosen.map(p=>p.id));
@@ -951,9 +951,9 @@ function manualWin(winKey){
 }
 
 /* ---------- auction draft ---------- */
-let auc=null; // {captains:{blue,red}, coins:{blue,red}, teams:{blue:[],red:[]}, pool:[], current, phase}
 document.getElementById("auctionBtn").onclick=()=>{
   if(typeof rerollTimerId!=='undefined'&&rerollTimerId){clearInterval(rerollTimerId);rerollTimerId=null;}
+  if(remote.currentAuction&&!remote.currentAuction.done){alert("이미 진행 중인 경매가 있어요. 먼저 마무리하거나 초기화하세요.");return;}
   const chosen=players.filter(p=>picked.has(p.id));
   if(chosen.length<3){alert("경매를 하려면 최소 3명(팀장2+선수1)을 체크하세요.");return;}
   renderAuctionSetup(chosen);
@@ -972,70 +972,51 @@ function renderAuctionSetup(chosen){
           <label>시작 코인</label><input type="number" id="coinRed" value="20" min="0">
         </div>
       </div>
-      <div class="hint">팀장 실력 차이는 시작 코인을 직접 다르게 주어 조절하세요. (예: 잘하는 팀장에게 코인 적게)</div>
+      <div class="hint">팀장 실력 차이는 시작 코인을 직접 다르게 주어 조절하세요. 매물이 뜨면 <b>바로 30초 타이머</b>가 시작되고, 입찰할 때마다 <b>+5초</b>씩 연장돼요 (막판 스나이핑 방지).</div>
       <button class="primary" id="aucStartBtn">경매 시작</button>
     </div></div>`;
-  // default red captain to 2nd option
   const capRed=document.getElementById("capRed");if(capRed.options.length>1)capRed.selectedIndex=1;
   document.getElementById("aucStartBtn").onclick=()=>startAuction(chosen);
   window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
 }
 function startAuction(chosen){
+  ensureMyName();
   const bId=document.getElementById("capBlue").value;
   const rId=document.getElementById("capRed").value;
   if(bId===rId){alert("두 팀장은 서로 다른 사람이어야 해요.");return;}
   const bCoin=parseInt(document.getElementById("coinBlue").value)||0;
   const rCoin=parseInt(document.getElementById("coinRed").value)||0;
-  const pool=chosen.map(p=>p.id).filter(id=>id!==bId&&id!==rId);
+  let pool=chosen.map(p=>p.id).filter(id=>id!==bId&&id!==rId);
   shuffle(pool);
-  auc={captains:{blue:bId,red:rId},coins:{blue:bCoin,red:rCoin},teams:{blue:[bId],red:[rId]},pool,passed:[],current:null,teamSize:Math.floor(chosen.length/2)};
-  nextLot();
+  const teamSize=Math.floor(chosen.length/2);
+  const firstLot=pool.shift();
+  const initial={
+    captains:{blue:bId,red:rId}, coins:{blue:bCoin,red:rCoin},
+    teams:{blue:[bId],red:[rId]}, pool, passed:[], paid:{},
+    teamSize, current:firstLot||null, lotId:firstLot?uid():null,
+    deadlineAt: firstLot?(correctedNow()+30000):null,
+    bid:{team:null,amount:0}, done:!firstLot
+  };
+  pushRemote({ currentAuction: initial, currentMatch:null, vote:null });
 }
-function nextLot(){
-  // check auto-finish: a team full -> dump rest to the other
-  const need=auc.teamSize;
-  if(auc.teams.blue.length>=need||auc.teams.red.length>=need){
-    finishAuctionDump();return;
-  }
-  // refill pool from passed if empty
-  if(auc.pool.length===0){
-    if(auc.passed.length===0){finishAuctionDump();return;}
-    auc.pool=auc.passed;auc.passed=[];shuffle(auc.pool);
-  }
-  auc.current=auc.pool.shift();
-  renderAuction();
-}
-function finishAuctionDump(){
-  if(aucTimerId){clearInterval(aucTimerId);aucTimerId=null;}
-  const need=auc.teamSize;
-  const leftovers=[...auc.pool,...auc.passed];if(auc.current){leftovers.unshift(auc.current);auc.current=null;}
-  // fill the team(s) that still need players
-  leftovers.forEach(id=>{
-    if(auc.teams.blue.length<need)auc.teams.blue.push(id);
-    else if(auc.teams.red.length<need)auc.teams.red.push(id);
-    else auc.teams.blue.push(id); // overflow safety
-  });
-  auc.pool=[];auc.passed=[];
-  renderAuctionResult();
-}
-let aucTimerId=null;
-let aucTimerStarted=false;
-function renderAuction(){
-  if(aucTimerId){clearInterval(aucTimerId);aucTimerId=null;}
-  aucTimerStarted=false;
+function renderSharedAuction(){
+  const box=document.getElementById("result");if(!box)return;
+  const auc=remote.currentAuction;
+  if(!auc)return;
+  if(auc.done){ renderAuctionResultShared(auc); return; }
   const cur=players.find(p=>p.id===auc.current);
+  if(!cur){ box.innerHTML=""; return; }
   const tierText=POSITIONS.filter(p=>cur.tiers[p.key]!=null).map(p=>p.label+" "+cur.tiers[p.key]+"티어").join(" · ");
-  auc.bid={team:null,amount:0}; // current highest bid for this lot
   function teamCol(key,cls,label){
-    const members=auc.teams[key].map(id=>{const pl=players.find(p=>p.id===id);const paid=auc.paid&&auc.paid[id]!=null?auc.paid[id]+"코인":(id===auc.captains[key]?"팀장":"");return `<div class="auc-member">${escapeHtml(pl.name)}<span class="paid">${paid}</span></div>`;}).join("");
-    return `<div class="auc-team ${cls}"><h4>${label}<span class="coin">💰 ${auc.coins[key]}</span></h4>${members}<div class="auc-remain">${auc.teams[key].length}/${auc.teamSize}명</div></div>`;
+    const members=(auc.teams[key]||[]).map(id=>{const pl=players.find(p=>p.id===id);if(!pl)return"";const paid=auc.paid&&auc.paid[id]!=null?auc.paid[id]+"코인":(id===auc.captains[key]?"팀장":"");return `<div class="auc-member">${escapeHtml(pl.name)}<span class="paid">${paid}</span></div>`;}).join("");
+    return `<div class="auc-team ${cls}"><h4>${label}<span class="coin">💰 ${auc.coins[key]}</span></h4>${members}<div class="auc-remain">${(auc.teams[key]||[]).length}/${auc.teamSize}명</div></div>`;
   }
-  document.getElementById("result").innerHTML=`<div class="card"><h2>경매 진행</h2>
+  const bidTxt = (auc.bid&&auc.bid.team) ? ((auc.bid.team==='blue'?'🔵 블루':'🔴 레드')+' '+auc.bid.amount+'코인') : '없음';
+  box.innerHTML=`<div class="card"><h2>경매 진행</h2>
     <div class="auc-teams">${teamCol('blue','blue','🔵 블루')}${teamCol('red','red','🔴 레드')}</div>
     <div class="auc-stage"><div class="who">${escapeHtml(cur.name)}</div><div class="meta">${tierText}</div>
-      <div class="balance-note" id="aucTimerNote">⏱️ 준비되면 타이머를 시작하세요 (시작 후 <b>30</b>초 안에 더 높은 입찰 없으면 자동 낙찰)</div>
-      <div style="text-align:center;margin-top:6px"><button class="ghost" id="startAucTimerBtn">⏱️ 타이머 시작</button></div>
-      <div class="balance-note" id="aucCurrentBid">현재 입찰: <b>없음</b></div>
+      <div class="balance-note">⏱️ <b id="aucSeconds">--</b>초 안에 더 높은 입찰이 없으면 자동 낙찰 (입찰 시 <b>+5초</b> 연장)</div>
+      <div class="balance-note" id="aucCurrentBid">현재 입찰: <b>${bidTxt}</b></div>
       <div class="auc-bid">
         <input type="number" id="bidAmt" placeholder="코인" min="1" value="1">
         <button class="win-btn blue" id="bidBlue" style="max-width:130px">🔵 블루 입찰</button>
@@ -1043,70 +1024,112 @@ function renderAuction(){
       </div>
       <div style="margin-top:10px"><button class="ghost" id="passBtn">유찰 (지금 바로 넘기기)</button></div>
     </div>
-    <div class="auc-remain">남은 매물 ${auc.pool.length}명 · 유찰 대기 ${auc.passed.length}명</div>
+    <div class="auc-remain">남은 매물 ${(auc.pool||[]).length}명 · 유찰 대기 ${(auc.passed||[]).length}명</div>
+    <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetAuctionBtn" style="text-decoration:underline;color:var(--ink-dim)">⚠️ 경매 초기화</button></div>
   </div>`;
-  document.getElementById("bidBlue").onclick=()=>placeBid('blue');
-  document.getElementById("bidRed").onclick=()=>placeBid('red');
-  document.getElementById("passBtn").onclick=()=>{clearInterval(aucTimerId);aucTimerId=null;auc.passed.push(auc.current);auc.current=null;nextLot();};
-  document.getElementById("startAucTimerBtn").onclick=function(){
-    aucTimerStarted=true;
-    this.style.display="none";
-    startAucCountdown();
+  document.getElementById("bidBlue").onclick=()=>placeBidShared('blue');
+  document.getElementById("bidRed").onclick=()=>placeBidShared('red');
+  document.getElementById("passBtn").onclick=()=>safePassLot(auc.lotId);
+  document.getElementById("resetAuctionBtn").onclick=()=>{
+    if(!confirm("경매를 초기화할까요? (명단·전적은 유지되고 경매 진행 상태만 지워져요)"))return;
+    pushRemote({ currentAuction:null });
   };
-  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
 }
-function startAucCountdown(){
-  clearInterval(aucTimerId);
-  let secondsLeft=30;
-  const note=document.getElementById("aucTimerNote");
-  if(note)note.innerHTML='⏱️ <b id="aucSeconds">30</b>초 안에 더 높은 입찰이 없으면 자동 낙찰';
-  const se=()=>document.getElementById("aucSeconds");
-  aucTimerId=setInterval(()=>{
-    secondsLeft--;
-    if(se())se().textContent=secondsLeft;
-    if(secondsLeft<=0){
-      clearInterval(aucTimerId);aucTimerId=null;
-      if(auc.bid.team){ finalizeBid(); }
-      else{ auc.passed.push(auc.current);auc.current=null;nextLot(); }
-    }
-  },1000);
-}
-function placeBid(key){
+function placeBidShared(key){
+  ensureMyName();
   const amt=parseInt(document.getElementById("bidAmt").value)||0;
-  if(amt<=auc.bid.amount){alert("현재 입찰("+auc.bid.amount+"코인)보다 높게 써야 해요.");return;}
-  if(amt>auc.coins[key]){alert((key==='blue'?'블루':'레드')+" 코인이 부족해요. (보유 "+auc.coins[key]+")");return;}
-  auc.bid={team:key,amount:amt};
-  const cb=document.getElementById("aucCurrentBid");
-  if(cb)cb.innerHTML="현재 입찰: <b>"+(key==='blue'?'🔵 블루':'🔴 레드')+" "+amt+"코인</b>";
-  // only reset the countdown if the timer has already been started
-  if(aucTimerStarted)startAucCountdown();
+  if(amt<=0){alert("코인을 입력하세요.");return;}
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const auc=data.currentAuction;
+    if(!auc||!auc.current||auc.done)return;
+    const curBidAmt=(auc.bid&&auc.bid.amount)||0;
+    if(amt<=curBidAmt)throw new Error("현재 입찰("+curBidAmt+"코인)보다 높게 써야 해요.");
+    if(amt>auc.coins[key])throw new Error((key==='blue'?'블루':'레드')+" 코인이 부족해요. (보유 "+auc.coins[key]+")");
+    const baseDeadline = auc.deadlineAt || correctedNow();
+    const newDeadline = Math.max(baseDeadline, correctedNow()) + 5000;
+    tx.update(sessionRef, { "currentAuction.bid": {team:key,amount:amt}, "currentAuction.deadlineAt": newDeadline });
+  }).catch(err=>{ alert(err&&err.message?err.message:"입찰에 실패했어요."); });
 }
-function finalizeBid(){
-  const key=auc.bid.team,amt=auc.bid.amount;
-  auc.coins[key]-=amt;
-  if(!auc.paid)auc.paid={};auc.paid[auc.current]=amt;
-  auc.teams[key].push(auc.current);auc.current=null;
-  nextLot();
+// safely finalize the current lot (award to highest bidder or pass), only if this client's view of the lot is still current
+function safeFinalizeLot(expectedLotId){
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const auc=data.currentAuction;
+    if(!auc||auc.current==null||auc.done)return;
+    if(auc.lotId!==expectedLotId)return; // already moved on, don't double-finalize
+    const next=advanceAuction(auc, true);
+    tx.update(sessionRef, { currentAuction: next });
+  }).catch(err=>console.error("경매 진행 트랜잭션 실패:",err));
 }
-function renderAuctionResult(){
+function safePassLot(expectedLotId){
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const auc=data.currentAuction;
+    if(!auc||auc.current==null||auc.done)return;
+    if(auc.lotId!==expectedLotId)return;
+    const next=advanceAuction(auc, false);
+    tx.update(sessionRef, { currentAuction: next });
+  }).catch(err=>console.error("경매 진행 트랜잭션 실패:",err));
+}
+// compute the next auction state after the current lot resolves. useAward=true awards to highest bidder if any; false forces a pass.
+function advanceAuction(auc, useAward){
+  let next={...auc, teams:{blue:[...auc.teams.blue],red:[...auc.teams.red]}, paid:{...(auc.paid||{})}, pool:[...(auc.pool||[])], passed:[...(auc.passed||[])], coins:{...auc.coins}};
+  if(useAward && auc.bid && auc.bid.team){
+    const key=auc.bid.team, amt=auc.bid.amount;
+    next.coins[key]=next.coins[key]-amt;
+    next.paid[auc.current]=amt;
+    next.teams[key].push(auc.current);
+  }else{
+    next.passed.push(auc.current);
+  }
+  next.current=null; next.bid={team:null,amount:0}; next.deadlineAt=null; next.lotId=null;
+  const need=next.teamSize;
+  if(next.teams.blue.length>=need || next.teams.red.length>=need){
+    const leftovers=[...next.pool,...next.passed];
+    leftovers.forEach(id=>{
+      if(next.teams.blue.length<need)next.teams.blue.push(id);
+      else if(next.teams.red.length<need)next.teams.red.push(id);
+      else next.teams.blue.push(id);
+    });
+    next.pool=[];next.passed=[];next.done=true;
+    return next;
+  }
+  if(next.pool.length===0){
+    if(next.passed.length===0){ next.done=true; return next; }
+    next.pool=[...next.passed]; next.passed=[]; shuffle(next.pool);
+  }
+  next.current=next.pool.shift();
+  next.lotId=uid();
+  next.deadlineAt=correctedNow()+30000;
+  next.done=false;
+  return next;
+}
+function renderAuctionResultShared(auc){
+  const box=document.getElementById("result");if(!box)return;
   function teamCol(key,cls,label){
-    const members=auc.teams[key].map(id=>{const pl=players.find(p=>p.id===id);const paid=id===auc.captains[key]?'팀장':(auc.paid&&auc.paid[id]!=null?auc.paid[id]+'코인':'자동');return `<div class="auc-member">${escapeHtml(pl.name)}<span class="paid">${paid}</span></div>`;}).join("");
+    const members=(auc.teams[key]||[]).map(id=>{const pl=players.find(p=>p.id===id);if(!pl)return"";const paid=id===auc.captains[key]?'팀장':(auc.paid&&auc.paid[id]!=null?auc.paid[id]+'코인':'자동');return `<div class="auc-member">${escapeHtml(pl.name)}<span class="paid">${paid}</span></div>`;}).join("");
     return `<div class="auc-team ${cls}"><h4>${label}<span class="coin">💰 남은 ${auc.coins[key]}</span></h4>${members}</div>`;
   }
-  document.getElementById("result").innerHTML=`<div class="card"><h2>경매 완료 — 최종 팀</h2>
+  box.innerHTML=`<div class="card"><h2>경매 완료 — 최종 팀</h2>
     <div class="auc-teams">${teamCol('blue','blue','🔵 블루')}${teamCol('red','red','🔴 레드')}</div>
     <div class="win-btns" style="margin-top:14px"><button class="win-btn blue" id="aBlueWin">🔵 블루 승리</button><button class="win-btn red" id="aRedWin">🔴 레드 승리</button></div>
-    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 투표. (경매는 라인 미정이라 라인별 태그엔 안 들어가요)</div>
+    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표. (경매는 라인 미정이라 라인별 태그엔 안 들어가요)</div>
   </div>`;
-  document.getElementById("aBlueWin").onclick=()=>auctionWin('blue');
-  document.getElementById("aRedWin").onclick=()=>auctionWin('red');
-  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
+  document.getElementById("aBlueWin").onclick=()=>recordSharedAuctionWin(auc,0);
+  document.getElementById("aRedWin").onclick=()=>recordSharedAuctionWin(auc,1);
 }
-function auctionWin(winKey){
-  const loseKey=winKey==='blue'?'red':'blue';
-  const winners=auc.teams[winKey].map(id=>({player:{id}}));
-  const losers=auc.teams[loseKey].map(id=>({player:{id}}));
-  recordMatch(winners,losers);
+function recordSharedAuctionWin(auc,winTeamIdx){
+  const teamLabel=winTeamIdx===0?"🔵 블루":"🔴 레드";
+  if(!confirm(teamLabel+" 팀 승리로 기록할까요? 실수로 누른 거면 취소를 누르세요."))return;
+  const winKey=winTeamIdx===0?'blue':'red', loseKey=winTeamIdx===0?'red':'blue';
+  const winners=(auc.teams[winKey]||[]).map(id=>({slot:{pos:null},player:{id}}));
+  const losers=(auc.teams[loseKey]||[]).map(id=>({slot:{pos:null},player:{id}}));
+  pushRemote({ currentAuction:null });
+  recordMatch(winners,losers,true);
 }
 
 let sharedTickInterval=null;
@@ -1115,6 +1138,7 @@ function renderSharedMatchArea(){
   const box=document.getElementById("result");if(!box)return;
   if(remote.vote && remote.vote.stage==='done'){ renderVoteResultBanner(); return; }
   if(remote.vote && remote.vote.active){ renderSharedVote(); return; }
+  if(remote.currentAuction){ renderSharedAuction(); return; }
   const cm=remote.currentMatch;
   if(!cm){ box.innerHTML=""; return; }
   if(cm.error){ box.innerHTML='<div class="card"><div class="warn">이 조합으론 5:5 배치를 만들 수 없어요. 라인 고정을 너무 많이 걸었거나 특정 라인 인원이 부족한지 확인하세요.</div></div>'; return; }
@@ -1181,13 +1205,22 @@ function renderSharedMatchArea(){
 if(!sharedTickInterval){
   sharedTickInterval=setInterval(()=>{
     const cm=remote.currentMatch;
-    if(!cm||cm.locked)return;
-    const startMs=tsMillis(cm.timerStartedAt);
-    if(!startMs)return;
-    const remain=30-Math.floor((correctedNow()-startMs)/1000);
-    const el=document.getElementById("rerollSeconds");
-    if(el)el.textContent=Math.max(remain,0);
-    if(remain<=0 && !cm.locked){ safeLockMatch(cm.matchId, startMs); }
+    if(cm && !cm.locked){
+      const startMs=tsMillis(cm.timerStartedAt);
+      if(startMs){
+        const remain=Math.max(0,Math.min(30,30-Math.floor((correctedNow()-startMs)/1000)));
+        const el=document.getElementById("rerollSeconds");
+        if(el)el.textContent=remain;
+        if(remain<=0){ safeLockMatch(cm.matchId, startMs); }
+      }
+    }
+    const auc=remote.currentAuction;
+    if(auc && auc.current && !auc.done && auc.deadlineAt){
+      const remainA=Math.max(0,Math.ceil((auc.deadlineAt-correctedNow())/1000));
+      const elA=document.getElementById("aucSeconds");
+      if(elA)elA.textContent=remainA;
+      if(correctedNow()>=auc.deadlineAt){ safeFinalizeLot(auc.lotId); }
+    }
   },1000);
 }
 // only lock if the server's current match is STILL the same match/timer this client evaluated
