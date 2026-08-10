@@ -284,7 +284,7 @@
       <button class="ghost" id="manualBtn">✋ 수동 배치</button>
       <button class="ghost" id="auctionBtn">💰 경매 드래프트</button>
     </div>
-    <div class="hint">💡 선수 체크 후 라인 태그(예: <b>원딜 2티어</b>)를 <b>우클릭/길게누르기</b> → 그 라인 <b>고정</b>. 이름을 누르면 <b>프로필</b>이 열려요.</div>
+    <div class="hint">💡 선수 체크 후 라인 태그(예: <b>원딜 2티어</b>)를 <b>클릭</b> → 그 라인 <b>고정</b> (다시 클릭하면 해제). 이름을 누르면 <b>프로필</b>이 열려요.</div>
   </div>
 
   <div id="result"></div>
@@ -676,10 +676,7 @@ function renderRoster(){
           tag.innerHTML=p.label+" <b>"+tier+"티어</b>"+king;
         }
         const doLock=(e)=>{if(e&&e.preventDefault)e.preventDefault();if(!picked.has(pl.id)){alert("먼저 이 선수를 체크(선택)한 뒤 라인 고정이 가능해요.");return;}if(locks[pl.id]===p.key)delete locks[pl.id];else locks[pl.id]=p.key;renderRoster();};
-        tag.oncontextmenu=doLock;
-        tag.onmousedown=()=>{pressTimer=setTimeout(()=>doLock(),450);};
-        tag.onmouseup=()=>clearTimeout(pressTimer);tag.onmouseleave=()=>clearTimeout(pressTimer);
-        tag.ontouchstart=()=>{pressTimer=setTimeout(()=>doLock(),450);};tag.ontouchend=()=>clearTimeout(pressTimer);
+        tag.onclick=doLock;
         pos.appendChild(tag);
       }
     });
