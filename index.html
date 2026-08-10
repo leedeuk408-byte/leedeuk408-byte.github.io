@@ -218,6 +218,7 @@
 <body>
   <h1><span class="mark">5v5</span> 내전 팀 밸런서</h1>
   <p class="sub">라인·라인별 티어 등록 → 10명 골라 밸런스 팀 구성 → 경기 후 승패·BEST/WORST 기록. 최근 3판 기준으로 태그가 자동으로 붙어요. (1티어=에이스)</p>
+  <div class="hint" style="margin-bottom:14px">👤 내 이름: <b id="myNameDisplay" style="color:var(--gold-bright)">-</b> <button class="icon-btn" id="changeNameBtn" style="text-decoration:underline">변경</button> · 이 이름은 리롤권·투표 참여에 쓰여요. <b>명단의 닉네임과 똑같이</b> 맞춰주세요.</div>
 
   <div class="card">
     <h2>플레이어 등록</h2>
@@ -276,7 +277,6 @@
     </div>
     <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
       <button class="primary" id="makeBtn">🏆 랭크게임</button>
-      <button class="ghost" id="rerollBtn" style="display:none">다시 섞기</button>
       <button class="ghost" id="manualBtn">✋ 수동 배치</button>
       <button class="ghost" id="auctionBtn">💰 경매 드래프트</button>
     </div>
@@ -351,7 +351,69 @@
     </div>
   </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB5LgCf1NfUYA2oi34L-ujLvlseSk3awNQ",
+  authDomain: "teamfight-lol.firebaseapp.com",
+  projectId: "teamfight-lol",
+  storageBucket: "teamfight-lol.firebasestorage.app",
+  messagingSenderId: "371431006211",
+  appId: "1:371431006211:web:67457389068cbab5b46e36",
+  measurementId: "G-KZKFL33TTE"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const sessionRef = doc(db, "sessions", "main"); // single shared room for the whole group
+
+/* ---------- 내 이름(이 기기의 정체성) ---------- */
+let myName = localStorage.getItem("lol_myname") || "";
+function ensureMyName(){
+  if(myName)return;
+  const n = prompt("내 이름(닉네임)을 입력하세요. 리롤권·투표에 이 이름으로 참여해요.");
+  if(n && n.trim()){ myName = n.trim(); localStorage.setItem("lol_myname", myName); }
+}
+function changeMyName(){
+  const n = prompt("내 이름을 다시 설정하세요.", myName || "");
+  if(n && n.trim()){ myName = n.trim(); localStorage.setItem("lol_myname", myName); refreshNameDisplay(); renderRoster(); renderSharedMatchArea(); }
+}
+
+/* ---------- shared remote state (Firestore) ---------- */
+let remote = { players: [], matchLog: [], currentMatch: null, vote: null };
+let remoteLoaded = false;
+let suppressNextSnapshot = false;
+
+function pushRemote(partial){
+  // merge partial fields into Firestore doc (creates doc if missing)
+  setDoc(sessionRef, partial, { merge: true }).catch(err=>{
+    console.error("Firestore 저장 실패:", err);
+    alert("서버 저장에 실패했어요. 인터넷 연결이나 Firebase 설정을 확인해주세요.\n("+err.message+")");
+  });
+}
+
+onSnapshot(sessionRef, (snap)=>{
+  if(!snap.exists()){
+    // first time: initialize the shared doc with whatever we have locally (migration from old localStorage-only version)
+    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null });
+    return;
+  }
+  const data = snap.data();
+  remote.players = data.players || [];
+  remote.matchLog = data.matchLog || [];
+  remote.currentMatch = data.currentMatch || null;
+  remote.vote = data.vote || null;
+  // sync into local working vars used throughout the app
+  state.players = players = remote.players;
+  state.matchLog = remote.matchLog;
+  players.forEach(ensure);
+  remoteLoaded = true;
+  renderRoster();
+  if(typeof maybeResolveVote==='function')maybeResolveVote();
+  renderSharedMatchArea();
+});
+
 const POSITIONS=[
   {key:"TOP",label:"탑"},{key:"JUG",label:"정글"},{key:"MID",label:"미드"},
   {key:"ADC",label:"원딜"},{key:"SUP",label:"서폿"}];
@@ -370,7 +432,11 @@ function load(){try{const raw=localStorage.getItem(STORE_KEY);if(raw){const s=JS
   // migrate from v2 if present
   try{const old=localStorage.getItem("lol_balancer_v2");if(old){const s=JSON.parse(old);if(s.players){if(!s.matchLog)s.matchLog=[];return s;}}}catch(e){}
   return {players:[],matchLog:[]};}
-function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}}
+function save(){
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}
+  // push roster + match log to the shared Firestore doc so everyone sees the same data
+  pushRemote({ players: state.players, matchLog: state.matchLog||[] });
+}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
@@ -678,6 +744,9 @@ function openProfile(id){
 /* ---------- balancing ---------- */
 function makeTeams(){
   if(typeof aucTimerId!=='undefined'&&aucTimerId){clearInterval(aucTimerId);aucTimerId=null;}
+  ensureMyName();
+  if(remote.vote&&remote.vote.active){alert("아직 지난 판 BEST/WORST 투표가 안 끝났어요.");return;}
+  if(remote.currentMatch&&!remote.currentMatch.error){alert("이미 진행 중인 팀이 있어요. 승리 팀을 기록하고 다시 시도하세요.");return;}
   const chosen=players.filter(p=>picked.has(p.id));
   if(chosen.length!==10){alert("정확히 10명을 선택하세요. (현재 "+chosen.length+"명)");return;}
   const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
@@ -705,10 +774,48 @@ function makeTeams(){
     }
     const s=slotOrder[idx],slot=slots[s];
     for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFill(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;bt(idx+1);usedPlayer[i]=false;assign[s]=null;}}
-  bt(0);lastTeams=best;renderResult(best);document.getElementById("rerollBtn").style.display=best?"inline-block":"none";
+  bt(0);
+  publishDraw(best);
 }
 document.getElementById("makeBtn").onclick=makeTeams;
-document.getElementById("rerollBtn").onclick=makeTeams;
+// publish a freshly-drawn team to the shared session (new match: reroll ticket list resets)
+function publishDraw(best){
+  if(!best){ pushRemote({ currentMatch:{ error:true, ts:Date.now() } }); return; }
+  const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
+  pushRemote({ currentMatch: {
+    assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
+    rerollUsedBy: [], timerStartedAt: null, locked:false, createdAt: Date.now()
+  }});
+}
+// reroll: keep the same 10 players (from currentMatch assignments), redraw, tag this person as having used their reroll
+function makeTeamsForReroll(){
+  const cm=remote.currentMatch;
+  const ids=(cm.assignments||[]).map(a=>a.id);
+  const chosen=players.filter(p=>ids.includes(p.id));
+  if(chosen.length!==10)return;
+  const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
+  const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
+  const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
+  const usedPlayer=new Array(10).fill(false);const assign=new Array(10).fill(null);
+  let best=null,attempts=0;const MAX=300000;
+  function canFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
+  function evaluate(){let a=0,b=0;for(let s=0;s<10;s++){const pl=assign[s],slot=slots[s];const str=laneScore(pl,slot.pos);if(slot.team===0)a+=str;else b+=str;}return {a,b,diff:Math.abs(a-b),total:a+b};}
+  function isBetter(cand,cur){if(!cur)return true;if(cand.diff!==cur.diff)return cand.diff<cur.diff;if(intensity==='high')return cand.total>cur.total;if(intensity==='low')return cand.total<cur.total;return false;}
+  function bt(idx){
+    if(intensity==='default'&&best&&best.diff===0)return;
+    if(attempts++>MAX)return;
+    if(idx===slotOrder.length){const ev=evaluate();const cand={diff:ev.diff,total:ev.total,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};if(isBetter(cand,best))best=cand;return;}
+    const s=slotOrder[idx],slot=slots[s];
+    for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFill(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;bt(idx+1);usedPlayer[i]=false;assign[s]=null;}}
+  bt(0);
+  if(!best)return;
+  const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
+  const usedBy=[...(cm.rerollUsedBy||[]), myName];
+  pushRemote({ currentMatch: {
+    assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
+    rerollUsedBy: usedBy, timerStartedAt: null, locked:false, createdAt: Date.now()
+  }});
+}
 
 /* ---------- manual drag board ---------- */
 let manual={blue:[],red:[],bench:[]};
@@ -978,50 +1085,144 @@ function auctionWin(winKey){
   recordMatch(winners,losers);
 }
 
-let rerollTimerId=null;
-function renderResult(best){
-  const box=document.getElementById("result");
-  if(rerollTimerId){clearInterval(rerollTimerId);rerollTimerId=null;}
-  if(!best){box.innerHTML='<div class="card"><div class="warn">이 조합으론 5:5 배치를 만들 수 없어요. 라인 고정을 너무 많이 걸었거나 특정 라인 인원이 부족한지 확인하세요.</div></div>';window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});return;}
-  const byTeam={0:[],1:[]};best.map.forEach(m=>byTeam[m.slot.team].push(m));
+let sharedTickInterval=null;
+function renderSharedMatchArea(){
+  const box=document.getElementById("result");if(!box)return;
+  if(remote.vote && remote.vote.active){ renderSharedVote(); return; }
+  const cm=remote.currentMatch;
+  if(!cm){ box.innerHTML=""; return; }
+  if(cm.error){ box.innerHTML='<div class="card"><div class="warn">이 조합으론 5:5 배치를 만들 수 없어요. 라인 고정을 너무 많이 걸었거나 특정 라인 인원이 부족한지 확인하세요.</div></div>'; return; }
+  const byTeam={0:[],1:[]};
+  (cm.assignments||[]).forEach(a=>{const pl=players.find(p=>p.id===a.id);if(pl)byTeam[a.team].push({slot:{pos:a.pos},player:pl});});
   byTeam[0].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);byTeam[1].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);
   function teamHtml(list,cls,title,sum){let rows="";list.forEach(m=>{const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 🔒":"";const king=isKing(m.player,m.slot.pos);
     const tierCell=king?'<span class="slot-tier" style="background:linear-gradient(160deg,#f5e6b0,#d4a94a);color:#2a1e05">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}</span>${tierCell}</div>`;});
     return `<div class="team ${cls}"><div class="team-head"><span class="team-title">${title}</span><span class="team-sum">전력 ${sum}</span></div>${rows}</div>`;}
+  const usedReroll=(cm.rerollUsedBy||[]).includes(myName);
+  const ticketNote = myName
+    ? (usedReroll ? `<span style="color:var(--loss)">🎫 ${escapeHtml(myName)}님은 이번 판 리롤권을 이미 썼어요</span>` : `<span style="color:var(--win)">🎫 ${escapeHtml(myName)}님 리롤권 남음</span>`)
+    : `<span style="color:var(--ink-dim)">이름을 설정하면 리롤권이 개인별로 추적돼요</span>`;
+  let timerHtml;
+  if(cm.locked){ timerHtml = "🔒 팀 확정! (섞기 마감 · 승리 기록 후 다음 판부터 다시 가능)"; }
+  else if(cm.timerStartedAt){ timerHtml = '⏱️ <span id="rerollSeconds">--</span>초 안에만 다시 섞을 수 있어요'; }
+  else { timerHtml = '⏱️ 준비되면 타이머를 시작하세요 (시작 후 <b>30</b>초)'; }
   box.innerHTML=`<div class="card"><h2>결과</h2>
-    <div class="teams">${teamHtml(byTeam[0],"blue","블루 팀",best.sumA)}${teamHtml(byTeam[1],"red","레드 팀",best.sumB)}</div>
-    <div class="balance-note">전력 차이 <b>${best.diff}</b> ${best.diff===0?"· 완벽한 밸런스!":"(낮을수록 균형)"}</div>
-    <div class="balance-note" id="rerollTimerNote">⏱️ 준비되면 타이머를 시작하세요 (<b>30</b>초 안에만 다시 섞기 가능)</div>
-    <div style="text-align:center;margin-top:8px"><button class="ghost" id="startRerollTimerBtn">⏱️ 타이머 시작</button></div>
+    <div class="teams">${teamHtml(byTeam[0],"blue","블루 팀",cm.sumA)}${teamHtml(byTeam[1],"red","레드 팀",cm.sumB)}</div>
+    <div class="balance-note">전력 차이 <b>${cm.diff}</b> ${cm.diff===0?"· 완벽한 밸런스!":"(낮을수록 균형)"}</div>
+    <div class="balance-note" id="rerollTimerNote">${timerHtml}</div>
+    <div class="balance-note">${ticketNote}</div>
+    ${(!cm.locked && !cm.timerStartedAt)?'<div style="text-align:center;margin-top:8px"><button class="ghost" id="startRerollTimerBtn">⏱️ 타이머 시작</button></div>':''}
+    ${(!cm.locked)?`<div style="text-align:center;margin-top:8px"><button class="ghost" id="rerollBtnShared" ${usedReroll?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🔄 다시 섞기</button></div>`:''}
     <div class="win-btns"><button class="win-btn blue" id="blueWin">🔵 블루 승리</button><button class="win-btn red" id="redWin">🔴 레드 승리</button></div>
-    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 투표창</div></div>`;
-  document.getElementById("blueWin").onclick=()=>recordMatch(byTeam[0],byTeam[1]);
-  document.getElementById("redWin").onclick=()=>recordMatch(byTeam[1],byTeam[0]);
-  // 30-second reroll window: only starts when the user clicks the start button
-  document.getElementById("startRerollTimerBtn").onclick=function(){
-    this.style.display="none";
-    let secondsLeft=30;
-    const secEl=()=>document.getElementById("rerollSeconds");
-    const noteEl=()=>document.getElementById("rerollTimerNote");
-    if(noteEl())noteEl().innerHTML='🔓 <b id="rerollSeconds">30</b>초 안에 다시 섞을 수 있어요';
-    rerollTimerId=setInterval(()=>{
-      secondsLeft--;
-      if(secEl())secEl().textContent=secondsLeft;
-      if(secondsLeft<=0){
-        clearInterval(rerollTimerId);rerollTimerId=null;
-        document.getElementById("rerollBtn").style.display="none";
-        document.getElementById("makeBtn").disabled=true;document.getElementById("makeBtn").style.opacity="0.4";document.getElementById("makeBtn").style.cursor="not-allowed";
-        if(noteEl())noteEl().innerHTML="🔒 팀 확정! (섞기 마감 · 승리 기록 후 다음 판부터 다시 가능)";
-      }
-    },1000);
+    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작</div></div>`;
+  document.getElementById("blueWin").onclick=()=>recordSharedWin(0);
+  document.getElementById("redWin").onclick=()=>recordSharedWin(1);
+  const startBtn=document.getElementById("startRerollTimerBtn");
+  if(startBtn)startBtn.onclick=()=>{ pushRemote({"currentMatch.timerStartedAt": Date.now()}); };
+  const rerollBtn=document.getElementById("rerollBtnShared");
+  if(rerollBtn)rerollBtn.onclick=()=>{
+    ensureMyName();
+    if(!myName){alert("이름을 먼저 설정해주세요.");return;}
+    if(usedReroll){alert(myName+"님은 이미 이번 판 리롤권을 사용했어요.");return;}
+    makeTeamsForReroll();
   };
-  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
+}
+// ticking clock: recompute remaining seconds from the shared start timestamp every second
+if(!sharedTickInterval){
+  sharedTickInterval=setInterval(()=>{
+    const cm=remote.currentMatch;
+    if(!cm||cm.locked||!cm.timerStartedAt)return;
+    const remain=30-Math.floor((Date.now()-cm.timerStartedAt)/1000);
+    const el=document.getElementById("rerollSeconds");
+    if(el)el.textContent=Math.max(remain,0);
+    if(remain<=0 && !cm.locked){ pushRemote({"currentMatch.locked": true}); }
+  },1000);
+}
+function recordSharedWin(winTeamIdx){
+  const cm=remote.currentMatch;if(!cm||!cm.assignments)return;
+  const loseTeamIdx=winTeamIdx===0?1:0;
+  const winners=cm.assignments.filter(a=>a.team===winTeamIdx).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
+  const losers=cm.assignments.filter(a=>a.team===loseTeamIdx).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
+  recordMatch(winners,losers,true);
+}
+
+/* ---------- shared anonymous BEST/WORST voting ---------- */
+function startSharedVote(winIds,loseIds){
+  pushRemote({ vote:{ active:true, stage:'best', winners:winIds, losers:loseIds, ballots:{}, round:1, resolvedBest:null, resolvedWorst:null } });
+}
+function renderSharedVote(){
+  const box=document.getElementById("result");if(!box)return;
+  const v=remote.vote;
+  const stage=v.stage;
+  const candIds=stage==='best'?v.winners:v.losers;
+  const cands=candIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
+  const ballots=v.ballots||{};
+  const eligibleNames=cands.map(p=>p.name);
+  const votedCount=Object.keys(ballots).filter(n=>eligibleNames.includes(n)).length;
+  const myBallot=myName?ballots[myName]:null;
+  const iAmEligible=myName&&eligibleNames.includes(myName);
+  const title=stage==='best'?'🏆 BEST 투표 (이긴 팀)':'💀 WORST 투표 (진 팀)';
+  const roundNote=v.round>1?`<div class="warn">동률이었어요! ${v.round}차 재투표입니다.</div>`:'';
+  let rows='';
+  cands.forEach(p=>{
+    const mine=myBallot===p.id;
+    rows+=`<div class="vote-row"><span class="vote-name">${escapeHtml(p.name)}</span><button class="vote-btn ${stage==='best'?'best':'worst'} ${mine?'on':''}" data-cid="${p.id}">${mine?'✓ 투표함':'투표'}</button></div>`;
+  });
+  box.innerHTML=`<div class="card"><h2>${title}</h2>
+    <div class="msub">익명 투표 · 과반수 넘으면 확정, 동률이면 재투표 · ${votedCount}/${cands.length}명 투표함</div>
+    ${roundNote}
+    <div id="sharedVoteList">${rows}</div>
+    ${iAmEligible?'<div class="hint" style="text-align:center;margin-top:10px">본인 팀 후보 중 한 명을 선택하세요. 다시 누르면 표를 바꿀 수 있어요.</div>':'<div class="hint" style="text-align:center;margin-top:10px">이번 투표는 '+(stage==='best'?'이긴 팀':'진 팀')+' 만 참여할 수 있어요.</div>'}
+  </div>`;
+  if(iAmEligible){
+    box.querySelectorAll("#sharedVoteList .vote-btn").forEach(btn=>{
+      btn.onclick=()=>{
+        const cid=btn.dataset.cid;
+        pushRemote({ [`vote.ballots.${myName}`]: cid });
+      };
+    });
+  }
+}
+// after every remote vote update, check whether this round/stage is resolved (called from onSnapshot)
+function maybeResolveVote(){
+  const v=remote.vote;
+  if(!v||!v.active)return;
+  const stage=v.stage;
+  const candIds=stage==='best'?v.winners:v.losers;
+  const cands=candIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
+  const eligibleNames=cands.map(p=>p.name);
+  const ballots=v.ballots||{};
+  const castNames=Object.keys(ballots).filter(n=>eligibleNames.includes(n));
+  if(castNames.length<candIds.length)return; // still waiting on votes
+  const counts={};
+  castNames.forEach(n=>{const cid=ballots[n];counts[cid]=(counts[cid]||0)+1;});
+  const total=candIds.length;
+  let maxCount=-1,maxIds=[];
+  Object.keys(counts).forEach(cid=>{if(counts[cid]>maxCount){maxCount=counts[cid];maxIds=[cid];}else if(counts[cid]===maxCount){maxIds.push(cid);}});
+  const majority=maxCount>total/2;
+  if(majority&&maxIds.length===1){
+    const winnerId=maxIds[0];
+    if(stage==='best'){
+      pushRemote({ vote:{ active:true, stage:'worst', winners:v.winners, losers:v.losers, ballots:{}, round:1, resolvedBest:winnerId, resolvedWorst:null } });
+    }else{
+      finalizeVoteResult(v.resolvedBest,winnerId);
+    }
+  }else{
+    pushRemote({ vote:{ active:true, stage:v.stage, winners:v.winners, losers:v.losers, ballots:{}, round:(v.round||1)+1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst } });
+  }
+}
+function finalizeVoteResult(bestId,worstId){
+  if(bestId){const pl=players.find(p=>p.id===bestId);if(pl&&pl.hist.length)pl.hist[pl.hist.length-1].award='BEST';}
+  if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length)pl.hist[pl.hist.length-1].award='WORST';}
+  if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=bestId;last.worst=worstId;}
+  save();
+  pushRemote({ vote:null });
 }
 
 /* ---------- record + vote ---------- */
 let voteState={best:null,worst:null,ids:[]};
-function recordMatch(winners,losers){
+function recordMatch(winners,losers,shared){
   // snapshot full state for undo (deep copy of players + matchlog length)
   undoStack.push(JSON.stringify({players:state.players,matchLog:state.matchLog||[]}));
   if(undoStack.length>10)undoStack.shift();
@@ -1039,9 +1240,12 @@ function recordMatch(winners,losers){
   state.matchLog.push({ts:Date.now(),win:winIds,lose:loseIds,best:null,worst:null});
   if(state.matchLog.length>200)state.matchLog.shift();
   const changes=applyPromotions(entryIds);
-  save();openVote(entryIds);renderRoster();
+  save();
+  if(shared){ pushRemote({ currentMatch: null }); startSharedVote(winIds, loseIds); }
+  else{ openVote(entryIds); }
+  renderRoster();
   if(changes.length)setTimeout(()=>alert("티어 변동!\n"+changes.join("\n")),300);
-  // reset reroll lock so next 랭크게임 draw starts a fresh 15s window
+  // reset reroll lock so next 랭크게임 draw starts a fresh timer window
   if(rerollTimerId){clearInterval(rerollTimerId);rerollTimerId=null;}
   const mb=document.getElementById("makeBtn");if(mb){mb.disabled=false;mb.style.opacity="";mb.style.cursor="";}
 }
@@ -1258,6 +1462,13 @@ document.getElementById("historyBtn").onclick=()=>{
   document.getElementById("historyModal").classList.add("on");
 };
 document.getElementById("historyCloseBtn").onclick=()=>document.getElementById("historyModal").classList.remove("on");
+
+/* ---------- name identity UI ---------- */
+function refreshNameDisplay(){const el=document.getElementById("myNameDisplay");if(el)el.textContent=myName||"(미설정)";}
+document.getElementById("changeNameBtn").onclick=changeMyName;
+ensureMyName();
+refreshNameDisplay();
+setInterval(refreshNameDisplay,1000); // cheap sync in case prompt happens later
 
 renderPosGrid();renderRoster();
 </script>
