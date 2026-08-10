@@ -755,6 +755,7 @@ function makeTeams(){
   if(typeof aucTimerId!=='undefined'&&aucTimerId){clearInterval(aucTimerId);aucTimerId=null;}
   ensureMyName();
   if(remote.vote&&remote.vote.active){alert("아직 지난 판 BEST/WORST 투표가 안 끝났어요.");return;}
+  if(remote.vote&&remote.vote.stage==='done'){alert("이전 판 결과 화면에서 '확인'을 먼저 눌러주세요.");return;}
   if(remote.currentMatch&&!remote.currentMatch.error){alert("이미 진행 중인 팀이 있어요. 승리 팀을 기록하고 다시 시도하세요.");return;}
   const chosen=players.filter(p=>picked.has(p.id));
   if(chosen.length!==10){alert("정확히 10명을 선택하세요. (현재 "+chosen.length+"명)");return;}
@@ -793,7 +794,7 @@ function publishDraw(best){
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   pushRemote({ currentMatch: {
     assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    rerollUsedBy: [], timerStartedAt: null, autoTimer:false, locked:false, createdAt: Date.now()
+    rerollUsedBy: [], pleadedBy: [], timerStartedAt: null, autoTimer:false, locked:false, createdAt: Date.now()
   }});
 }
 // reroll: keep the same 10 players (from currentMatch assignments), redraw, tag this person as having used their reroll
@@ -823,7 +824,7 @@ function makeTeamsForReroll(){
   const wasAuto=!!cm.autoTimer;
   pushRemote({ currentMatch: {
     assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    rerollUsedBy: usedBy, timerStartedAt: wasAuto?Date.now():null, autoTimer: wasAuto, locked:false, createdAt: Date.now()
+    rerollUsedBy: usedBy, pleadedBy: [], timerStartedAt: wasAuto?serverTimestamp():null, autoTimer: wasAuto, locked:false, createdAt: Date.now()
   }});
 }
 
@@ -1096,8 +1097,10 @@ function auctionWin(winKey){
 }
 
 let sharedTickInterval=null;
+function tsMillis(v){ if(!v)return null; if(typeof v.toMillis==='function')return v.toMillis(); if(typeof v==='number')return v; return null; }
 function renderSharedMatchArea(){
   const box=document.getElementById("result");if(!box)return;
+  if(remote.vote && remote.vote.stage==='done'){ renderVoteResultBanner(); return; }
   if(remote.vote && remote.vote.active){ renderSharedVote(); return; }
   const cm=remote.currentMatch;
   if(!cm){ box.innerHTML=""; return; }
@@ -1109,27 +1112,37 @@ function renderSharedMatchArea(){
     const tierCell=king?'<span class="slot-tier" style="background:linear-gradient(160deg,#f5e6b0,#d4a94a);color:#2a1e05">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}</span>${tierCell}</div>`;});
     return `<div class="team ${cls}"><div class="team-head"><span class="team-title">${title}</span><span class="team-sum">전력 ${sum}</span></div>${rows}</div>`;}
-  const usedReroll=(cm.rerollUsedBy||[]).includes(myName);
+  const rerollList=cm.rerollUsedBy||[];
+  const usedReroll=rerollList.includes(myName);
   const ticketNote = myName
     ? (usedReroll ? `<span style="color:var(--loss)">🎫 ${escapeHtml(myName)}님은 이번 판 리롤권을 이미 썼어요</span>` : `<span style="color:var(--win)">🎫 ${escapeHtml(myName)}님 리롤권 남음</span>`)
     : `<span style="color:var(--ink-dim)">이름을 설정하면 리롤권이 개인별로 추적돼요</span>`;
+  const usedListNote = rerollList.length ? `<div class="hint" style="text-align:center">🔄 리롤 사용: ${rerollList.map(escapeHtml).join(", ")}</div>` : '';
+  const pleadList=cm.pleadedBy||[];
+  const pleadNote = pleadList.length ? `<div class="warn" style="text-align:center;margin-top:8px">🙏 ${pleadList.map(escapeHtml).join(", ")}님이 다시 섞어달라고 요청했어요!</div>` : '';
+  const startMs=tsMillis(cm.timerStartedAt);
   let timerHtml;
   if(cm.locked){ timerHtml = "🔒 팀 확정! (섞기 마감 · 승리 기록 후 다음 판부터 다시 가능)"; }
-  else if(cm.timerStartedAt){ timerHtml = '⏱️ <span id="rerollSeconds">--</span>초 안에만 다시 섞을 수 있어요'; }
+  else if(startMs){ timerHtml = '⏱️ <span id="rerollSeconds">--</span>초 안에만 다시 섞을 수 있어요'; }
   else { timerHtml = '⏱️ 준비되면 타이머를 시작하세요 (시작 후 <b>30</b>초)'; }
   box.innerHTML=`<div class="card"><h2>결과</h2>
     <div class="teams">${teamHtml(byTeam[0],"blue","블루 팀",cm.sumA)}${teamHtml(byTeam[1],"red","레드 팀",cm.sumB)}</div>
     <div class="balance-note">전력 차이 <b>${cm.diff}</b> ${cm.diff===0?"· 완벽한 밸런스!":"(낮을수록 균형)"}</div>
     <div class="balance-note" id="rerollTimerNote">${timerHtml}</div>
     <div class="balance-note">${ticketNote}</div>
-    ${(!cm.locked && !cm.timerStartedAt)?'<div style="text-align:center;margin-top:8px"><button class="ghost" id="startRerollTimerBtn">⏱️ 타이머 시작</button></div>':''}
-    ${(!cm.locked)?`<div style="text-align:center;margin-top:8px"><button class="ghost" id="rerollBtnShared" ${usedReroll?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🔄 다시 섞기</button></div>`:''}
+    ${usedListNote}
+    ${pleadNote}
+    ${(!cm.locked && !startMs)?'<div style="text-align:center;margin-top:8px"><button class="ghost" id="startRerollTimerBtn">⏱️ 타이머 시작</button></div>':''}
+    ${(!cm.locked)?`<div style="text-align:center;margin-top:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="ghost" id="rerollBtnShared" ${usedReroll?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🔄 다시 섞기</button>
+        ${usedReroll?'<button class="ghost" id="pleadBtn">🙏 돌려주세요!</button>':''}
+      </div>`:''}
     <div class="win-btns"><button class="win-btn blue" id="blueWin">🔵 블루 승리</button><button class="win-btn red" id="redWin">🔴 레드 승리</button></div>
-    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작</div></div>`;
+    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작 (오클릭 방지로 확인창이 떠요)</div></div>`;
   document.getElementById("blueWin").onclick=()=>recordSharedWin(0);
   document.getElementById("redWin").onclick=()=>recordSharedWin(1);
   const startBtn=document.getElementById("startRerollTimerBtn");
-  if(startBtn)startBtn.onclick=()=>{ pushRemote({"currentMatch.timerStartedAt": Date.now(), "currentMatch.autoTimer": true}); };
+  if(startBtn)startBtn.onclick=()=>{ pushRemote({"currentMatch.timerStartedAt": serverTimestamp(), "currentMatch.autoTimer": true}); };
   const rerollBtn=document.getElementById("rerollBtnShared");
   if(rerollBtn)rerollBtn.onclick=()=>{
     ensureMyName();
@@ -1137,13 +1150,22 @@ function renderSharedMatchArea(){
     if(usedReroll){alert(myName+"님은 이미 이번 판 리롤권을 사용했어요.");return;}
     makeTeamsForReroll();
   };
+  const pleadBtn=document.getElementById("pleadBtn");
+  if(pleadBtn)pleadBtn.onclick=()=>{
+    ensureMyName();
+    const list=[...(cm.pleadedBy||[])];
+    if(!list.includes(myName))list.push(myName);
+    pushRemote({"currentMatch.pleadedBy": list});
+  };
 }
-// ticking clock: recompute remaining seconds from the shared start timestamp every second
+// ticking clock: recompute remaining seconds from the server-anchored start timestamp every second
 if(!sharedTickInterval){
   sharedTickInterval=setInterval(()=>{
     const cm=remote.currentMatch;
-    if(!cm||cm.locked||!cm.timerStartedAt)return;
-    const remain=30-Math.floor((Date.now()-cm.timerStartedAt)/1000);
+    if(!cm||cm.locked)return;
+    const startMs=tsMillis(cm.timerStartedAt);
+    if(!startMs)return;
+    const remain=30-Math.floor((Date.now()-startMs)/1000);
     const el=document.getElementById("rerollSeconds");
     if(el)el.textContent=Math.max(remain,0);
     if(remain<=0 && !cm.locked){ pushRemote({"currentMatch.locked": true}); }
@@ -1151,6 +1173,8 @@ if(!sharedTickInterval){
 }
 function recordSharedWin(winTeamIdx){
   const cm=remote.currentMatch;if(!cm||!cm.assignments)return;
+  const teamLabel=winTeamIdx===0?"🔵 블루":"🔴 레드";
+  if(!confirm(teamLabel+" 팀 승리로 기록할까요? 실수로 누른 거면 취소를 누르세요."))return;
   const loseTeamIdx=winTeamIdx===0?1:0;
   const winners=cm.assignments.filter(a=>a.team===winTeamIdx).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
   const losers=cm.assignments.filter(a=>a.team===loseTeamIdx).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
@@ -1227,7 +1251,22 @@ function finalizeVoteResult(bestId,worstId){
   if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length)pl.hist[pl.hist.length-1].award='WORST';}
   if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=bestId;last.worst=worstId;}
   save();
-  pushRemote({ vote:null });
+  // show a result banner (who got BEST/WORST) until someone dismisses it
+  pushRemote({ vote:{ active:false, stage:'done', winners:[], losers:[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId } });
+}
+function renderVoteResultBanner(){
+  const box=document.getElementById("result");if(!box)return;
+  const v=remote.vote;
+  const bestP=v.resolvedBest?players.find(p=>p.id===v.resolvedBest):null;
+  const worstP=v.resolvedWorst?players.find(p=>p.id===v.resolvedWorst):null;
+  box.innerHTML=`<div class="card"><h2>이번 판 결과</h2>
+    <div class="prof-stats" style="grid-template-columns:1fr 1fr">
+      <div class="prof-cell"><div class="num" style="color:var(--gold-bright)">🏆 ${bestP?escapeHtml(bestP.name):'-'}</div><div class="lab">BEST</div></div>
+      <div class="prof-cell"><div class="num" style="color:var(--loss)">💀 ${worstP?escapeHtml(worstP.name):'-'}</div><div class="lab">WORST</div></div>
+    </div>
+    <div style="margin-top:14px"><button class="primary" id="closeVoteResultBtn" style="width:100%">확인 · 다음 판 준비</button></div>
+  </div>`;
+  document.getElementById("closeVoteResultBtn").onclick=()=>{ pushRemote({ vote:null }); };
 }
 
 /* ---------- record + vote ---------- */
