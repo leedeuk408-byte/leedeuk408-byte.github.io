@@ -222,7 +222,7 @@
 <body>
   <h1><span class="mark">5v5</span> 내전 팀 밸런서</h1>
   <p class="sub">라인·라인별 티어 등록 → 10명 골라 밸런스 팀 구성 → 경기 후 승패·BEST/WORST 기록. 최근 3판 기준으로 태그가 자동으로 붙어요. (1티어=에이스)</p>
-  <div class="hint" style="margin-bottom:14px">👤 내 이름: <b id="myNameDisplay" style="color:var(--gold-bright)">-</b> <button class="icon-btn" id="changeNameBtn" style="text-decoration:underline">변경</button> · 이 이름은 리롤권·투표 참여에 쓰여요. <b>명단의 닉네임과 똑같이</b> 맞춰주세요.</div>
+  <div class="hint" style="margin-bottom:14px">👤 내 이름: <b id="myNameDisplay" style="color:var(--gold-bright)">-</b> <button class="icon-btn" id="changeNameBtn" style="text-decoration:underline">변경</button> · 이 이름은 리롤권·투표 참여에 쓰여요. <b>명단의 닉네임과 똑같이</b> 맞춰주세요. · <button class="icon-btn" id="resetMatchBtnTop" style="text-decoration:underline;color:var(--loss)">진행 중인 경기 초기화</button></div>
 
   <div class="card">
     <h2>플레이어 등록</h2>
@@ -357,7 +357,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5LgCf1NfUYA2oi34L-ujLvlseSk3awNQ",
@@ -806,7 +806,7 @@ function publishDraw(best){
   if(!best){ pushRemote({ currentMatch:{ error:true, ts:Date.now() } }); return; }
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   pushRemote({ currentMatch: {
-    assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
+    matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
     rerollUsedBy: [], pleadedBy: [], timerStartedAt: null, autoTimer:false, locked:false, createdAt: Date.now()
   }});
 }
@@ -836,7 +836,7 @@ function makeTeamsForReroll(){
   const usedBy=[...(cm.rerollUsedBy||[]), myName];
   const wasAuto=!!cm.autoTimer;
   pushRemote({ currentMatch: {
-    assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
+    matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
     rerollUsedBy: usedBy, pleadedBy: [], timerStartedAt: wasAuto?serverTimestamp():null, autoTimer: wasAuto, locked:false, createdAt: Date.now()
   }});
 }
@@ -1151,9 +1151,15 @@ function renderSharedMatchArea(){
         ${usedReroll?'<button class="ghost" id="pleadBtn">🙏 돌려주세요!</button>':''}
       </div>`:''}
     <div class="win-btns"><button class="win-btn blue" id="blueWin">🔵 블루 승리</button><button class="win-btn red" id="redWin">🔴 레드 승리</button></div>
-    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작 (오클릭 방지로 확인창이 떠요)</div></div>`;
+    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작 (오클릭 방지로 확인창이 떠요)</div>
+    <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetMatchBtn" style="text-decoration:underline;color:var(--ink-dim)">⚠️ 이 경기 상태 초기화 (진행 중인 결과가 이상할 때)</button></div>
+    </div>`;
   document.getElementById("blueWin").onclick=()=>recordSharedWin(0);
   document.getElementById("redWin").onclick=()=>recordSharedWin(1);
+  document.getElementById("resetMatchBtn").onclick=()=>{
+    if(!confirm("진행 중인 경기 상태를 초기화할까요? (명단·전적은 그대로 남고, 지금 뜬 팀·타이머·리롤권만 지워져요)"))return;
+    pushRemote({ currentMatch:null, vote:null });
+  };
   const startBtn=document.getElementById("startRerollTimerBtn");
   if(startBtn)startBtn.onclick=()=>{ pushRemote({"currentMatch.timerStartedAt": serverTimestamp(), "currentMatch.autoTimer": true}); };
   const rerollBtn=document.getElementById("rerollBtnShared");
@@ -1181,8 +1187,22 @@ if(!sharedTickInterval){
     const remain=30-Math.floor((correctedNow()-startMs)/1000);
     const el=document.getElementById("rerollSeconds");
     if(el)el.textContent=Math.max(remain,0);
-    if(remain<=0 && !cm.locked){ pushRemote({"currentMatch.locked": true}); }
+    if(remain<=0 && !cm.locked){ safeLockMatch(cm.matchId, startMs); }
   },1000);
+}
+// only lock if the server's current match is STILL the same match/timer this client evaluated
+// (prevents a lagging client's stale timer from locking a match that was already rerolled)
+function safeLockMatch(expectedMatchId, expectedStartMs){
+  runTransaction(db, async (tx)=>{
+    const snap = await tx.get(sessionRef);
+    if(!snap.exists())return;
+    const cur = snap.data().currentMatch;
+    if(!cur || cur.locked)return;
+    if(cur.matchId !== expectedMatchId)return; // a newer draw/reroll happened — don't touch it
+    const curStartMs = tsMillis(cur.timerStartedAt);
+    if(curStartMs !== expectedStartMs)return; // timer was restarted — don't touch it
+    tx.update(sessionRef, {"currentMatch.locked": true});
+  }).catch(err=>console.error("잠금 트랜잭션 실패:", err));
 }
 function recordSharedWin(winTeamIdx){
   const cm=remote.currentMatch;if(!cm||!cm.assignments)return;
@@ -1528,6 +1548,10 @@ document.getElementById("historyCloseBtn").onclick=()=>document.getElementById("
 /* ---------- name identity UI ---------- */
 function refreshNameDisplay(){const el=document.getElementById("myNameDisplay");if(el)el.textContent=myName||"(미설정)";}
 document.getElementById("changeNameBtn").onclick=changeMyName;
+document.getElementById("resetMatchBtnTop").onclick=()=>{
+  if(!confirm("진행 중인 경기 상태를 초기화할까요? (명단·전적은 그대로 남고, 지금 뜬 팀·타이머·리롤권·투표만 지워져요)"))return;
+  pushRemote({ currentMatch:null, vote:null });
+};
 ensureMyName();
 refreshNameDisplay();
 setInterval(refreshNameDisplay,1000); // cheap sync in case prompt happens later
