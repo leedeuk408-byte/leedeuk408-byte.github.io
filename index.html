@@ -861,7 +861,7 @@ function makeTeams(){
   let best=null,attempts=0;const MAX=300000;
   function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
   // strict pass: also avoid handing someone their 3rd consecutive same-lane assignment (based on completed games, not this draw)
-  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
+  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(locks[pl.id]===slot.pos)return true;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
   function evaluate(){let a=0,b=0;for(let s=0;s<10;s++){const pl=assign[s],slot=slots[s];const str=laneScore(pl,slot.pos);if(slot.team===0)a+=str;else b+=str;}return {a,b,diff:Math.abs(a-b),total:a+b};}
   function isBetter(cand,cur){
     if(!cur)return true;
@@ -910,7 +910,7 @@ function makeTeamsForReroll(ticketType){
   const usedPlayer=new Array(10).fill(false);const assign=new Array(10).fill(null);
   let best=null,attempts=0;const MAX=300000;
   function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
-  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
+  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(locks[pl.id]===slot.pos)return true;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
   function evaluate(){let a=0,b=0;for(let s=0;s<10;s++){const pl=assign[s],slot=slots[s];const str=laneScore(pl,slot.pos);if(slot.team===0)a+=str;else b+=str;}return {a,b,diff:Math.abs(a-b),total:a+b};}
   function isBetter(cand,cur){if(!cur)return true;if(cand.diff!==cur.diff)return cand.diff<cur.diff;if(intensity==='high')return cand.total>cur.total;if(intensity==='low')return cand.total<cur.total;return false;}
   function bt(canFillFn){
