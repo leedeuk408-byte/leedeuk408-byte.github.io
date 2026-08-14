@@ -208,6 +208,18 @@
   .prof-cell .num{font-size:1.25rem;font-weight:700;color:var(--gold-bright)}
   .prof-cell .lab{font-size:0.66rem;color:var(--ink-dim);margin-top:3px}
   .prof-line{font-size:0.82rem;color:var(--ink-dim);margin:7px 0;line-height:1.6}
+  .prof-section-h{font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin:20px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+  .prof-section-h:first-of-type{border-top:none;padding-top:0;margin-top:14px}
+  .mv-total{font-size:1.8rem;font-weight:800;color:var(--gold-bright);text-align:center;margin:4px 0 12px}
+  .mv-unit{font-size:1rem;font-weight:600;color:var(--ink-dim);margin-left:4px}
+  .mv-breakdown{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+  .mv-row{display:flex;justify-content:space-between;font-size:0.8rem;color:var(--ink-dim);padding:4px 0}
+  .mv-row.mv-sum{border-top:1px solid var(--line);margin-top:4px;padding-top:8px;color:var(--ink);font-weight:600}
+  .h2h-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .h2h-tab{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:700;cursor:pointer;transition:all .15s}
+  .h2h-tab:hover{border-color:var(--gold);color:var(--gold-bright)}
+  .h2h-tab.active{background:var(--gold);color:#241c0c;border-color:var(--gold)}
+  .h2h-panels{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:8px 14px;min-height:20px}
   .prof-line b{color:var(--ink)}
   .recent-dots{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
   .dot{width:22px;height:22px;border-radius:6px;font-size:0.62rem;font-weight:700;display:flex;align-items:center;justify-content:center}
@@ -311,7 +323,7 @@
   <div class="modal-bg" id="statsModal">
     <div class="modal" style="max-width:640px">
       <h3>전체 통계표</h3>
-      <div class="msub">누적 전적 · 최근3판 · BEST/WORST</div>
+      <div class="msub">💰 시장 몸값 순위 · 누적 전적 · 최근3판 · BEST/WORST</div>
       <div class="stat-scroll" id="statsBody"></div>
       <div style="display:flex;gap:10px;margin-top:16px">
         <button class="ghost" id="statsResetBtn">통계 초기화</button>
@@ -469,6 +481,26 @@ players.forEach(ensure);
 
 /* ---- derived stats ---- */
 function totals(pl){let w=0,l=0,best=0,worst=0;pl.hist.forEach(h=>{if(h.result==='W')w++;else if(h.result==='L')l++;if(h.award==='BEST')best++;if(h.award==='WORST')worst++;});return {w,l,g:w+l,best,worst};}
+// BEST 3개마다 보너스 리롤권 1장 (일회성 소모품). 누적 BEST 기준으로 계산, 쓴 만큼만 차감.
+function bonusRerollAvailable(pl){
+  if(!pl)return 0;
+  const earned=Math.floor(totals(pl).best/3);
+  return Math.max(0, earned-(pl.spentBonusTickets||0));
+}
+/* ---------- 시장 몸값 (재미 지표, 밸런싱에는 미반영) ---------- */
+const MV_TIER_MONEY={1:250,2:200,3:150,4:100,5:50};
+const MV_LANE_BONUS={1:15,2:10,3:7,4:3,5:0};
+function marketBaseValue(pl){
+  const moneys=Object.values(pl.tiers||{}).map(t=>MV_TIER_MONEY[t]).filter(v=>v!=null);
+  if(!moneys.length)return 0;
+  const sumSq=moneys.reduce((s,m)=>s+m*m,0);
+  const sum=moneys.reduce((s,m)=>s+m,0);
+  return sum>0?sumSq/sum:0;
+}
+function marketLaneBonus(pl){
+  return Object.values(pl.tiers||{}).reduce((s,t)=>s+(MV_LANE_BONUS[t]||0),0);
+}
+function marketValue(pl){ return Math.round(marketBaseValue(pl)+marketLaneBonus(pl)); }
 function recent(pl){return pl.hist.slice(-RECENT);}
 // win rate within a specific lane
 function laneWinrate(pl,laneKey){let w=0,g=0;pl.hist.forEach(h=>{if(h.pos===laneKey){g++;if(h.result==='W')w++;}});return {w,g,wr:g?w/g:0};}
@@ -507,6 +539,18 @@ function laneStreak(pl,laneKey){
   let streak=0,st=null;
   for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result!==st)break;if(h.streakReset)break;streak++;}
   return {type:st,count:streak};
+}
+// how many COMPLETED, lane-confirmed (rank-mode) games in a row were the SAME lane, most recent first.
+// games without a lane (manual/auction) are skipped over, not counted as a break.
+function consecutiveSameLane(pl,laneKey){
+  let streak=0;
+  for(let i=pl.hist.length-1;i>=0;i--){
+    const h=pl.hist[i];
+    if(!h.pos)continue; // no lane info (manual/auction) — skip, doesn't break the streak
+    if(h.pos===laneKey)streak++;
+    else break;
+  }
+  return streak;
 }
 // king = highest winrate among players sharing the same lane AND same tier, min 3 lane games
 function isLaneTierKing(pl,laneKey){
@@ -706,11 +750,21 @@ function openProfile(id){
   const dots=r.length?r.map(h=>{let mark=h.result;if(h.award==='BEST')mark='B';if(h.award==='WORST')mark='W!';const ln=h.pos?('<span style="font-size:0.55rem;color:var(--ink-dim)">'+laneLabel[h.pos]+'</span>'):'';return '<span class="dot '+h.result+'" title="'+(h.pos?POSITIONS.find(p=>p.key===h.pos).label:'라인미정')+'">'+mark+ln+'</span>';}).join(""):'<span class="mini">기록 없음</span>';
   const rb=r.filter(h=>h.award==='BEST').length, rw=r.filter(h=>h.award==='WORST').length;
   const tagsHtml=playerTags(pl).map(tg=>'<span class="tag '+tg.t+'">'+tg.label+'</span>').join(" ")||'<span class="mini">태그 없음</span>';
-  // per-lane record (all history)
+
+  /* 몸값 계산 내역 */
+  const mvLines=POSITIONS.filter(p=>pl.tiers[p.key]!=null).map(p=>{
+    const tier=pl.tiers[p.key];const money=MV_TIER_MONEY[tier];const bonus=MV_LANE_BONUS[tier];
+    return `<div class="mv-row"><span>${p.label} ${tier}티어</span><span>${money}원 <span class="mini">(라인보너스 +${bonus})</span></span></div>`;
+  }).join("");
+  const mvBase=Math.round(marketBaseValue(pl));
+  const mvBonus=marketLaneBonus(pl);
+  const mvTotal=marketValue(pl);
+
+  /* per-lane record (all history) */
   const laneStats={};
   pl.hist.forEach(h=>{if(!h.pos)return;if(!laneStats[h.pos])laneStats[h.pos]={w:0,l:0,best:0,worst:0};if(h.result==='W')laneStats[h.pos].w++;else laneStats[h.pos].l++;if(h.award==='BEST')laneStats[h.pos].best++;if(h.award==='WORST')laneStats[h.pos].worst++;});
   const laneRows=POSITIONS.filter(p=>laneStats[p.key]).map(p=>{
-    const s=laneStats[p.key];const g=s.w+s.l;const wr=g?Math.round(s.w/g*100):0;
+    const s=laneStats[p.key];const g=s.w+s.l;const lwr=g?Math.round(s.w/g*100):0;
     const tier=pl.tiers[p.key];
     const stk=laneStreak(pl,p.key);
     let streakTxt='';
@@ -723,42 +777,72 @@ function openProfile(id){
       const downInfo=(tier!=null&&tier<5)?(left>0?' (강등까지 '+left+'패)':' (강등)'):(tier===5?' (최하)':'');
       streakTxt=' · <span style="color:var(--loss)">💀'+stk.count+'연패 중'+downInfo+'</span>';
     }
-    return `<div class="prof-line" style="display:flex;justify-content:space-between;flex-wrap:wrap"><b>${p.label} ${tier!=null?tier+'티어':''}</b><span class="mini">${s.w}승 ${s.l}패 (${wr}%) · B${s.best} W${s.worst}${streakTxt}</span></div>`;
+    return `<div class="prof-line" style="display:flex;justify-content:space-between;flex-wrap:wrap"><b>${p.label} ${tier!=null?tier+'티어':''}</b><span class="mini">${s.w}승 ${s.l}패 (${lwr}%) · B${s.best} W${s.worst}${streakTxt}</span></div>`;
   }).join("");
-  const laneSection=laneRows?('<div class="prof-line" style="margin-top:10px;color:var(--gold)">라인별 전적</div>'+laneRows):'<div class="prof-line mini" style="margin-top:10px">라인별 전적은 자동 팀짜기로 경기해야 쌓여요</div>';
-  // head-to-head: per lane, per opponent record (from rank-mode games only, where opp is known)
-  const h2h={}; // {lane: {opponentId: {w,l}}}
+  const laneSection=laneRows?laneRows:'<div class="prof-line mini">라인별 전적은 자동 팀짜기로 경기해야 쌓여요</div>';
+
+  /* head-to-head: per lane, per opponent record — shown as clickable lane tabs */
+  const h2h={};
   pl.hist.forEach(h=>{if(!h.pos||!h.opp)return;if(!h2h[h.pos])h2h[h.pos]={};if(!h2h[h.pos][h.opp])h2h[h.pos][h.opp]={w:0,l:0};if(h.result==='W')h2h[h.pos][h.opp].w++;else h2h[h.pos][h.opp].l++;});
-  let h2hHtml='';
-  POSITIONS.forEach(p=>{
-    const opps=h2h[p.key];if(!opps)return;
-    const rows=Object.keys(opps).map(oid=>{
-      const opp=players.find(x=>x.id===oid);const name=opp?escapeHtml(opp.name):'(삭제됨)';
-      const r=opps[oid];const g=r.w+r.l;const wr=g?Math.round(r.w/g*100):0;
-      return `<div class="prof-line" style="display:flex;justify-content:space-between;padding-left:10px"><span class="mini">vs ${name}</span><span class="mini">${r.w}승 ${r.l}패 (${wr}%)</span></div>`;
+  const h2hLanes=POSITIONS.filter(p=>h2h[p.key]);
+  let h2hSection;
+  if(h2hLanes.length===0){
+    h2hSection='<div class="prof-line mini">라인 상대 전적은 랭크게임으로 경기해야 쌓여요</div>';
+  }else{
+    const tabsHtml=h2hLanes.map((p,i)=>`<button class="h2h-tab${i===0?' active':''}" data-lane="${p.key}">${p.label}</button>`).join("");
+    const panelsHtml=h2hLanes.map((p,i)=>{
+      const opps=h2h[p.key];
+      const rows=Object.keys(opps).map(oid=>{
+        const opp=players.find(x=>x.id===oid);const name=opp?escapeHtml(opp.name):'(삭제됨)';
+        const rr=opps[oid];const g=rr.w+rr.l;const owr=g?Math.round(rr.w/g*100):0;
+        return `<div class="prof-line" style="display:flex;justify-content:space-between"><span class="mini">vs ${name}</span><span class="mini">${rr.w}승 ${rr.l}패 (${owr}%)</span></div>`;
+      }).join("");
+      return `<div class="h2h-panel" data-lane="${p.key}" style="${i===0?'':'display:none'}">${rows}</div>`;
     }).join("");
-    h2hHtml+=`<div class="prof-line" style="margin-top:6px;font-weight:700">${p.label}</div>`+rows;
-  });
-  const h2hSection=h2hHtml?('<div class="prof-line" style="margin-top:10px;color:var(--gold)">라인 상대 전적</div>'+h2hHtml):'';
+    h2hSection=`<div class="h2h-tabs">${tabsHtml}</div><div class="h2h-panels">${panelsHtml}</div>`;
+  }
+
   document.getElementById("profBody").innerHTML=`
-    <div class="prof-head"><span class="prof-big">${escapeHtml(pl.name)}</span> ${tagsHtml}</div>
+    <div class="prof-head"><span class="prof-big">${escapeHtml(pl.name)}</span></div>
+    <div class="tags" style="margin-bottom:10px">${tagsHtml}</div>
     <div class="prof-line">가능 라인: <b>${posText}</b></div>
     <div class="prof-stats">
       <div class="prof-cell"><div class="num">${wr}%</div><div class="lab">승률</div></div>
       <div class="prof-cell"><div class="num">${t.w}·${t.l}</div><div class="lab">승 · 패</div></div>
       <div class="prof-cell"><div class="num">${t.g}</div><div class="lab">총 경기</div></div>
     </div>
-    <div class="prof-line">누적 BEST <b>${t.best}</b>회 · WORST <b>${t.worst}</b>회</div>
-    <div class="prof-line">최근 3판 BEST <b>${rb}</b> · WORST <b>${rw}</b></div>
-    <div class="prof-line">최근 전적 (왼→오, B=베스트/W!=워스트)</div>
+
+    <div class="prof-section-h">💰 시장 몸값</div>
+    <div class="mv-total">${mvTotal}<span class="mv-unit">원</span></div>
+    <div class="mv-breakdown">
+      ${mvLines}
+      <div class="mv-row mv-sum"><span>가중평균 기본값</span><span>${mvBase}원</span></div>
+      <div class="mv-row mv-sum"><span>라인 보너스 합계</span><span>+${mvBonus}원</span></div>
+    </div>
+
+    <div class="prof-section-h">📊 최근 전적</div>
+    <div class="prof-line">누적 BEST <b>${t.best}</b>회 · WORST <b>${t.worst}</b>회 · 최근3판 B${rb} W${rw}</div>
     <div class="recent-dots">${dots}</div>
+
+    <div class="prof-section-h">🎯 라인별 전적</div>
     ${laneSection}
+
+    <div class="prof-section-h">⚔️ 라인 상대 전적</div>
     ${h2hSection}
-    <div style="display:flex;gap:10px;margin-top:18px">
+
+    <div style="display:flex;gap:10px;margin-top:20px">
       <button class="ghost" onclick="startEdit('${pl.id}');document.getElementById('profModal').classList.remove('on')">티어 수정</button>
       <button class="primary" style="flex:1" onclick="document.getElementById('profModal').classList.remove('on')">닫기</button>
     </div>`;
   document.getElementById("profModal").classList.add("on");
+  document.querySelectorAll("#profBody .h2h-tab").forEach(btn=>{
+    btn.onclick=()=>{
+      document.querySelectorAll("#profBody .h2h-tab").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      const lane=btn.dataset.lane;
+      document.querySelectorAll("#profBody .h2h-panel").forEach(p=>{p.style.display=(p.dataset.lane===lane)?'':'none';});
+    };
+  });
 }
 
 /* ---------- balancing ---------- */
@@ -775,7 +859,9 @@ function makeTeams(){
   const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
   const usedPlayer=new Array(10).fill(false);const assign=new Array(10).fill(null);
   let best=null,attempts=0;const MAX=300000;
-  function canFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
+  function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
+  // strict pass: also avoid handing someone their 3rd consecutive same-lane assignment (based on completed games, not this draw)
+  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
   function evaluate(){let a=0,b=0;for(let s=0;s<10;s++){const pl=assign[s],slot=slots[s];const str=laneScore(pl,slot.pos);if(slot.team===0)a+=str;else b+=str;}return {a,b,diff:Math.abs(a-b),total:a+b};}
   function isBetter(cand,cur){
     if(!cur)return true;
@@ -784,18 +870,22 @@ function makeTeams(){
     if(intensity==='low')return cand.total<cur.total;
     return false; // default: keep first found (random)
   }
-  function bt(idx){
-    if(intensity==='default'&&best&&best.diff===0)return; // default mode: stop at first perfect balance
-    if(attempts++>MAX)return;
-    if(idx===slotOrder.length){
-      const ev=evaluate();
-      const cand={diff:ev.diff,total:ev.total,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};
-      if(isBetter(cand,best))best=cand;
-      return;
-    }
-    const s=slotOrder[idx],slot=slots[s];
-    for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFill(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;bt(idx+1);usedPlayer[i]=false;assign[s]=null;}}
-  bt(0);
+  function bt(canFillFn){
+    return function run(idx){
+      if(intensity==='default'&&best&&best.diff===0)return; // default mode: stop at first perfect balance
+      if(attempts++>MAX)return;
+      if(idx===slotOrder.length){
+        const ev=evaluate();
+        const cand={diff:ev.diff,total:ev.total,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};
+        if(isBetter(cand,best))best=cand;
+        return;
+      }
+      const s=slotOrder[idx],slot=slots[s];
+      for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFillFn(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;run(idx+1);usedPlayer[i]=false;assign[s]=null;}
+    };
+  }
+  bt(strictFill)(0);
+  if(!best){ attempts=0; bt(baseFill)(0); } // fallback: no valid strict solution — allow the 3rd-lane repeat rather than fail
   publishDraw(best);
 }
 document.getElementById("makeBtn").onclick=makeTeams;
@@ -805,11 +895,11 @@ function publishDraw(best){
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   pushRemote({ currentMatch: {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    rerollUsedBy: [], pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now()
+    basicUsedBy: [], bonusUsedBy: [], pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now()
   }});
 }
 // reroll: keep the same 10 players (from currentMatch assignments), redraw, tag this person as having used their reroll
-function makeTeamsForReroll(){
+function makeTeamsForReroll(ticketType){
   const cm=remote.currentMatch;
   const ids=(cm.assignments||[]).map(a=>a.id);
   const chosen=players.filter(p=>ids.includes(p.id));
@@ -819,22 +909,30 @@ function makeTeamsForReroll(){
   const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
   const usedPlayer=new Array(10).fill(false);const assign=new Array(10).fill(null);
   let best=null,attempts=0;const MAX=300000;
-  function canFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
+  function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
+  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
   function evaluate(){let a=0,b=0;for(let s=0;s<10;s++){const pl=assign[s],slot=slots[s];const str=laneScore(pl,slot.pos);if(slot.team===0)a+=str;else b+=str;}return {a,b,diff:Math.abs(a-b),total:a+b};}
   function isBetter(cand,cur){if(!cur)return true;if(cand.diff!==cur.diff)return cand.diff<cur.diff;if(intensity==='high')return cand.total>cur.total;if(intensity==='low')return cand.total<cur.total;return false;}
-  function bt(idx){
-    if(intensity==='default'&&best&&best.diff===0)return;
-    if(attempts++>MAX)return;
-    if(idx===slotOrder.length){const ev=evaluate();const cand={diff:ev.diff,total:ev.total,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};if(isBetter(cand,best))best=cand;return;}
-    const s=slotOrder[idx],slot=slots[s];
-    for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFill(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;bt(idx+1);usedPlayer[i]=false;assign[s]=null;}}
-  bt(0);
+  function bt(canFillFn){
+    return function run(idx){
+      if(intensity==='default'&&best&&best.diff===0)return;
+      if(attempts++>MAX)return;
+      if(idx===slotOrder.length){const ev=evaluate();const cand={diff:ev.diff,total:ev.total,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};if(isBetter(cand,best))best=cand;return;}
+      const s=slotOrder[idx],slot=slots[s];
+      for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFillFn(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;run(idx+1);usedPlayer[i]=false;assign[s]=null;}
+    };
+  }
+  bt(strictFill)(0);
+  if(!best){ attempts=0; bt(baseFill)(0); }
   if(!best)return;
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
-  const usedBy=[...(cm.rerollUsedBy||[]), myName];
+  const basicUsedBy=[...(cm.basicUsedBy||[])];
+  const bonusUsedBy=[...(cm.bonusUsedBy||[])];
+  if(ticketType==='bonus') bonusUsedBy.push(myName);
+  else basicUsedBy.push(myName);
   pushRemote({ currentMatch: {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    rerollUsedBy: usedBy, pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now()
+    basicUsedBy, bonusUsedBy, pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now()
   }});
 }
 
@@ -1147,12 +1245,16 @@ function renderSharedMatchArea(){
     const readyTag=cm.locked?'':(readyList.includes(m.player.name)?' <span style="color:var(--win);font-size:0.7rem;font-weight:700">✅준비</span>':' <span style="color:var(--ink-dim);font-size:0.7rem">⏳준비중</span>');
     rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}${readyTag}</span>${tierCell}</div>`;});
     return `<div class="team ${cls}"><div class="team-head"><span class="team-title">${title}</span><span class="team-sum">전력 ${sum}</span></div>${rows}</div>`;}
-  const rerollList=cm.rerollUsedBy||[];
-  const usedReroll=rerollList.includes(myName);
+  const basicList=cm.basicUsedBy||[];
+  const bonusList=cm.bonusUsedBy||[];
+  const myPlayer=myName?players.find(p=>p.name===myName):null;
+  const basicUsedByMe=basicList.includes(myName);
+  const bonusUsedCountByMe=bonusList.filter(n=>n===myName).length;
+  const bonusTotal=bonusRerollAvailable(myPlayer);
+  const bonusRemainByMe=Math.max(0,bonusTotal-bonusUsedCountByMe);
   const ticketNote = myName
-    ? (usedReroll ? `<span style="color:var(--loss)">🎫 ${escapeHtml(myName)}님은 이번 판 리롤권을 이미 썼어요</span>` : `<span style="color:var(--win)">🎫 ${escapeHtml(myName)}님 리롤권 남음</span>`)
+    ? `<span style="color:var(--ink-dim)">🎫 ${escapeHtml(myName)}님 — 기본 ${basicUsedByMe?'사용함':'남음'} · 임시 ${bonusRemainByMe}장 남음</span>`
     : `<span style="color:var(--ink-dim)">이름을 설정하면 리롤권이 개인별로 추적돼요</span>`;
-  const usedListNote = rerollList.length ? `<div class="hint" style="text-align:center">🔄 리롤 사용: ${rerollList.map(escapeHtml).join(", ")}</div>` : '';
   const pleadList=cm.pleadedBy||[];
   const pleadNote = pleadList.length ? `<div class="warn" style="text-align:center;margin-top:8px">🙏 ${pleadList.map(escapeHtml).join(", ")}님이 다시 섞어달라고 요청했어요!</div>` : '';
   const allNames=(cm.assignments||[]).map(a=>{const pl=players.find(p=>p.id===a.id);return pl?pl.name:null;}).filter(Boolean);
@@ -1161,17 +1263,18 @@ function renderSharedMatchArea(){
   let readyHtml;
   if(cm.locked){ readyHtml = "🔒 팀 확정! (전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요)"; }
   else { readyHtml = `✅ 준비완료 <b>${readyList.length}</b>/10명 — 전원 준비되면 자동으로 팀이 확정돼요`; }
+  const noReroll=basicUsedByMe;
   box.innerHTML=`<div class="card"><h2>결과</h2>
     <div class="teams">${teamHtml(byTeam[0],"blue","블루 팀",cm.sumA)}${teamHtml(byTeam[1],"red","레드 팀",cm.sumB)}</div>
     <div class="balance-note">전력 차이 <b>${cm.diff}</b> ${cm.diff===0?"· 완벽한 밸런스!":"(낮을수록 균형)"}</div>
     <div class="balance-note" id="readyNote">${readyHtml}</div>
     <div class="balance-note">${ticketNote}</div>
-    ${usedListNote}
     ${pleadNote}
     ${(!cm.locked && iAmInMatch)?`<div style="text-align:center;margin-top:8px"><button class="${iAmReady?'ghost':'primary'}" id="readyBtnShared">${iAmReady?'✅ 준비 취소':'✅ 준비완료'}</button></div>`:''}
     ${(!cm.locked)?`<div style="text-align:center;margin-top:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button class="ghost" id="rerollBtnShared" ${usedReroll?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🔄 다시 섞기</button>
-        ${usedReroll?'<button class="ghost" id="pleadBtn">🙏 돌려주세요!</button>':''}
+        <button class="ghost" id="basicRerollBtn" ${basicUsedByMe?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🔄 기본 리롤권</button>
+        <button class="ghost" id="bonusRerollBtn" ${bonusRemainByMe<=0?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🎫 임시 리롤권 (${bonusRemainByMe})</button>
+        ${noReroll?'<button class="ghost" id="pleadBtn">🙏 돌려주세요!</button>':''}
       </div>`:''}
     <div class="win-btns"><button class="win-btn blue" id="blueWin">🔵 블루 승리</button><button class="win-btn red" id="redWin">🔴 레드 승리</button></div>
     <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작 (오클릭 방지로 확인창이 떠요)</div>
@@ -1189,12 +1292,21 @@ function renderSharedMatchArea(){
     if(!myName){alert("이름을 먼저 설정해주세요.");return;}
     toggleReady(cm.matchId);
   };
-  const rerollBtn=document.getElementById("rerollBtnShared");
-  if(rerollBtn)rerollBtn.onclick=()=>{
+  const basicBtn=document.getElementById("basicRerollBtn");
+  if(basicBtn)basicBtn.onclick=()=>{
     ensureMyName();
     if(!myName){alert("이름을 먼저 설정해주세요.");return;}
-    if(usedReroll){alert(myName+"님은 이미 이번 판 리롤권을 사용했어요.");return;}
-    makeTeamsForReroll();
+    if(basicUsedByMe){alert(myName+"님은 이미 기본 리롤권을 사용했어요.");return;}
+    makeTeamsForReroll('basic');
+  };
+  const bonusBtn=document.getElementById("bonusRerollBtn");
+  if(bonusBtn)bonusBtn.onclick=()=>{
+    ensureMyName();
+    if(!myName){alert("이름을 먼저 설정해주세요.");return;}
+    if(bonusRemainByMe<=0){alert(myName+"님은 사용 가능한 임시 리롤권이 없어요.");return;}
+    if(!confirm("임시 리롤권을 1장 사용할까요? (BEST 3개로 모은 보너스, 쓰면 다시 모아야 해요)"))return;
+    if(myPlayer){ myPlayer.spentBonusTickets=(myPlayer.spentBonusTickets||0)+1; save(); }
+    makeTeamsForReroll('bonus');
   };
   const pleadBtn=document.getElementById("pleadBtn");
   if(pleadBtn)pleadBtn.onclick=()=>{
@@ -1308,10 +1420,12 @@ function maybeResolveVote(){
   }
 }
 function finalizeVoteResult(bestId,worstId){
-  if(bestId){const pl=players.find(p=>p.id===bestId);if(pl&&pl.hist.length)pl.hist[pl.hist.length-1].award='BEST';}
-  if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length)pl.hist[pl.hist.length-1].award='WORST';}
+  let promoMsg=null;
+  if(bestId){const pl=players.find(p=>p.id===bestId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='BEST';promoMsg=checkAwardPromotion(pl)||promoMsg;}}
+  if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='WORST';promoMsg=checkAwardPromotion(pl)||promoMsg;}}
   if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=bestId;last.worst=worstId;}
   save();
+  if(promoMsg)setTimeout(()=>alert(promoMsg),300);
   // show a result banner (who got BEST/WORST) until someone dismisses it
   pushRemote({ vote:{ active:false, stage:'done', winners:[], losers:[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId } });
 }
@@ -1396,6 +1510,30 @@ function clearLaneStreak(pl,laneKey){
   // simplest: insert a break marker by clearing pos-streak via a sentinel flag on last entries of this lane
   for(let i=pl.hist.length-1;i>=0;i--){if(pl.hist[i].pos===laneKey){pl.hist[i].streakReset=true;break;}}
 }
+// BEST/WORST accelerates promotion/relegation: counts as +1 extra toward that lane's current streak,
+// so e.g. a 2-win-streak that also earns BEST is treated as reaching 3 and promotes immediately.
+// Must be called AFTER the award has been set on the player's newest hist entry.
+function checkAwardPromotion(pl){
+  if(!pl||!pl.hist.length)return null;
+  const last=pl.hist[pl.hist.length-1];
+  if(!last.pos)return null;
+  const laneKey=last.pos;
+  if(pl.tiers[laneKey]==null)return null;
+  if(last.award!=='BEST'&&last.award!=='WORST')return null;
+  let streak=0,st=null;
+  for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result!==st)break;if(h.streakReset)break;streak++;}
+  const effective=streak+1; // the award itself counts as one extra toward the streak
+  const laneLabel=POSITIONS.find(p=>p.key===laneKey).label;
+  if(last.award==='BEST'&&st==='W'&&effective>=3&&pl.tiers[laneKey]>1){
+    pl.tiers[laneKey]--;clearLaneStreak(pl,laneKey);
+    return '⚡ '+pl.name+' — '+laneLabel+' BEST 획득으로 조기 승급! → '+pl.tiers[laneKey]+'티어';
+  }
+  if(last.award==='WORST'&&st==='L'&&effective>=3&&pl.tiers[laneKey]<5){
+    pl.tiers[laneKey]++;clearLaneStreak(pl,laneKey);
+    return '⚡ '+pl.name+' — '+laneLabel+' WORST로 조기 강등 → '+pl.tiers[laneKey]+'티어';
+  }
+  return null;
+}
 function openVote(ids){
   voteState={best:null,worst:null,ids};
   const list=document.getElementById("voteList");list.innerHTML="";
@@ -1410,11 +1548,13 @@ function openVote(ids){
 function refreshVote(){document.querySelectorAll("#voteList .vote-row").forEach(row=>{const id=row.dataset.id;row.querySelector(".best").classList.toggle("on",voteState.best===id);row.querySelector(".worst").classList.toggle("on",voteState.worst===id);});}
 document.getElementById("voteSaveBtn").onclick=()=>{
   // apply award to the LAST hist entry of each voted player (this match)
-  if(voteState.best){const pl=players.find(p=>p.id===voteState.best);if(pl&&pl.hist.length)pl.hist[pl.hist.length-1].award='BEST';}
-  if(voteState.worst){const pl=players.find(p=>p.id===voteState.worst);if(pl&&pl.hist.length)pl.hist[pl.hist.length-1].award='WORST';}
+  let promoMsg=null;
+  if(voteState.best){const pl=players.find(p=>p.id===voteState.best);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='BEST';promoMsg=checkAwardPromotion(pl)||promoMsg;}}
+  if(voteState.worst){const pl=players.find(p=>p.id===voteState.worst);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='WORST';promoMsg=checkAwardPromotion(pl)||promoMsg;}}
   // record into last match log entry
   if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=voteState.best;last.worst=voteState.worst;}
   save();document.getElementById("voteModal").classList.remove("on");renderRoster();
+  if(promoMsg)setTimeout(()=>alert(promoMsg),300);
 };
 document.getElementById("voteCancelBtn").onclick=()=>document.getElementById("voteModal").classList.remove("on");
 
@@ -1423,10 +1563,10 @@ document.getElementById("statsBtn").onclick=()=>{
   const body=document.getElementById("statsBody");
   if(players.length===0){body.innerHTML='<div class="empty">데이터가 없습니다.</div>';}
   else{
-    const rows=[...players].map(pl=>{const t=totals(pl);const r=recent(pl);const rb=r.filter(h=>h.award==='BEST').length;const rw=r.filter(h=>h.award==='WORST').length;const wr=t.g?Math.round(t.w/t.g*100):0;const form=r.map(h=>h.result).join("")||"-";return {pl,t,wr,rb,rw,form};})
-      .sort((a,b)=>b.wr-a.wr || b.t.g-a.t.g);
-    let html='<table class="stat-table"><thead><tr><th>선수</th><th>승</th><th>패</th><th>승률</th><th>최근3</th><th>B</th><th>W</th></tr></thead><tbody>';
-    rows.forEach(r=>{html+=`<tr><td class="name">${escapeHtml(r.pl.name)}</td><td style="color:var(--win)">${r.t.w}</td><td style="color:var(--loss)">${r.t.l}</td><td><b style="color:var(--gold-bright)">${r.wr}%</b></td><td class="mini">${r.form}</td><td>${r.t.best}</td><td>${r.t.worst}</td></tr>`;});
+    const rows=[...players].map(pl=>{const t=totals(pl);const r=recent(pl);const rb=r.filter(h=>h.award==='BEST').length;const rw=r.filter(h=>h.award==='WORST').length;const wr=t.g?Math.round(t.w/t.g*100):0;const form=r.map(h=>h.result).join("")||"-";const mv=marketValue(pl);return {pl,t,wr,rb,rw,form,mv};})
+      .sort((a,b)=>b.mv-a.mv);
+    let html='<table class="stat-table"><thead><tr><th>선수</th><th>💰몸값</th><th>승</th><th>패</th><th>승률</th><th>최근3</th><th>B</th><th>W</th></tr></thead><tbody>';
+    rows.forEach(r=>{html+=`<tr><td class="name">${escapeHtml(r.pl.name)}</td><td><b style="color:var(--gold-bright)">${r.mv}원</b></td><td style="color:var(--win)">${r.t.w}</td><td style="color:var(--loss)">${r.t.l}</td><td>${r.wr}%</td><td class="mini">${r.form}</td><td>${r.t.best}</td><td>${r.t.worst}</td></tr>`;});
     html+='</tbody></table>';body.innerHTML=html;
   }
   document.getElementById("statsModal").classList.add("on");
