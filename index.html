@@ -135,6 +135,9 @@
   .balance-note{text-align:center;font-size:0.82rem;color:var(--ink-dim);margin-top:16px;line-height:1.7}
   .balance-note b{color:var(--gold-bright)}
   .warn{background:rgba(224,169,92,0.1);border:1px solid rgba(224,169,92,0.28);color:#e0c088;padding:13px 16px;border-radius:12px;font-size:0.86rem}
+  .locked-banner{background:linear-gradient(135deg,rgba(95,189,130,0.22),rgba(95,189,130,0.08));border:2px solid var(--win);color:#8fe0a8;text-align:center;font-size:1.15rem;font-weight:800;padding:16px;border-radius:14px;margin-bottom:16px;animation:lockedPulse 2s ease-in-out infinite}
+  .locked-sub{display:block;font-size:0.76rem;font-weight:600;color:var(--ink-dim);margin-top:5px}
+  @keyframes lockedPulse{0%,100%{box-shadow:0 0 0px rgba(95,189,130,0)}50%{box-shadow:0 0 22px rgba(95,189,130,0.45)}}
 
   .dnd-wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
   @media(max-width:720px){.dnd-wrap{grid-template-columns:1fr}}
@@ -1261,13 +1264,14 @@ function renderSharedMatchArea(){
   const iAmInMatch=myName && allNames.includes(myName);
   const iAmReady=readyList.includes(myName);
   let readyHtml;
-  if(cm.locked){ readyHtml = "🔒 팀 확정! (전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요)"; }
-  else { readyHtml = `✅ 준비완료 <b>${readyList.length}</b>/10명 — 전원 준비되면 자동으로 팀이 확정돼요`; }
+  const lockedBanner = cm.locked ? `<div class="locked-banner">🔒 팀 확정! <span class="locked-sub">전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요</span></div>` : '';
+  if(!cm.locked){ readyHtml = `✅ 준비완료 <b>${readyList.length}</b>/10명 — 전원 준비되면 자동으로 팀이 확정돼요`; }
   const noReroll=basicUsedByMe;
   box.innerHTML=`<div class="card"><h2>결과</h2>
+    ${lockedBanner}
     <div class="teams">${teamHtml(byTeam[0],"blue","블루 팀",cm.sumA)}${teamHtml(byTeam[1],"red","레드 팀",cm.sumB)}</div>
     <div class="balance-note">전력 차이 <b>${cm.diff}</b> ${cm.diff===0?"· 완벽한 밸런스!":"(낮을수록 균형)"}</div>
-    <div class="balance-note" id="readyNote">${readyHtml}</div>
+    ${cm.locked?'':`<div class="balance-note" id="readyNote">${readyHtml}</div>`}
     <div class="balance-note">${ticketNote}</div>
     ${pleadNote}
     ${(!cm.locked && iAmInMatch)?`<div style="text-align:center;margin-top:8px"><button class="${iAmReady?'ghost':'primary'}" id="readyBtnShared">${iAmReady?'✅ 준비 취소':'✅ 준비완료'}</button></div>`:''}
@@ -1356,31 +1360,37 @@ function recordSharedWin(winTeamIdx){
 
 /* ---------- shared anonymous BEST/WORST voting ---------- */
 function startSharedVote(winIds,loseIds){
-  pushRemote({ vote:{ active:true, stage:'best', winners:winIds, losers:loseIds, ballots:{}, round:1, resolvedBest:null, resolvedWorst:null } });
+  pushRemote({ vote:{ active:true, stage:'best', winners:winIds, losers:loseIds, candidates:winIds, ballots:{}, round:1, resolvedBest:null, resolvedWorst:null } });
 }
 function renderSharedVote(){
   const box=document.getElementById("result");if(!box)return;
   const v=remote.vote;
   const stage=v.stage;
-  const candIds=stage==='best'?v.winners:v.losers;
+  const voterIds=stage==='best'?v.winners:v.losers;
+  const voters=voterIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
+  const candIds=v.candidates||voterIds;
   const cands=candIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
   const ballots=v.ballots||{};
-  const eligibleNames=cands.map(p=>p.name);
-  const votedCount=Object.keys(ballots).filter(n=>eligibleNames.includes(n)).length;
+  const eligibleVoterNames=voters.map(p=>p.name);
+  const votedCount=Object.keys(ballots).filter(n=>eligibleVoterNames.includes(n)).length;
   const myBallot=myName?ballots[myName]:null;
-  const iAmEligible=myName&&eligibleNames.includes(myName);
+  const iAmEligible=myName&&eligibleVoterNames.includes(myName);
   const title=stage==='best'?'🏆 BEST 투표 (이긴 팀)':'💀 WORST 투표 (진 팀)';
-  const roundNote=v.round>1?`<div class="warn">동률이었어요! ${v.round}차 재투표입니다.</div>`:'';
+  const narrowed=(v.candidates&&v.candidates.length<voterIds.length);
+  const roundNote=narrowed
+    ?`<div class="warn">동률! 표를 가장 많이 받은 ${cands.length}명끼리 재투표입니다. (${v.round}차)</div>`
+    :(v.round>1?`<div class="warn">동률이었어요! ${v.round}차 재투표입니다.</div>`:'');
   let rows='';
   cands.forEach(p=>{
     const mine=myBallot===p.id;
     rows+=`<div class="vote-row"><span class="vote-name">${escapeHtml(p.name)}</span><button class="vote-btn ${stage==='best'?'best':'worst'} ${mine?'on':''}" data-cid="${p.id}">${mine?'✓ 투표함':'투표'}</button></div>`;
   });
   box.innerHTML=`<div class="card"><h2>${title}</h2>
-    <div class="msub">익명 투표 · 과반수 넘으면 확정, 동률이면 재투표 · ${votedCount}/${cands.length}명 투표함</div>
+    <div class="msub">익명 투표 · 과반수 넘으면 확정, 동률이면 재투표 · ${votedCount}/${voters.length}명 투표함</div>
     ${roundNote}
     <div id="sharedVoteList">${rows}</div>
     ${iAmEligible?'<div class="hint" style="text-align:center;margin-top:10px">본인 팀 후보 중 한 명을 선택하세요. 다시 누르면 표를 바꿀 수 있어요.</div>':'<div class="hint" style="text-align:center;margin-top:10px">이번 투표는 '+(stage==='best'?'이긴 팀':'진 팀')+' 만 참여할 수 있어요.</div>'}
+    <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">🔄 이 투표 초기화하고 처음부터 다시</button></div>
   </div>`;
   if(iAmEligible){
     box.querySelectorAll("#sharedVoteList .vote-btn").forEach(btn=>{
@@ -1390,44 +1400,51 @@ function renderSharedVote(){
       };
     });
   }
+  document.getElementById("resetVoteBtn").onclick=()=>{
+    if(!confirm("이번 투표를 초기화하고 전체 후보로 처음부터 다시 투표할까요? (지금까지 투표한 표는 사라져요)"))return;
+    pushRemote({ vote:{ active:true, stage:v.stage, winners:v.winners, losers:v.losers, candidates:voterIds, ballots:{}, round:(v.round||1)+1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst } });
+  };
 }
 // after every remote vote update, check whether this round/stage is resolved (called from onSnapshot)
 function maybeResolveVote(){
   const v=remote.vote;
   if(!v||!v.active)return;
   const stage=v.stage;
-  const candIds=stage==='best'?v.winners:v.losers;
-  const cands=candIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
-  const eligibleNames=cands.map(p=>p.name);
+  const voterIds=stage==='best'?v.winners:v.losers;
+  const voters=voterIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
+  const eligibleVoterNames=voters.map(p=>p.name);
   const ballots=v.ballots||{};
-  const castNames=Object.keys(ballots).filter(n=>eligibleNames.includes(n));
-  if(castNames.length<candIds.length)return; // still waiting on votes
+  const castNames=Object.keys(ballots).filter(n=>eligibleVoterNames.includes(n));
+  if(castNames.length<voterIds.length)return; // still waiting on votes from the full team
   const counts={};
   castNames.forEach(n=>{const cid=ballots[n];counts[cid]=(counts[cid]||0)+1;});
-  const total=candIds.length;
+  const total=voterIds.length;
   let maxCount=-1,maxIds=[];
   Object.keys(counts).forEach(cid=>{if(counts[cid]>maxCount){maxCount=counts[cid];maxIds=[cid];}else if(counts[cid]===maxCount){maxIds.push(cid);}});
   const majority=maxCount>total/2;
   if(majority&&maxIds.length===1){
     const winnerId=maxIds[0];
     if(stage==='best'){
-      pushRemote({ vote:{ active:true, stage:'worst', winners:v.winners, losers:v.losers, ballots:{}, round:1, resolvedBest:winnerId, resolvedWorst:null } });
+      pushRemote({ vote:{ active:true, stage:'worst', winners:v.winners, losers:v.losers, candidates:v.losers, ballots:{}, round:1, resolvedBest:winnerId, resolvedWorst:null } });
     }else{
-      finalizeVoteResult(v.resolvedBest,winnerId);
+      finalizeVoteResult(v.resolvedBest,winnerId,v.winners,v.losers);
     }
   }else{
-    pushRemote({ vote:{ active:true, stage:v.stage, winners:v.winners, losers:v.losers, ballots:{}, round:(v.round||1)+1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst } });
+    // genuine tie (2+ tied for the lead): narrow next round to just those tied candidates.
+    // otherwise (no majority but a single leader): keep the current candidate pool as-is.
+    const nextCandidates = maxIds.length>=2 ? maxIds : (v.candidates||voterIds);
+    pushRemote({ vote:{ active:true, stage:v.stage, winners:v.winners, losers:v.losers, candidates:nextCandidates, ballots:{}, round:(v.round||1)+1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst } });
   }
 }
-function finalizeVoteResult(bestId,worstId){
+function finalizeVoteResult(bestId,worstId,winners,losers){
   let promoMsg=null;
   if(bestId){const pl=players.find(p=>p.id===bestId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='BEST';promoMsg=checkAwardPromotion(pl)||promoMsg;}}
   if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='WORST';promoMsg=checkAwardPromotion(pl)||promoMsg;}}
   if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=bestId;last.worst=worstId;}
   save();
   if(promoMsg)setTimeout(()=>alert(promoMsg),300);
-  // show a result banner (who got BEST/WORST) until someone dismisses it
-  pushRemote({ vote:{ active:false, stage:'done', winners:[], losers:[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId } });
+  // show a result banner (who got BEST/WORST) until someone dismisses it — keep winners/losers so a redo can restart voting
+  pushRemote({ vote:{ active:false, stage:'done', winners:winners||[], losers:losers||[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId } });
 }
 function renderVoteResultBanner(){
   const box=document.getElementById("result");if(!box)return;
@@ -1440,8 +1457,17 @@ function renderVoteResultBanner(){
       <div class="prof-cell"><div class="num" style="color:var(--loss)">💀 ${worstP?escapeHtml(worstP.name):'-'}</div><div class="lab">WORST</div></div>
     </div>
     <div style="margin-top:14px"><button class="primary" id="closeVoteResultBtn" style="width:100%">확인 · 다음 판 준비</button></div>
+    <div style="text-align:center;margin-top:10px"><button class="icon-btn" id="redoVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">↩️ 이 결과 취소하고 다시 투표하기</button></div>
   </div>`;
   document.getElementById("closeVoteResultBtn").onclick=()=>{ pushRemote({ vote:null }); };
+  document.getElementById("redoVoteBtn").onclick=()=>{
+    if(!confirm("BEST/WORST 결과를 취소하고 처음부터 다시 투표할까요?\n(이미 승급·강등이 반영됐다면 그건 자동으로 되돌려지지 않아요)"))return;
+    if(v.resolvedBest){const pl=players.find(p=>p.id===v.resolvedBest);if(pl&&pl.hist.length){const last=pl.hist[pl.hist.length-1];if(last.award==='BEST')last.award=null;}}
+    if(v.resolvedWorst){const pl=players.find(p=>p.id===v.resolvedWorst);if(pl&&pl.hist.length){const last=pl.hist[pl.hist.length-1];if(last.award==='WORST')last.award=null;}}
+    if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=null;last.worst=null;}
+    save();
+    pushRemote({ vote:{ active:true, stage:'best', winners:v.winners, losers:v.losers, candidates:v.winners, ballots:{}, round:1, resolvedBest:null, resolvedWorst:null } });
+  };
 }
 
 /* ---------- record + vote ---------- */
