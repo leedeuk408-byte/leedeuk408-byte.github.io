@@ -1400,7 +1400,7 @@ function renderSharedVote(){
   const title=stage==='best'?'🏆 BEST 투표 (이긴 팀)':'💀 WORST 투표 (진 팀)';
   const narrowed=(v.candidates&&v.candidates.length<voterIds.length);
   const roundNote=narrowed
-    ?`<div class="warn">동률! 표를 가장 많이 받은 ${cands.length}명끼리 재투표입니다. (${v.round}차)</div>`
+    ?`<div class="warn">과반수 미달! 0표 받은 사람은 빠지고, 남은 ${cands.length}명으로 재투표입니다. (${v.round}차)</div>`
     :(v.round>1?`<div class="warn">동률이었어요! ${v.round}차 재투표입니다.</div>`:'');
   let rows='';
   cands.forEach(p=>{
@@ -1452,9 +1452,14 @@ function maybeResolveVote(){
       finalizeVoteResult(v.resolvedBest,winnerId,v.winners,v.losers);
     }
   }else{
-    // genuine tie (2+ tied for the lead): narrow next round to just those tied candidates.
-    // otherwise (no majority but a single leader): keep the current candidate pool as-is.
-    const nextCandidates = maxIds.length>=2 ? maxIds : (v.candidates||voterIds);
+    // eliminate candidates who got ZERO votes this round; keep anyone who got at least 1 vote (even non-leaders)
+    const currentCandidates=v.candidates||voterIds;
+    const votedForIds=new Set(Object.keys(counts));
+    let nextCandidates=currentCandidates.filter(cid=>votedForIds.has(cid));
+    if(nextCandidates.length===0) nextCandidates=currentCandidates; // safety net, should not normally happen
+    if(nextCandidates.length===currentCandidates.length && nextCandidates.length>1 && maxIds.length>=2){
+      nextCandidates=maxIds; // nobody got eliminated but there's a tie at the top — narrow to just the tied leaders to force progress
+    }
     pushRemote({ vote:{ active:true, stage:v.stage, winners:v.winners, losers:v.losers, candidates:nextCandidates, ballots:{}, round:(v.round||1)+1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst } });
   }
 }
