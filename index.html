@@ -901,12 +901,12 @@ function publishDraw(best){
     basicUsedBy: [], bonusUsedBy: [], pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now()
   }});
 }
-// reroll: keep the same 10 players (from currentMatch assignments), redraw, tag this person as having used their reroll
-function makeTeamsForReroll(ticketType){
+// reroll: keep the same 10 players (from currentMatch assignments), redraw. Returns the new currentMatch object (or null), does not publish.
+function computeRerollDraw(ticketType){
   const cm=remote.currentMatch;
   const ids=(cm.assignments||[]).map(a=>a.id);
   const chosen=players.filter(p=>ids.includes(p.id));
-  if(chosen.length!==10)return;
+  if(chosen.length!==10)return null;
   const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
   const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
   const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
@@ -927,16 +927,41 @@ function makeTeamsForReroll(ticketType){
   }
   bt(strictFill)(0);
   if(!best){ attempts=0; bt(baseFill)(0); }
-  if(!best)return;
+  if(!best)return null;
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   const basicUsedBy=[...(cm.basicUsedBy||[])];
   const bonusUsedBy=[...(cm.bonusUsedBy||[])];
   if(ticketType==='bonus') bonusUsedBy.push(myName);
   else basicUsedBy.push(myName);
-  pushRemote({ currentMatch: {
+  return {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
     basicUsedBy, bonusUsedBy, pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now()
-  }});
+  };
+}
+// basic reroll: no shared numeric counter to protect, plain publish is fine
+function makeTeamsForReroll(ticketType){
+  const draw=computeRerollDraw(ticketType);
+  if(!draw)return;
+  pushRemote({ currentMatch: draw });
+}
+// bonus reroll: spend exactly ONE ticket and publish the draw atomically, re-validated against the server's current data
+function useBonusRerollAtomically(){
+  const draw=computeRerollDraw('bonus');
+  if(!draw){alert("팀을 다시 짤 수 없어요.");return;}
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const freshPlayers=[...(data.players||[])];
+    const idx=freshPlayers.findIndex(p=>p.name===myName);
+    if(idx<0)throw new Error("선수 정보를 찾을 수 없어요. 명단에 등록됐는지 확인해주세요.");
+    const pl=freshPlayers[idx];
+    const totalBest=(pl.hist||[]).filter(h=>h.award==='BEST').length;
+    const earned=Math.floor(totalBest/3);
+    const remain=earned-(pl.spentBonusTickets||0);
+    if(remain<=0)throw new Error("사용 가능한 임시 리롤권이 없어요.");
+    freshPlayers[idx]={...pl, spentBonusTickets:(pl.spentBonusTickets||0)+1};
+    tx.update(sessionRef, { players: freshPlayers, currentMatch: draw });
+  }).catch(err=>{ alert(err&&err.message?err.message:"리롤권 사용에 실패했어요."); });
 }
 
 /* ---------- manual drag board ---------- */
@@ -1249,12 +1274,9 @@ function renderSharedMatchArea(){
     rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}${readyTag}</span>${tierCell}</div>`;});
     return `<div class="team ${cls}"><div class="team-head"><span class="team-title">${title}</span><span class="team-sum">전력 ${sum}</span></div>${rows}</div>`;}
   const basicList=cm.basicUsedBy||[];
-  const bonusList=cm.bonusUsedBy||[];
   const myPlayer=myName?players.find(p=>p.name===myName):null;
   const basicUsedByMe=basicList.includes(myName);
-  const bonusUsedCountByMe=bonusList.filter(n=>n===myName).length;
-  const bonusTotal=bonusRerollAvailable(myPlayer);
-  const bonusRemainByMe=Math.max(0,bonusTotal-bonusUsedCountByMe);
+  const bonusRemainByMe=bonusRerollAvailable(myPlayer);
   const ticketNote = myName
     ? `<span style="color:var(--ink-dim)">🎫 ${escapeHtml(myName)}님 — 기본 ${basicUsedByMe?'사용함':'남음'} · 임시 ${bonusRemainByMe}장 남음</span>`
     : `<span style="color:var(--ink-dim)">이름을 설정하면 리롤권이 개인별로 추적돼요</span>`;
@@ -1309,8 +1331,8 @@ function renderSharedMatchArea(){
     if(!myName){alert("이름을 먼저 설정해주세요.");return;}
     if(bonusRemainByMe<=0){alert(myName+"님은 사용 가능한 임시 리롤권이 없어요.");return;}
     if(!confirm("임시 리롤권을 1장 사용할까요? (BEST 3개로 모은 보너스, 쓰면 다시 모아야 해요)"))return;
-    if(myPlayer){ myPlayer.spentBonusTickets=(myPlayer.spentBonusTickets||0)+1; save(); }
-    makeTeamsForReroll('bonus');
+    bonusBtn.disabled=true; // prevent double-click while the transaction is in flight
+    useBonusRerollAtomically();
   };
   const pleadBtn=document.getElementById("pleadBtn");
   if(pleadBtn)pleadBtn.onclick=()=>{
