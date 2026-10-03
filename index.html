@@ -534,32 +534,17 @@ const SCORE_JUG={1:3.5,2:3,3:2.5,4:2,5:1.5,6:1};   // JUNGLE
 const SCORE_SUP={1:5,2:4,3:3,4:2,5:1,6:0};         // SUPPORT
 // 부진 보정: 누적 20판 이상 + 전체 승률 40% 미만 → 모든 포지션 -1점
 function slumpPenalty(pl){const t=totals(pl);if(t.g>=20&&(t.w/t.g)<0.4)return 1;return 0;}
-// 역대 최고 티어(샌드백 방지): 실제/현재 티어가 아무리 떨어져도(자연스러운 연패든 고의 하락이든)
-// "밸런싱용" 점수 계산에서는 역대 최고 티어보다 1단계 이상 낮게는 취급하지 않음. 화면에 보이는 티어는 그대로 둠.
-function effectiveTierForScoring(pl,laneKey){
-  const t=pl.tiers[laneKey];if(t==null)return null;
-  const peak=(pl.peakTiers&&pl.peakTiers[laneKey]!=null)?pl.peakTiers[laneKey]:t;
-  return Math.min(t,peak+1);
-}
 // strength of a player playing a specific lane at their tier there (KING은 칭호만, 점수 보너스 없음)
 // penalizedIds: 이번 매치 draw에서 "WORST 2개 누적 페널티"가 적용되는 선수 id Set (선택)
 function laneScore(pl,laneKey,penalizedIds){
-  const effT=effectiveTierForScoring(pl,laneKey);if(effT==null)return 0;
+  const t=pl.tiers[laneKey];if(t==null)return 0;
   let base;
-  if(laneKey==='JUG')base=SCORE_JUG[effT];
-  else if(laneKey==='SUP')base=SCORE_SUP[effT];
-  else base=SCORE_LANE[effT];
+  if(laneKey==='JUG')base=SCORE_JUG[t];
+  else if(laneKey==='SUP')base=SCORE_SUP[t];
+  else base=SCORE_LANE[t];
   let score=base-slumpPenalty(pl);
   if(penalizedIds&&penalizedIds.has(pl.id))score-=1;
   return score;
-}
-// 선수의 라인별 역대 최고 티어 갱신 (등록/수정, 승급·강등 등 티어가 바뀔 때마다 호출)
-function updatePeakTiers(pl){
-  if(!pl.peakTiers)pl.peakTiers={};
-  POSITIONS.forEach(p=>{
-    const t=pl.tiers[p.key];if(t==null)return;
-    if(pl.peakTiers[p.key]==null||t<pl.peakTiers[p.key])pl.peakTiers[p.key]=t;
-  });
 }
 // WORST를 받을 때마다 호출: 2개 누적되면 다음 판 1회용 -1 페널티를 예약
 function registerWorstForPenalty(pl){
@@ -679,9 +664,9 @@ document.getElementById("addBtn").onclick=()=>{
   if(draft.JUG==null&&draft.SUP==null){alert("부라인 규칙: 정글 또는 서폿 중 최소 하나는 선택해야 해요.");return;}
   const dupExists=players.some(p=>p.name.trim()===name && p.id!==editingId);
   if(dupExists){alert("이미 같은 닉네임이 있어요. 다른 이름으로 구분해 주세요.");return;}
-  if(editingId){const pl=players.find(p=>p.id===editingId);pl.name=name;pl.tiers={...draft};updatePeakTiers(pl);editingId=null;
+  if(editingId){const pl=players.find(p=>p.id===editingId);pl.name=name;pl.tiers={...draft};editingId=null;
     document.getElementById("addBtn").textContent="명단에 추가";document.getElementById("cancelEditBtn").style.display="none";}
-  else{const np=ensure({id:uid(),name,tiers:{...draft}});updatePeakTiers(np);players.push(np);}
+  else{players.push(ensure({id:uid(),name,tiers:{...draft}}));}
   save();document.getElementById("nameInput").value="";draft={};draftMemory={};renderPosGrid();renderRoster();
 };
 document.getElementById("cancelEditBtn").onclick=()=>{editingId=null;draft={};draftMemory={};document.getElementById("nameInput").value="";
@@ -1302,6 +1287,7 @@ function tsMillis(v){ if(!v)return null; if(typeof v.toMillis==='function')retur
 function renderSharedMatchArea(){
   const box=document.getElementById("result");if(!box)return;
   if(remote.vote && remote.vote.stage==='done'){ renderVoteResultBanner(); return; }
+  if(remote.vote && remote.vote.active && remote.vote.stage==='promo'){ renderPromoVote(); return; }
   if(remote.vote && remote.vote.active){ renderSharedVote(); return; }
   if(remote.currentAuction){ renderSharedAuction(); return; }
   const cm=remote.currentMatch;
@@ -1499,6 +1485,7 @@ function renderSharedVote(){
 function maybeResolveVote(){
   const v=remote.vote;
   if(!v||!v.active)return;
+  if(v.stage==='promo'){ maybeResolvePromoVote(v); return; }
   const stage=v.stage;
   const voterIds=stage==='best'?v.winners:v.losers;
   const voters=voterIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
@@ -1531,26 +1518,121 @@ function maybeResolveVote(){
     pushRemote({ vote:{ active:true, stage:v.stage, winners:v.winners, losers:v.losers, candidates:nextCandidates, ballots:{}, round:(v.round||1)+1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst } });
   }
 }
+// 승급/강등 "대상자"만 찾아냄 — 실제 적용은 더 이상 자동이 아니라 당사자를 제외한 투표로 결정됨.
+// 이번 매치에서 실제로 뛴 라인 기준으로만 체크 (BEST/WORST는 그 라인 연승/연패에 +1 가중)
+function buildPromotionQueue(participantIds){
+  const queue=[];
+  (participantIds||[]).forEach(id=>{
+    const pl=players.find(p=>p.id===id);if(!pl||!pl.hist.length)return;
+    const last=pl.hist[pl.hist.length-1];
+    if(!last.pos)return;
+    const laneKey=last.pos;
+    if(pl.tiers[laneKey]==null)return;
+    let streak=0,st=null;
+    for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result!==st)break;if(h.streakReset)break;streak++;}
+    const boosted=(last.award==='BEST'&&st==='W')||(last.award==='WORST'&&st==='L');
+    const effective=streak+(boosted?1:0);
+    if(effective>=3&&st==='W'&&pl.tiers[laneKey]>1) queue.push({playerId:id,laneKey,dir:'up'});
+    else if(effective>=3&&st==='L'&&pl.tiers[laneKey]<6) queue.push({playerId:id,laneKey,dir:'down'});
+  });
+  return queue;
+}
 function finalizeVoteResult(bestId,worstId,winners,losers){
-  let promoMsg=null;
-  if(bestId){const pl=players.find(p=>p.id===bestId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='BEST';promoMsg=checkAwardPromotion(pl)||promoMsg;}}
-  if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='WORST';promoMsg=checkAwardPromotion(pl)||promoMsg;registerWorstForPenalty(pl);}}
+  if(bestId){const pl=players.find(p=>p.id===bestId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='BEST';}}
+  if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='WORST';registerWorstForPenalty(pl);}}
   if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=bestId;last.worst=worstId;}
   save();
-  if(promoMsg)setTimeout(()=>alert(promoMsg),300);
-  // show a result banner (who got BEST/WORST) until someone dismisses it — keep winners/losers so a redo can restart voting
-  pushRemote({ vote:{ active:false, stage:'done', winners:winners||[], losers:losers||[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId } });
+  // 승급/강등 조건을 채운 사람이 있으면 당사자를 제외한 나머지(보통 9명) 투표로 순서대로 결정
+  const participantIds=[...(winners||[]),...(losers||[])];
+  const queue=buildPromotionQueue(participantIds);
+  if(queue.length){
+    const first=queue.shift();
+    pushRemote({ vote:{ active:true, stage:'promo', winners:winners||[], losers:losers||[], ballots:{}, round:1,
+      resolvedBest:bestId, resolvedWorst:worstId, participantIds, promoQueue:queue, promoCurrent:first, promoLog:[] } });
+  }else{
+    // show a result banner (who got BEST/WORST) until someone dismisses it — keep winners/losers so a redo can restart voting
+    pushRemote({ vote:{ active:false, stage:'done', winners:winners||[], losers:losers||[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId, promoLog:[] } });
+  }
+}
+// 승급/강등 투표 1건 처리: 당사자를 제외한 참가자 전원(보통 9명)이 찬성/반대 투표, 과반수로 결정 (홀수라 동률 없음)
+function maybeResolvePromoVote(v){
+  const cur=v.promoCurrent;if(!cur)return;
+  const participantIds=v.participantIds||[];
+  const voterIds=participantIds.filter(id=>id!==cur.playerId);
+  const voters=voterIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
+  const eligibleVoterNames=voters.map(p=>p.name);
+  const ballots=v.ballots||{};
+  const castNames=Object.keys(ballots).filter(n=>eligibleVoterNames.includes(n));
+  if(castNames.length<voterIds.length)return; // 당사자를 제외한 전원이 투표할 때까지 대기
+  let yes=0,no=0;
+  castNames.forEach(n=>{ if(ballots[n]==='yes')yes++; else no++; });
+  const approved=yes>no; // 투표자 수가 홀수(보통 9)라 동률이 안 남
+  const pl=players.find(p=>p.id===cur.playerId);
+  const laneLabel=POSITIONS.find(p=>p.key===cur.laneKey).label;
+  let logLine='';
+  if(pl){
+    if(approved){
+      if(cur.dir==='up'){ pl.tiers[cur.laneKey]--; logLine='⬆️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 승급! → '+pl.tiers[cur.laneKey]+'티어'; }
+      else{ pl.tiers[cur.laneKey]++; logLine='⬇️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 강등 → '+pl.tiers[cur.laneKey]+'티어'; }
+    }else{
+      logLine='➡️ '+pl.name+' — '+laneLabel+' '+(cur.dir==='up'?'승급':'강등')+' 부결('+yes+':'+no+') · 티어 유지';
+    }
+    clearLaneStreak(pl,cur.laneKey); // 결과와 상관없이 이번 스트릭은 소모 (다음에 또 같은 조건으로 묻지 않도록)
+    save();
+  }
+  const promoLog=[...(v.promoLog||[]),logLine];
+  const queue=[...(v.promoQueue||[])];
+  if(queue.length){
+    const next=queue.shift();
+    pushRemote({ vote:{ active:true, stage:'promo', winners:v.winners, losers:v.losers, ballots:{}, round:1,
+      resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst, participantIds, promoQueue:queue, promoCurrent:next, promoLog } });
+  }else{
+    pushRemote({ vote:{ active:false, stage:'done', winners:v.winners, losers:v.losers, ballots:{}, round:1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst, promoLog } });
+  }
+}
+function renderPromoVote(){
+  const box=document.getElementById("result");if(!box)return;
+  const v=remote.vote;
+  const cur=v.promoCurrent;if(!cur){ box.innerHTML=""; return; }
+  const pl=players.find(p=>p.id===cur.playerId);if(!pl){ box.innerHTML=""; return; }
+  const laneLabel=POSITIONS.find(p=>p.key===cur.laneKey).label;
+  const dirLabel=cur.dir==='up'?'승급':'강등';
+  const participantIds=v.participantIds||[];
+  const voterIds=participantIds.filter(id=>id!==cur.playerId);
+  const voters=voterIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
+  const eligibleVoterNames=voters.map(p=>p.name);
+  const ballots=v.ballots||{};
+  const votedCount=Object.keys(ballots).filter(n=>eligibleVoterNames.includes(n)).length;
+  const myBallot=myName?ballots[myName]:null;
+  const iAmEligible=myName&&eligibleVoterNames.includes(myName);
+  const remaining=(v.promoQueue||[]).length;
+  box.innerHTML=`<div class="card"><h2>${cur.dir==='up'?'⬆️':'⬇️'} 승급·강등 투표</h2>
+    <div class="msub">${escapeHtml(pl.name)}님 — ${laneLabel} ${dirLabel} 조건 달성! 당사자를 제외한 ${voters.length}명이 익명 투표 · ${votedCount}/${voters.length}명 투표함${remaining>0?' · 다음 '+remaining+'건 더 있어요':''}</div>
+    ${iAmEligible?`<div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
+        <button class="win-btn blue" id="promoYesBtn">👍 찬성 (${dirLabel})</button>
+        <button class="win-btn red" id="promoNoBtn">👎 반대 (유지)</button>
+      </div>
+      <div class="hint" style="text-align:center;margin-top:10px">${myBallot?'내 투표: '+(myBallot==='yes'?'찬성':'반대')+' · 다시 누르면 바꿀 수 있어요':'당사자를 제외한 한 명으로서 투표하세요'}</div>`
+      :`<div class="hint" style="text-align:center;margin-top:10px">이번 투표는 당사자 본인을 제외한 참가자만 할 수 있어요.</div>`}
+  </div>`;
+  if(iAmEligible){
+    document.getElementById("promoYesBtn").onclick=()=>pushRemote({ [`vote.ballots.${myName}`]: 'yes' });
+    document.getElementById("promoNoBtn").onclick=()=>pushRemote({ [`vote.ballots.${myName}`]: 'no' });
+  }
 }
 function renderVoteResultBanner(){
   const box=document.getElementById("result");if(!box)return;
   const v=remote.vote;
   const bestP=v.resolvedBest?players.find(p=>p.id===v.resolvedBest):null;
   const worstP=v.resolvedWorst?players.find(p=>p.id===v.resolvedWorst):null;
+  const promoLog=v.promoLog||[];
+  const promoHtml=promoLog.length?`<div class="balance-note" style="margin-top:10px;text-align:left">${promoLog.map(escapeHtml).join('<br>')}</div>`:'';
   box.innerHTML=`<div class="card"><h2>이번 판 결과</h2>
     <div class="prof-stats" style="grid-template-columns:1fr 1fr">
       <div class="prof-cell"><div class="num" style="color:var(--gold-bright)">🏆 ${bestP?escapeHtml(bestP.name):'-'}</div><div class="lab">BEST</div></div>
       <div class="prof-cell"><div class="num" style="color:var(--loss)">💀 ${worstP?escapeHtml(worstP.name):'-'}</div><div class="lab">WORST</div></div>
     </div>
+    ${promoHtml}
     <div style="margin-top:14px"><button class="primary" id="closeVoteResultBtn" style="width:100%">확인 · 다음 판 준비</button></div>
     <div style="text-align:center;margin-top:10px"><button class="icon-btn" id="redoVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">↩️ 이 결과 취소하고 다시 투표하기</button></div>
   </div>`;
@@ -1588,7 +1670,9 @@ function recordMatch(winners,losers,shared){
   if(!state.matchLog)state.matchLog=[];
   state.matchLog.push({ts:Date.now(),win:winIds,lose:loseIds,best:null,worst:null});
   if(state.matchLog.length>200)state.matchLog.shift();
-  const changes=applyPromotions(entryIds);
+  // 공유(랭크게임) 모드는 더 이상 자동 승급/강등이 없음 — BEST/WORST 투표가 끝난 뒤 당사자 제외 투표로 결정됨.
+  // 로컬(수동/경매) 모드는 공유 투표 인프라가 없으니 기존처럼 즉시 자동 적용.
+  const changes=shared?[]:applyPromotions(entryIds);
   save();
   if(shared){ pushRemote({ currentMatch: null }); startSharedVote(winIds, loseIds); }
   else{ openVote(entryIds); }
@@ -1619,7 +1703,7 @@ function applyPromotions(ids){
       let streak=0,st=null;
       for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result===st)streak++;else break;if(h.streakReset)break;}
       if(streak>=3&&st==='W'&&pl.tiers[laneKey]>1){
-        pl.tiers[laneKey]--;updatePeakTiers(pl);msgs.push('⬆️ '+pl.name+' — '+p.label+' '+(pl.tiers[laneKey]+1)+'티어 → '+pl.tiers[laneKey]+'티어 승급!');
+        pl.tiers[laneKey]--;msgs.push('⬆️ '+pl.name+' — '+p.label+' '+(pl.tiers[laneKey]+1)+'티어 → '+pl.tiers[laneKey]+'티어 승급!');
         clearLaneStreak(pl,laneKey);
       }else if(streak>=3&&st==='L'&&pl.tiers[laneKey]<6){
         pl.tiers[laneKey]++;msgs.push('⬇️ '+pl.name+' — '+p.label+' '+(pl.tiers[laneKey]-1)+'티어 → '+pl.tiers[laneKey]+'티어 강등');
@@ -1650,7 +1734,7 @@ function checkAwardPromotion(pl){
   const effective=streak+1; // the award itself counts as one extra toward the streak
   const laneLabel=POSITIONS.find(p=>p.key===laneKey).label;
   if(last.award==='BEST'&&st==='W'&&effective>=3&&pl.tiers[laneKey]>1){
-    pl.tiers[laneKey]--;updatePeakTiers(pl);clearLaneStreak(pl,laneKey);
+    pl.tiers[laneKey]--;clearLaneStreak(pl,laneKey);
     return '⚡ '+pl.name+' — '+laneLabel+' BEST 획득으로 조기 승급! → '+pl.tiers[laneKey]+'티어';
   }
   if(last.award==='WORST'&&st==='L'&&effective>=3&&pl.tiers[laneKey]<6){
