@@ -451,7 +451,14 @@ onSnapshot(sessionRef, (snap)=>{
     const pingMillis = data._ping.toMillis();
     if(pingMillis !== lastProcessedPingMillis){
       lastProcessedPingMillis = pingMillis;
-      if(lastPingSentAt!=null) clockOffsetMs = pingMillis - lastPingSentAt;
+      if(lastPingSentAt!=null){
+        const rawOffset = pingMillis - lastPingSentAt;
+        // 핑 왕복 중 네트워크 지연(백그라운드 탭 등)이 길면 그 지연 시간이 통째로 "시계 차이"로 오인식돼서
+        // correctedNow()가 실제 시간보다 수십 초~수 분 앞서 계산되는 사고가 있었음 (그 기기 혼자 "2분 지났다"고
+        // 착각해서 팀을 뽑자마자 바로 확정시켜버리는 버그의 원인). 실제 기기 간 시계 차이는 보통 몇 초 이내이므로
+        // 비정상적으로 큰 값은 보정에 반영하지 않고 ±10초로 제한함.
+        clockOffsetMs = Math.max(-10000, Math.min(10000, rawOffset));
+      }
     }
   }
   // sync into local working vars used throughout the app
