@@ -446,7 +446,18 @@ onSnapshot(sessionRef, (snap)=>{
   // sync into local working vars used throughout the app
   state.players = players = remote.players;
   state.matchLog = remote.matchLog;
+  // 과거 버그로 들어간 범위 밖 티어(0티어·7티어 등)가 있으면 지금 바로잡아서 공유 문서에도 되돌려 씀
+  let hadOutOfRangeTier=false;
+  players.forEach(pl=>{
+    if(pl.tiers){ POSITIONS.forEach(p=>{
+      if(pl.tiers[p.key]!=null){
+        const fixed=clampTier(pl.tiers[p.key]);
+        if(fixed!==pl.tiers[p.key]){ pl.tiers[p.key]=fixed; hadOutOfRangeTier=true; }
+      }
+    }); }
+  });
   players.forEach(ensure);
+  if(hadOutOfRangeTier) pushRemote({ players: state.players });
   remoteLoaded = true;
   renderRoster();
   if(typeof maybeResolveVote==='function')maybeResolveVote();
@@ -459,6 +470,7 @@ const POSITIONS=[
   {key:"TOP",label:"탑"},{key:"JUG",label:"정글"},{key:"MID",label:"미드"},
   {key:"ADC",label:"원딜"},{key:"SUP",label:"서폿"}];
 const posIndex={TOP:0,JUG:1,MID:2,ADC:3,SUP:4};
+const TIER_MIN=1, TIER_MAX=6; // 1티어(에이스) ~ 6티어(최하) — 이 범위를 벗어난 값은 항상 여기로 눌러 담음
 const STORE_KEY="lol_balancer_v3";
 const RECENT=3;
 
@@ -482,7 +494,14 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
 // history: array of {result:'W'|'L', award:'BEST'|'WORST'|null}, newest last
-function ensure(pl){if(!pl.hist)pl.hist=[];if(pl.rec){/*old*/}return pl;}
+// 과거 버그로 0티어·7티어처럼 범위를 벗어난 값이 저장된 적이 있어서, 불러올 때마다 항상 1~6으로 눌러 담음
+function clampTier(t){return Math.max(TIER_MIN,Math.min(TIER_MAX,t));}
+function ensure(pl){
+  if(!pl.hist)pl.hist=[];
+  if(pl.tiers){ POSITIONS.forEach(p=>{ if(pl.tiers[p.key]!=null) pl.tiers[p.key]=clampTier(pl.tiers[p.key]); }); }
+  if(pl.rec){/*old*/}
+  return pl;
+}
 players.forEach(ensure);
 
 /* ---- derived stats ---- */
@@ -879,23 +898,32 @@ function makeTeams(){
   const penalizedIds=new Set(chosen.filter(p=>p.pendingPenalty).map(p=>p.id));
   let best=null,attempts=0;const MAX=300000;
   function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
-  // strict pass: also avoid handing someone their 3rd consecutive same-lane assignment (based on completed games, not this draw)
-  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(locks[pl.id]===slot.pos)return true;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
-  function evaluate(){let a=0,b=0;for(let s=0;s<10;s++){const pl=assign[s],slot=slots[s];const str=laneScore(pl,slot.pos,penalizedIds);if(slot.team===0)a+=str;else b+=str;}return {a,b,diff:Math.abs(a-b),total:a+b};}
+  // 3연속 동일 라인은 더 이상 "금지"가 아니라 "가능하면 피하는" 약한 선호로 반영 (repeatCount가 작을수록 좋음)
+  function evaluate(){
+    let a=0,b=0,repeatCount=0;
+    for(let s=0;s<10;s++){
+      const pl=assign[s],slot=slots[s];
+      const str=laneScore(pl,slot.pos,penalizedIds);
+      if(slot.team===0)a+=str;else b+=str;
+      if(locks[pl.id]!==slot.pos && consecutiveSameLane(pl,slot.pos)>=2) repeatCount++;
+    }
+    return {a,b,diff:Math.abs(a-b),total:a+b,repeatCount};
+  }
   function isBetter(cand,cur){
     if(!cur)return true;
     if(cand.diff!==cur.diff)return cand.diff<cur.diff;
+    if(cand.repeatCount!==cur.repeatCount)return cand.repeatCount<cur.repeatCount;
     if(intensity==='high')return cand.total>cur.total;
     if(intensity==='low')return cand.total<cur.total;
     return false; // default: keep first found (random)
   }
   function bt(canFillFn){
     return function run(idx){
-      if(intensity==='default'&&best&&best.diff===0)return; // default mode: stop at first perfect balance
+      if(intensity==='default'&&best&&best.diff===0&&best.repeatCount===0)return; // default mode: stop once perfectly balanced AND repeat-free
       if(attempts++>MAX)return;
       if(idx===slotOrder.length){
         const ev=evaluate();
-        const cand={diff:ev.diff,total:ev.total,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};
+        const cand={diff:ev.diff,total:ev.total,repeatCount:ev.repeatCount,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};
         if(isBetter(cand,best))best=cand;
         return;
       }
@@ -903,8 +931,7 @@ function makeTeams(){
       for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFillFn(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;run(idx+1);usedPlayer[i]=false;assign[s]=null;}
     };
   }
-  bt(strictFill)(0);
-  if(!best){ attempts=0; bt(baseFill)(0); } // fallback: no valid strict solution — allow the 3rd-lane repeat rather than fail
+  bt(baseFill)(0);
   publishDraw(best,penalizedIds);
 }
 document.getElementById("makeBtn").onclick=makeTeams;
@@ -932,29 +959,62 @@ function computeRerollDraw(ticketType){
   const ids=(cm.assignments||[]).map(a=>a.id);
   const chosen=players.filter(p=>ids.includes(p.id));
   if(chosen.length!==10)return null;
+  // 지금 팀 구성(블루 쪽 5명 id 집합, 색 바뀐 것도 "같은 매치업"으로 취급)을 기억해서
+  // 리롤 결과가 가장 균형잡힌 조합이 사실상 유일할 때 "눌러도 똑같은 팀"으로 보이는 걸 방지
+  const allIdsSorted=[...ids].sort();
+  const currentBlueSig=(cm.assignments||[]).filter(a=>a.team===0).map(a=>a.id).sort().join(',');
+  const currentRedSig=allIdsSorted.filter(id=>!currentBlueSig.split(',').includes(id)).join(',');
   const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
   const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
   const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
   const usedPlayer=new Array(10).fill(false);const assign=new Array(10).fill(null);
   // 리롤이어도 이번 매치에서 이미 확정된 페널티 대상자 목록은 그대로 유지 (매치 생성 시점에 이미 소모됨)
   const penalizedIds=new Set(cm.penalizedIds||[]);
-  let best=null,attempts=0;const MAX=300000;
+  // 3연속 동일 라인은 "금지"가 아니라 "가능하면 피하는" 약한 선호 (repeatCount가 작을수록 좋음)
+  function evaluate(){
+    let a=0,b=0,repeatCount=0;
+    for(let s=0;s<10;s++){
+      const pl=assign[s],slot=slots[s];
+      const str=laneScore(pl,slot.pos,penalizedIds);
+      if(slot.team===0)a+=str;else b+=str;
+      if(locks[pl.id]!==slot.pos && consecutiveSameLane(pl,slot.pos)>=2) repeatCount++;
+    }
+    return {a,b,diff:Math.abs(a-b),total:a+b,repeatCount};
+  }
   function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
-  function strictFill(pl,slot){if(!baseFill(pl,slot))return false;if(locks[pl.id]===slot.pos)return true;if(consecutiveSameLane(pl,slot.pos)>=2)return false;return true;}
-  function evaluate(){let a=0,b=0;for(let s=0;s<10;s++){const pl=assign[s],slot=slots[s];const str=laneScore(pl,slot.pos,penalizedIds);if(slot.team===0)a+=str;else b+=str;}return {a,b,diff:Math.abs(a-b),total:a+b};}
-  function isBetter(cand,cur){if(!cur)return true;if(cand.diff!==cur.diff)return cand.diff<cur.diff;if(intensity==='high')return cand.total>cur.total;if(intensity==='low')return cand.total<cur.total;return false;}
-  function bt(canFillFn){
-    return function run(idx){
-      if(intensity==='default'&&best&&best.diff===0)return;
+  // 최적(diff·repeatCount가 가장 작은) 조합을 "하나만" 찾는 게 아니라, 동률인 조합들을 모아뒀다가 그중 랜덤으로 고름
+  // (동률 최적해가 사실상 하나뿐이면 리롤해도 항상 같은 팀이 나오는 문제가 있었음)
+  const POOL_CAP=24, MAX=200000;
+  function search(canFillFn){
+    let bestDiff=Infinity,bestRepeat=Infinity,bestTotal=null;const pool=[];let attempts=0;
+    (function run(idx){
       if(attempts++>MAX)return;
-      if(idx===slotOrder.length){const ev=evaluate();const cand={diff:ev.diff,total:ev.total,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};if(isBetter(cand,best))best=cand;return;}
+      if(pool.length>=POOL_CAP&&bestDiff===0&&bestRepeat===0)return; // 완벽균형+반복없음 후보를 충분히 모았으면 성능 보호 차원에서 그만 찾음
+      if(idx===slotOrder.length){
+        const ev=evaluate();
+        const better = bestDiff===Infinity || ev.diff<bestDiff ||
+          (ev.diff===bestDiff && ev.repeatCount<bestRepeat) ||
+          (ev.diff===bestDiff && ev.repeatCount===bestRepeat && ((intensity==='high'&&ev.total>bestTotal)||(intensity==='low'&&ev.total<bestTotal)));
+        if(better){ bestDiff=ev.diff; bestRepeat=ev.repeatCount; bestTotal=ev.total; pool.length=0; }
+        const tied = ev.diff===bestDiff && ev.repeatCount===bestRepeat && (intensity==='default' || ev.total===bestTotal);
+        if(tied){
+          const map=assign.map((pl,s)=>({slot:slots[s],player:pl}));
+          const sig=map.filter(m=>m.slot.team===0).map(m=>m.player.id).sort().join(',');
+          if(!pool.some(c=>c.sig===sig)&&pool.length<POOL_CAP) pool.push({diff:ev.diff,total:ev.total,repeatCount:ev.repeatCount,sumA:ev.a,sumB:ev.b,map,sig});
+        }
+        return;
+      }
       const s=slotOrder[idx],slot=slots[s];
       for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFillFn(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;run(idx+1);usedPlayer[i]=false;assign[s]=null;}
-    };
+    })(0);
+    return pool;
   }
-  bt(strictFill)(0);
-  if(!best){ attempts=0; bt(baseFill)(0); }
-  if(!best)return null;
+  let pool=search(baseFill);
+  if(pool.length===0)return null;
+  // 지금과 같은 매치업(색만 바뀐 것 포함)은 가능하면 피하고, 나머지 중 랜덤으로 하나 선택
+  const different=pool.filter(c=>c.sig!==currentBlueSig&&c.sig!==currentRedSig);
+  const pickFrom=different.length?different:pool;
+  const best=pickFrom[Math.floor(Math.random()*pickFrom.length)];
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   const basicUsedBy=[...(cm.basicUsedBy||[])];
   const bonusUsedBy=[...(cm.bonusUsedBy||[])];
@@ -963,7 +1023,8 @@ function computeRerollDraw(ticketType){
   return {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
     basicUsedBy, bonusUsedBy, pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
-    penalizedIds: cm.penalizedIds||[], deadlineAt: correctedNow()+MATCH_TIMER_MS
+    // 2분 하드캡은 리롤해도 리셋되지 않고 처음 팀이 뜬 시점 그대로 유지
+    penalizedIds: cm.penalizedIds||[], deadlineAt: cm.deadlineAt||(correctedNow()+MATCH_TIMER_MS)
   };
 }
 // basic reroll: no shared numeric counter to protect, plain publish is fine
@@ -1532,8 +1593,8 @@ function buildPromotionQueue(participantIds){
     for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result!==st)break;if(h.streakReset)break;streak++;}
     const boosted=(last.award==='BEST'&&st==='W')||(last.award==='WORST'&&st==='L');
     const effective=streak+(boosted?1:0);
-    if(effective>=3&&st==='W'&&pl.tiers[laneKey]>1) queue.push({playerId:id,laneKey,dir:'up'});
-    else if(effective>=3&&st==='L'&&pl.tiers[laneKey]<6) queue.push({playerId:id,laneKey,dir:'down'});
+    if(effective>=3&&st==='W'&&pl.tiers[laneKey]>TIER_MIN) queue.push({playerId:id,laneKey,dir:'up'});
+    else if(effective>=3&&st==='L'&&pl.tiers[laneKey]<TIER_MAX) queue.push({playerId:id,laneKey,dir:'down'});
   });
   return queue;
 }
@@ -1541,54 +1602,77 @@ function finalizeVoteResult(bestId,worstId,winners,losers){
   if(bestId){const pl=players.find(p=>p.id===bestId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='BEST';}}
   if(worstId){const pl=players.find(p=>p.id===worstId);if(pl&&pl.hist.length){pl.hist[pl.hist.length-1].award='WORST';registerWorstForPenalty(pl);}}
   if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=bestId;last.worst=worstId;}
-  save();
   // 승급/강등 조건을 채운 사람이 있으면 당사자를 제외한 나머지(보통 9명) 투표로 순서대로 결정
   const participantIds=[...(winners||[]),...(losers||[])];
   const queue=buildPromotionQueue(participantIds);
+  // 선수 데이터 저장과 투표 단계 전환을 한 번에 같이 보냄 (따로 보내면 그 사이 잠깐 "선수는 바뀌었는데 투표는 아직 안 끝난 것처럼" 보이는
+  // 상태가 생겨서, onSnapshot이 그 순간을 다시 읽고 이 함수가 한 번 더 불려 WORST 페널티 카운트 등이 중복 적용될 수 있었음)
   if(queue.length){
     const first=queue.shift();
-    pushRemote({ vote:{ active:true, stage:'promo', winners:winners||[], losers:losers||[], ballots:{}, round:1,
+    pushRemote({ players: state.players, matchLog: state.matchLog||[], vote:{ active:true, stage:'promo', winners:winners||[], losers:losers||[], ballots:{}, round:1,
       resolvedBest:bestId, resolvedWorst:worstId, participantIds, promoQueue:queue, promoCurrent:first, promoLog:[] } });
   }else{
     // show a result banner (who got BEST/WORST) until someone dismisses it — keep winners/losers so a redo can restart voting
-    pushRemote({ vote:{ active:false, stage:'done', winners:winners||[], losers:losers||[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId, promoLog:[] } });
+    pushRemote({ players: state.players, matchLog: state.matchLog||[], vote:{ active:false, stage:'done', winners:winners||[], losers:losers||[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId, promoLog:[] } });
   }
 }
 // 승급/강등 투표 1건 처리: 당사자를 제외한 참가자 전원(보통 9명)이 찬성/반대 투표, 과반수로 결정 (홀수라 동률 없음)
+// 승급/강등 1건을 적용 + 다음 후보로 넘기는 걸 하나의 트랜잭션으로 묶음.
+// (예전엔 "선수 배열 저장" → "투표 상태 갱신"을 두 번의 별도 쓰기로 나눠서 했는데,
+//  그 사이 잠깐 생기는 "티어는 이미 바뀌었는데 투표는 아직 끝난 것처럼 보이는" 상태를
+//  onSnapshot이 다시 읽고 maybeResolveVote를 한 번 더 돌리면서 승급/강등이 두 번 적용되는 버그가 있었음.
+//  예: 2티어→1티어가 2티어→0티어로, 5티어→6티어가 5티어→7티어로. 트랜잭션으로 묶어서 항상 "정확히 한 번"만 적용되게 함.)
 function maybeResolvePromoVote(v){
   const cur=v.promoCurrent;if(!cur)return;
   const participantIds=v.participantIds||[];
   const voterIds=participantIds.filter(id=>id!==cur.playerId);
   const voters=voterIds.map(id=>players.find(p=>p.id===id)).filter(Boolean);
   const eligibleVoterNames=voters.map(p=>p.name);
-  const ballots=v.ballots||{};
-  const castNames=Object.keys(ballots).filter(n=>eligibleVoterNames.includes(n));
-  if(castNames.length<voterIds.length)return; // 당사자를 제외한 전원이 투표할 때까지 대기
-  let yes=0,no=0;
-  castNames.forEach(n=>{ if(ballots[n]==='yes')yes++; else no++; });
-  const approved=yes>no; // 투표자 수가 홀수(보통 9)라 동률이 안 남
-  const pl=players.find(p=>p.id===cur.playerId);
-  const laneLabel=POSITIONS.find(p=>p.key===cur.laneKey).label;
-  let logLine='';
-  if(pl){
-    if(approved){
-      if(cur.dir==='up'){ pl.tiers[cur.laneKey]--; logLine='⬆️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 승급! → '+pl.tiers[cur.laneKey]+'티어'; }
-      else{ pl.tiers[cur.laneKey]++; logLine='⬇️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 강등 → '+pl.tiers[cur.laneKey]+'티어'; }
-    }else{
-      logLine='➡️ '+pl.name+' — '+laneLabel+' '+(cur.dir==='up'?'승급':'강등')+' 부결('+yes+':'+no+') · 티어 유지';
+  const castNamesLocal=Object.keys(v.ballots||{}).filter(n=>eligibleVoterNames.includes(n));
+  if(castNamesLocal.length<voterIds.length)return; // 당사자를 제외한 전원이 투표할 때까지 대기 (여기선 가볍게 먼저 확인만)
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const curVote=data.vote;
+    // 이미 다른 클라이언트(혹은 이 함수의 이전 호출)가 이 후보를 처리하고 다음 단계로 넘겼다면 — 아무것도 하지 않음 (정확히 한 번만 적용 보장)
+    if(!curVote||curVote.stage!=='promo'||!curVote.promoCurrent)return;
+    if(curVote.promoCurrent.playerId!==cur.playerId||curVote.promoCurrent.laneKey!==cur.laneKey)return;
+    const freshBallots=curVote.ballots||{};
+    const freshCast=Object.keys(freshBallots).filter(n=>eligibleVoterNames.includes(n));
+    if(freshCast.length<voterIds.length)return; // 방어적 재확인 — 서버 기준으로도 전원 투표 완료일 때만 진행
+    let yes=0,no=0;
+    freshCast.forEach(n=>{ if(freshBallots[n]==='yes')yes++; else no++; });
+    const approved=yes>no; // 투표자 수가 홀수(보통 9)라 동률이 안 남
+    const freshPlayers=[...(data.players||[])];
+    const idx=freshPlayers.findIndex(p=>p.id===cur.playerId);
+    const laneLabel=POSITIONS.find(p=>p.key===cur.laneKey).label;
+    let logLine='';
+    if(idx>=0){
+      const pl={...freshPlayers[idx], tiers:{...freshPlayers[idx].tiers}};
+      if(approved){
+        if(cur.dir==='up'){ pl.tiers[cur.laneKey]=clampTier(pl.tiers[cur.laneKey]-1); logLine='⬆️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 승급! → '+pl.tiers[cur.laneKey]+'티어'; }
+        else{ pl.tiers[cur.laneKey]=clampTier(pl.tiers[cur.laneKey]+1); logLine='⬇️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 강등 → '+pl.tiers[cur.laneKey]+'티어'; }
+      }else{
+        logLine='➡️ '+pl.name+' — '+laneLabel+' '+(cur.dir==='up'?'승급':'강등')+' 부결('+yes+':'+no+') · 티어 유지';
+      }
+      // clearLaneStreak과 동일: 결과와 상관없이 이번 스트릭은 소모 (다음에 또 같은 조건으로 묻지 않도록)
+      const hist=[...(pl.hist||[])];
+      for(let i=hist.length-1;i>=0;i--){ if(hist[i].pos===cur.laneKey){ hist[i]={...hist[i],streakReset:true}; break; } }
+      pl.hist=hist;
+      freshPlayers[idx]=pl;
     }
-    clearLaneStreak(pl,cur.laneKey); // 결과와 상관없이 이번 스트릭은 소모 (다음에 또 같은 조건으로 묻지 않도록)
-    save();
-  }
-  const promoLog=[...(v.promoLog||[]),logLine];
-  const queue=[...(v.promoQueue||[])];
-  if(queue.length){
-    const next=queue.shift();
-    pushRemote({ vote:{ active:true, stage:'promo', winners:v.winners, losers:v.losers, ballots:{}, round:1,
-      resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst, participantIds, promoQueue:queue, promoCurrent:next, promoLog } });
-  }else{
-    pushRemote({ vote:{ active:false, stage:'done', winners:v.winners, losers:v.losers, ballots:{}, round:1, resolvedBest:v.resolvedBest, resolvedWorst:v.resolvedWorst, promoLog } });
-  }
+    const promoLog=[...(curVote.promoLog||[]),logLine];
+    const queue=[...(curVote.promoQueue||[])];
+    let nextVote;
+    if(queue.length){
+      const next=queue.shift();
+      nextVote={ active:true, stage:'promo', winners:curVote.winners, losers:curVote.losers, ballots:{}, round:1,
+        resolvedBest:curVote.resolvedBest, resolvedWorst:curVote.resolvedWorst, participantIds, promoQueue:queue, promoCurrent:next, promoLog };
+    }else{
+      nextVote={ active:false, stage:'done', winners:curVote.winners, losers:curVote.losers, ballots:{}, round:1, resolvedBest:curVote.resolvedBest, resolvedWorst:curVote.resolvedWorst, promoLog };
+    }
+    tx.update(sessionRef, { players: freshPlayers, vote: nextVote });
+  }).catch(err=>console.error("승급/강등 투표 처리 트랜잭션 실패:",err));
 }
 function renderPromoVote(){
   const box=document.getElementById("result");if(!box)return;
@@ -1702,11 +1786,11 @@ function applyPromotions(ids){
       // trailing streak in this lane
       let streak=0,st=null;
       for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result===st)streak++;else break;if(h.streakReset)break;}
-      if(streak>=3&&st==='W'&&pl.tiers[laneKey]>1){
-        pl.tiers[laneKey]--;msgs.push('⬆️ '+pl.name+' — '+p.label+' '+(pl.tiers[laneKey]+1)+'티어 → '+pl.tiers[laneKey]+'티어 승급!');
+      if(streak>=3&&st==='W'&&pl.tiers[laneKey]>TIER_MIN){
+        const from=pl.tiers[laneKey];pl.tiers[laneKey]=clampTier(from-1);msgs.push('⬆️ '+pl.name+' — '+p.label+' '+from+'티어 → '+pl.tiers[laneKey]+'티어 승급!');
         clearLaneStreak(pl,laneKey);
-      }else if(streak>=3&&st==='L'&&pl.tiers[laneKey]<6){
-        pl.tiers[laneKey]++;msgs.push('⬇️ '+pl.name+' — '+p.label+' '+(pl.tiers[laneKey]-1)+'티어 → '+pl.tiers[laneKey]+'티어 강등');
+      }else if(streak>=3&&st==='L'&&pl.tiers[laneKey]<TIER_MAX){
+        const from=pl.tiers[laneKey];pl.tiers[laneKey]=clampTier(from+1);msgs.push('⬇️ '+pl.name+' — '+p.label+' '+from+'티어 → '+pl.tiers[laneKey]+'티어 강등');
         clearLaneStreak(pl,laneKey);
       }
     });
@@ -1733,12 +1817,12 @@ function checkAwardPromotion(pl){
   for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result!==st)break;if(h.streakReset)break;streak++;}
   const effective=streak+1; // the award itself counts as one extra toward the streak
   const laneLabel=POSITIONS.find(p=>p.key===laneKey).label;
-  if(last.award==='BEST'&&st==='W'&&effective>=3&&pl.tiers[laneKey]>1){
-    pl.tiers[laneKey]--;clearLaneStreak(pl,laneKey);
+  if(last.award==='BEST'&&st==='W'&&effective>=3&&pl.tiers[laneKey]>TIER_MIN){
+    pl.tiers[laneKey]=clampTier(pl.tiers[laneKey]-1);clearLaneStreak(pl,laneKey);
     return '⚡ '+pl.name+' — '+laneLabel+' BEST 획득으로 조기 승급! → '+pl.tiers[laneKey]+'티어';
   }
-  if(last.award==='WORST'&&st==='L'&&effective>=3&&pl.tiers[laneKey]<6){
-    pl.tiers[laneKey]++;clearLaneStreak(pl,laneKey);
+  if(last.award==='WORST'&&st==='L'&&effective>=3&&pl.tiers[laneKey]<TIER_MAX){
+    pl.tiers[laneKey]=clampTier(pl.tiers[laneKey]+1);clearLaneStreak(pl,laneKey);
     return '⚡ '+pl.name+' — '+laneLabel+' WORST로 조기 강등 → '+pl.tiers[laneKey]+'티어';
   }
   return null;
