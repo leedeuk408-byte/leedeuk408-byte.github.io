@@ -408,7 +408,10 @@ let remoteLoaded = false;
 let suppressNextSnapshot = false;
 // correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
 let clockOffsetMs = 0;
+let lastPingSentAt = null; // 이 기기가 마지막으로 _ping을 "보낸" 시점의 로컬 시각 (서버가 응답한 시점이 아님)
+let lastProcessedPingMillis = null; // 이미 반영한 _ping 값 — 같은 값으로 또 계산하는 걸 방지
 function correctedNow(){ return Date.now() + clockOffsetMs; }
+function sendClockPing(){ lastPingSentAt = Date.now(); pushRemote({ _ping: serverTimestamp() }); }
 
 function pushRemote(partial){
   // updateDoc correctly handles dot-notation nested field paths (e.g. "currentMatch.timerStartedAt")
@@ -430,6 +433,7 @@ function pushRemote(partial){
 onSnapshot(sessionRef, (snap)=>{
   if(!snap.exists()){
     // first time: initialize the shared doc with whatever we have locally (migration from old localStorage-only version)
+    lastPingSentAt = Date.now();
     pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null, _ping: serverTimestamp() });
     return;
   }
@@ -439,9 +443,16 @@ onSnapshot(sessionRef, (snap)=>{
   remote.currentMatch = data.currentMatch || null;
   remote.vote = data.vote || null;
   remote.currentAuction = data.currentAuction || null;
-  // learn this device's clock offset from the server's authoritative clock whenever a resolved timestamp arrives
+  // learn this device's clock offset from the server's authoritative clock — 단, "새로" 도착한 ping일 때만, 그리고
+  // 우리가 ping을 "보낸" 시점의 로컬 시각 기준으로 계산함. (예전엔 매번 오는 스냅샷마다 똑같은 옛날 _ping 값을
+  // "지금" Date.now()와 비교해서 재계산했는데, 그러면 세션이 길어질수록 시계가 점점 뒤로 재조정되면서
+  // 2분 타이머가 계속 늘어나 보이는 버그가 있었음)
   if(data._ping && typeof data._ping.toMillis==='function'){
-    clockOffsetMs = data._ping.toMillis() - Date.now();
+    const pingMillis = data._ping.toMillis();
+    if(pingMillis !== lastProcessedPingMillis){
+      lastProcessedPingMillis = pingMillis;
+      if(lastPingSentAt!=null) clockOffsetMs = pingMillis - lastPingSentAt;
+    }
   }
   // sync into local working vars used throughout the app
   state.players = players = remote.players;
@@ -464,7 +475,7 @@ onSnapshot(sessionRef, (snap)=>{
   renderSharedMatchArea();
 });
 // refresh the clock-offset ping once on load (in case the doc already existed and the bootstrap branch above didn't run)
-setTimeout(()=>{ pushRemote({ _ping: serverTimestamp() }); }, 300);
+setTimeout(sendClockPing, 300);
 
 const POSITIONS=[
   {key:"TOP",label:"탑"},{key:"JUG",label:"정글"},{key:"MID",label:"미드"},
