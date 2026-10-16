@@ -962,6 +962,16 @@ document.getElementById("makeBtn").onclick=makeTeams;
 const MATCH_TIMER_MS=120000;
 const REROLL_EXTEND_THRESHOLD_MS=30000; // 남은 시간이 이 값 이하일 때 리롤하면
 const REROLL_EXTEND_MS=5000;            // 리롤 1번당 이만큼 연장
+// 기본 리롤권 장수는 "처음 팀이 뜬 순간"의 배정 라인 티어로 딱 한 번 정해서 이름→장수로 저장하고,
+// 리롤로 라인이 바뀌어도 그대로 유지 (예전엔 매번 현재 라인 티어로 다시 계산해서, 리롤하면 장수가 1↔2로 널뛰었음)
+function computeBasicAllowances(assignments){
+  const out={};
+  (assignments||[]).forEach(a=>{
+    const pl=players.find(p=>p.id===a.id);
+    if(pl) out[pl.name]=(pl.tiers[a.pos]===1)?2:1;
+  });
+  return out;
+}
 // publish a freshly-drawn team to the shared session (new match: reroll ticket list resets)
 function publishDraw(best,penalizedIds){
   if(!best){ pushRemote({ currentMatch:{ error:true, ts:Date.now() } }); return; }
@@ -975,6 +985,7 @@ function publishDraw(best,penalizedIds){
   pushRemote({ currentMatch: {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
     basicUsedBy: [], bonusUsedBy: [], pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
+    basicAllowance: computeBasicAllowances(assignments),
     penalizedIds: pIds, deadlineAt: correctedNow()+MATCH_TIMER_MS
   }});
 }
@@ -1048,6 +1059,7 @@ function computeRerollDraw(ticketType){
   return {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
     basicUsedBy, bonusUsedBy, pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
+    basicAllowance: cm.basicAllowance||computeBasicAllowances(cm.assignments),
     // 2분 하드캡은 리롤해도 리셋되지 않고 처음 팀이 뜬 시점 그대로 유지.
     // 단, 남은 시간이 30초 이하일 때 리롤하면 리롤 1번마다 +5초 연장 (막판 5초 남기고 돌려서 바로 확정되는 것 방지)
     penalizedIds: cm.penalizedIds||[], deadlineAt: (()=>{
@@ -1397,7 +1409,7 @@ function renderSharedMatchArea(){
   const myPlayer=myName?players.find(p=>p.name===myName):null;
   // 1티어 보너스: 이번 판에 배정된 라인이 1티어면 기본 리롤권 2장, 아니면 1장
   const myAssign=myPlayer?(cm.assignments||[]).find(a=>a.id===myPlayer.id):null;
-  const basicAllowance=(myPlayer&&myAssign&&myPlayer.tiers[myAssign.pos]===1)?2:1;
+  const basicAllowance=(cm.basicAllowance&&cm.basicAllowance[myName]!=null)?cm.basicAllowance[myName]:((myPlayer&&myAssign&&myPlayer.tiers[myAssign.pos]===1)?2:1);
   const basicUsedCountByMe=basicList.filter(n=>n===myName).length;
   const basicRemainByMe=Math.max(0,basicAllowance-basicUsedCountByMe);
   const basicUsedByMe=basicRemainByMe<=0;
