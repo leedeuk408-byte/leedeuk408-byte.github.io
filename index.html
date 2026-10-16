@@ -410,8 +410,13 @@ let suppressNextSnapshot = false;
 let clockOffsetMs = 0;
 let lastPingSentAt = null; // 이 기기가 마지막으로 _ping을 "보낸" 시점의 로컬 시각 (서버가 응답한 시점이 아님)
 let lastProcessedPingMillis = null; // 이미 반영한 _ping 값 — 같은 값으로 또 계산하는 걸 방지
+// _ping은 문서에 하나뿐인 "공유" 필드라서, 다른 기기가 자기 핑을 보내도 나한테까지 onSnapshot이 울림.
+// 예전엔 그걸 "새 핑 왔다"고 착각해서 내 lastPingSentAt(내가 보낸 시각)과 남의 서버 응답 시각을 빼버리는
+// 사고가 있었음 — 경매 중 팀장이 폰을 열었다 닫았다 할 때마다 다른 사람들 타이머가 30초씩 더 틀어지던
+// 버그의 원인. 그래서 내가 보낸 핑인지 식별할 탭 고유 ID를 같이 실어 보냄.
+const myPingId = uid();
 function correctedNow(){ return Date.now() + clockOffsetMs; }
-function sendClockPing(){ lastPingSentAt = Date.now(); pushRemote({ _ping: serverTimestamp() }); }
+function sendClockPing(){ lastPingSentAt = Date.now(); pushRemote({ _ping: serverTimestamp(), _pingBy: myPingId }); }
 
 function pushRemote(partial){
   // updateDoc correctly handles dot-notation nested field paths (e.g. "currentMatch.timerStartedAt")
@@ -434,7 +439,7 @@ onSnapshot(sessionRef, (snap)=>{
   if(!snap.exists()){
     // first time: initialize the shared doc with whatever we have locally (migration from old localStorage-only version)
     lastPingSentAt = Date.now();
-    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null, _ping: serverTimestamp() });
+    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null, _ping: serverTimestamp(), _pingBy: myPingId });
     return;
   }
   const data = snap.data({ serverTimestamps: 'estimate' });
@@ -447,7 +452,7 @@ onSnapshot(sessionRef, (snap)=>{
   // 우리가 ping을 "보낸" 시점의 로컬 시각 기준으로 계산함. (예전엔 매번 오는 스냅샷마다 똑같은 옛날 _ping 값을
   // "지금" Date.now()와 비교해서 재계산했는데, 그러면 세션이 길어질수록 시계가 점점 뒤로 재조정되면서
   // 2분 타이머가 계속 늘어나 보이는 버그가 있었음)
-  if(data._ping && typeof data._ping.toMillis==='function'){
+  if(data._ping && typeof data._ping.toMillis==='function' && data._pingBy===myPingId){
     const pingMillis = data._ping.toMillis();
     if(pingMillis !== lastProcessedPingMillis){
       lastProcessedPingMillis = pingMillis;
@@ -955,6 +960,8 @@ function makeTeams(){
 document.getElementById("makeBtn").onclick=makeTeams;
 // 팀이 뜨면 자동으로 시작되는 2분 하드캡 타이머 (전원 준비완료가 빠른 길, 이건 안전장치)
 const MATCH_TIMER_MS=120000;
+const REROLL_EXTEND_THRESHOLD_MS=30000; // 남은 시간이 이 값 이하일 때 리롤하면
+const REROLL_EXTEND_MS=5000;            // 리롤 1번당 이만큼 연장
 // publish a freshly-drawn team to the shared session (new match: reroll ticket list resets)
 function publishDraw(best,penalizedIds){
   if(!best){ pushRemote({ currentMatch:{ error:true, ts:Date.now() } }); return; }
@@ -1041,8 +1048,13 @@ function computeRerollDraw(ticketType){
   return {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
     basicUsedBy, bonusUsedBy, pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
-    // 2분 하드캡은 리롤해도 리셋되지 않고 처음 팀이 뜬 시점 그대로 유지
-    penalizedIds: cm.penalizedIds||[], deadlineAt: cm.deadlineAt||(correctedNow()+MATCH_TIMER_MS)
+    // 2분 하드캡은 리롤해도 리셋되지 않고 처음 팀이 뜬 시점 그대로 유지.
+    // 단, 남은 시간이 30초 이하일 때 리롤하면 리롤 1번마다 +5초 연장 (막판 5초 남기고 돌려서 바로 확정되는 것 방지)
+    penalizedIds: cm.penalizedIds||[], deadlineAt: (()=>{
+      const base=cm.deadlineAt||(correctedNow()+MATCH_TIMER_MS);
+      const remain=base-correctedNow();
+      return remain<=REROLL_EXTEND_THRESHOLD_MS ? base+REROLL_EXTEND_MS : base;
+    })()
   };
 }
 // basic reroll: no shared numeric counter to protect, plain publish is fine
@@ -1401,7 +1413,7 @@ function renderSharedMatchArea(){
   const iAmReady=readyList.includes(myName);
   let readyHtml;
   const lockedBanner = cm.locked ? `<div class="locked-banner">🔒 팀 확정! <span class="locked-sub">전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요</span></div>` : '';
-  if(!cm.locked){ readyHtml = `✅ 준비완료 <b>${readyList.length}</b>/10명 — 전원 준비되면 자동으로 팀이 확정돼요 · ⏱️ <span id="matchSeconds">--:--</span> 뒤 자동 확정`; }
+  if(!cm.locked){ readyHtml = `✅ 준비완료 <b>${readyList.length}</b>/10명 — 전원 준비되면 자동으로 팀이 확정돼요 · ⏱️ <span id="matchSeconds">--:--</span> 뒤 자동 확정 <span style="color:var(--ink-dim)">(30초 이하에서 리롤하면 +5초)</span>`; }
   const noReroll=basicUsedByMe;
   box.innerHTML=`<div class="card"><h2>결과</h2>
     ${lockedBanner}
