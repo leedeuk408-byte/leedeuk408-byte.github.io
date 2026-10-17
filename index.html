@@ -444,7 +444,7 @@ function changeMyName(){
 }
 
 /* ---------- shared remote state (Firestore) ---------- */
-let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null };
+let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [] };
 let remoteLoaded = false;
 let suppressNextSnapshot = false;
 // correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
@@ -489,6 +489,7 @@ onSnapshot(sessionRef, (snap)=>{
   remote.currentMatch = data.currentMatch || null;
   remote.vote = data.vote || null;
   remote.currentAuction = data.currentAuction || null;
+  remote.deletedPlayers = data.deletedPlayers || [];
   // learn this device's clock offset from the server's authoritative clock — 단, "새로" 도착한 ping일 때만, 그리고
   // 우리가 ping을 "보낸" 시점의 로컬 시각 기준으로 계산함. (예전엔 매번 오는 스냅샷마다 똑같은 옛날 _ping 값을
   // "지금" Date.now()와 비교해서 재계산했는데, 그러면 세션이 길어질수록 시계가 점점 뒤로 재조정되면서
@@ -830,7 +831,12 @@ function renderRoster(){
     const act=document.createElement("div");act.className="r-actions";
     const edit=document.createElement("button");edit.className="icon-btn";edit.textContent="수정";edit.onclick=()=>startEdit(pl.id);
     const del=document.createElement("button");del.className="icon-btn del";del.textContent="삭제";
-    del.onclick=()=>{if(confirm(pl.name+" 삭제할까요? (전적도 함께 삭제)")){players=state.players=players.filter(x=>x.id!==pl.id);picked.delete(pl.id);delete locks[pl.id];save();renderRoster();}};
+    del.onclick=()=>{if(confirm(pl.name+" 삭제할까요? (전적도 함께 삭제)")){players=state.players=players.filter(x=>x.id!==pl.id);picked.delete(pl.id);delete locks[pl.id];
+      // 삭제해도 개발자가 복구할 수 있게 공유 문서에 보관 (삭제된 선수 목록)
+      const archived=[...(remote.deletedPlayers||[]).filter(d=>d.id!==pl.id),{...pl,deletedAt:Date.now()}];
+      try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}
+      pushRemote({ players: state.players, matchLog: state.matchLog||[], deletedPlayers: archived });
+      renderRoster();}};
     act.appendChild(edit);act.appendChild(del);item.appendChild(act);
     box.appendChild(item);
   });
@@ -2113,15 +2119,61 @@ function renderDevPanel(){
         <b id="devPlayerCount" style="color:var(--gold-bright)"></b>
         <button class="ghost" id="devGrantBtn">＋1장 지급</button>
         <button class="ghost" id="devRevokeBtn">－1장 회수</button>
+      </div>
+      <div style="margin-top:14px;border-top:1px dashed #b8863c;padding-top:10px">
+        <b>♻️ 삭제된 선수 복구</b>
+        <div id="devRestoreList" style="margin-top:6px"></div>
+        <button class="ghost" id="devScanLocalBtn" style="margin-top:6px">🔍 이 기기에 남은 예전 백업에서 찾기</button>
       </div></div>`;
     sel=document.getElementById("devPlayerSel");
+    document.getElementById("devScanLocalBtn").onclick=devScanLocalBackup;
     sel.onchange=updateDevCount;
     document.getElementById("devGrantBtn").onclick=()=>devAdjustBonus(1);
     document.getElementById("devRevokeBtn").onclick=()=>devAdjustBonus(-1);
   }
+  renderDevRestore();
   sel.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
   if(prev&&players.some(p=>p.id===prev))sel.value=prev;
   updateDevCount();
+}
+
+// ---- 삭제된 선수 복구 (개발자 전용) ----
+let devLocalCandidates=[]; // 이 기기 localStorage 예전 백업에서 찾은, 현재 명단에 없는 선수들
+function devScanLocalBackup(){
+  const found={};
+  ["lol_balancer_v3","lol_balancer_v2"].forEach(k=>{
+    try{const raw=localStorage.getItem(k);if(!raw)return;const st=JSON.parse(raw);
+      (st.players||[]).forEach(p=>{ if(p&&p.id&&!players.some(x=>x.id===p.id)&&!found[p.id])found[p.id]=p; });
+    }catch(e){}
+  });
+  devLocalCandidates=Object.values(found);
+  if(!devLocalCandidates.length)alert("이 기기 백업에는 현재 명단에 없는 선수가 없어요. (이 기기가 삭제 이후에 저장을 한 번이라도 했거나, 원래 백업이 없을 수 있어요)");
+  renderDevRestore();
+}
+function renderDevRestore(){
+  const box=document.getElementById("devRestoreList");if(!box)return;
+  const archived=(remote.deletedPlayers||[]).filter(d=>!players.some(x=>x.id===d.id));
+  const rows=[];
+  archived.forEach(d=>rows.push({src:"archive",p:d,label:escapeHtml(d.name)+' <span style="color:var(--ink-dim);font-size:0.75rem">(삭제 보관 · '+((d.hist||[]).length)+'판 기록)</span>'}));
+  devLocalCandidates.filter(c=>!players.some(x=>x.id===c.id)&&!archived.some(a=>a.id===c.id))
+    .forEach(c=>rows.push({src:"local",p:c,label:escapeHtml(c.name)+' <span style="color:var(--ink-dim);font-size:0.75rem">(이 기기 예전 백업 · '+((c.hist||[]).length)+'판 기록)</span>'}));
+  if(!rows.length){box.innerHTML='<span style="color:var(--ink-dim);font-size:0.85rem">복구할 선수가 없어요.</span>';return;}
+  box.innerHTML=rows.map((r,i)=>`<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><span>${r.label}</span><button class="ghost devRestoreBtn" data-i="${i}">복구</button></div>`).join("");
+  box.querySelectorAll(".devRestoreBtn").forEach(b=>{b.onclick=()=>devRestorePlayer(rows[+b.dataset.i].p);});
+}
+function devRestorePlayer(pl){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  if(!confirm(pl.name+" 선수를 명단에 복구할까요? (전적·티어 그대로)"))return;
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const fp=[...(data.players||[])];
+    if(fp.some(x=>x.id===pl.id))return;
+    const {deletedAt,...clean}=pl;
+    fp.push(clean);
+    const dp=(data.deletedPlayers||[]).filter(d=>d.id!==pl.id);
+    tx.update(sessionRef,{players:fp,deletedPlayers:dp});
+  }).then(()=>{devLocalCandidates=devLocalCandidates.filter(c=>c.id!==pl.id);}).catch(err=>alert(err&&err.message?err.message:"복구에 실패했어요."));
 }
 function updateDevCount(){
   const sel=document.getElementById("devPlayerSel"),el=document.getElementById("devPlayerCount");if(!sel||!el)return;
