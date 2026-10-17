@@ -2137,6 +2137,62 @@ function renderDevPanel(){
   updateDevCount();
 }
 
+
+// ---- "(삭제됨)"으로 뜨는 선수 기록 복원: 경기 기록(matchLog)에는 선수 id·승패·BEST/WORST가 남아 있어서 이름만 다시 넣으면 전적을 되살릴 수 있음 ----
+function rebuildHistFor(id){
+  const log=state.matchLog||[];
+  const cnt={};              // 선수별로 "이 경기 직전까지 몇 판 했는지" = 그 선수 hist 배열의 인덱스
+  const hist=[],lanes={};
+  log.forEach(m=>{
+    const win=m.win||[],lose=m.lose||[];
+    const inWin=win.includes(id),inLose=lose.includes(id);
+    if(inWin||inLose){
+      const opps=inWin?lose:win;
+      let pos=null,oppId=null;
+      // 같은 판에서 상대편 선수의 hist 기록 중 opp가 이 id를 가리키는 게 있으면, 그게 이 선수의 라인·상대
+      for(const oid of opps){
+        const op=players.find(x=>x.id===oid);if(!op)continue;
+        const h=(op.hist||[])[cnt[oid]||0];
+        if(h&&h.opp===id&&h.pos){pos=h.pos;oppId=oid;break;}
+      }
+      hist.push({result:inWin?'W':'L',award:m.best===id?'BEST':(m.worst===id?'WORST':null),pos,opp:oppId});
+      if(pos)lanes[pos]=(lanes[pos]||0)+1;
+    }
+    [...win,...lose].forEach(pid=>{cnt[pid]=(cnt[pid]||0)+1;});
+  });
+  return {hist,lanes};
+}
+function findOrphanIds(){
+  const seen=new Set();
+  (state.matchLog||[]).forEach(m=>[...(m.win||[]),...(m.lose||[])].forEach(id=>{ if(!players.some(x=>x.id===id))seen.add(id); }));
+  return [...seen];
+}
+function devRestoreOrphan(id){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  const {hist,lanes}=rebuildHistFor(id);
+  const name=prompt("이 선수의 이름을 입력하세요. ("+hist.length+"판 전적이 복원돼요)");
+  if(!name||!name.trim())return;
+  if(players.some(x=>x.name===name.trim())){alert("이미 같은 이름의 선수가 있어요.");return;}
+  const laneKeys=Object.keys(lanes).length?Object.keys(lanes):["MID"];
+  const defaultTxt=laneKeys.map(k=>k+"=3").join(",");
+  const t=prompt("라인별 티어를 '라인=티어' 형식으로 쉼표로 입력하세요. (라인: TOP, JUG, MID, ADC, SUP / 티어 1~6)\n전적에서 추정된 라인으로 채워뒀어요.",defaultTxt);
+  if(t==null)return;
+  const tiers={};
+  t.split(",").forEach(part=>{
+    const [k,v]=part.split("=").map(x=>x.trim());
+    const key=(k||"").toUpperCase();
+    if(POSITIONS.some(pp=>pp.key===key)&&!isNaN(parseInt(v)))tiers[key]=clampTier(parseInt(v));
+  });
+  if(!Object.keys(tiers).length){alert("티어 형식을 알아볼 수 없어요. 예: TOP=3,MID=2");return;}
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const fp=[...(data.players||[])];
+    if(fp.some(x=>x.id===id))return;
+    fp.push({id,name:name.trim(),tiers,hist});
+    tx.update(sessionRef,{players:fp});
+  }).catch(err=>alert(err&&err.message?err.message:"복원에 실패했어요."));
+}
 // ---- 삭제된 선수 복구 (개발자 전용) ----
 let devLocalCandidates=[]; // 이 기기 localStorage 예전 백업에서 찾은, 현재 명단에 없는 선수들
 function devScanLocalBackup(){
@@ -2157,9 +2213,16 @@ function renderDevRestore(){
   archived.forEach(d=>rows.push({src:"archive",p:d,label:escapeHtml(d.name)+' <span style="color:var(--ink-dim);font-size:0.75rem">(삭제 보관 · '+((d.hist||[]).length)+'판 기록)</span>'}));
   devLocalCandidates.filter(c=>!players.some(x=>x.id===c.id)&&!archived.some(a=>a.id===c.id))
     .forEach(c=>rows.push({src:"local",p:c,label:escapeHtml(c.name)+' <span style="color:var(--ink-dim);font-size:0.75rem">(이 기기 예전 백업 · '+((c.hist||[]).length)+'판 기록)</span>'}));
+  const orphanIds=findOrphanIds().filter(id=>!archived.some(a=>a.id===id)&&!devLocalCandidates.some(c=>c.id===id));
+  orphanIds.forEach(id=>{
+    const {hist,lanes}=rebuildHistFor(id);
+    const w=hist.filter(h=>h.result==='W').length,l=hist.length-w;
+    const laneTxt=Object.keys(lanes).map(k=>POSITIONS.find(pp=>pp.key===k).label+lanes[k]).join(" ")||"라인 정보 없음";
+    rows.push({src:"orphan",id,label:'알 수 없음 <span style="color:var(--ink-dim);font-size:0.75rem">((삭제됨) · '+hist.length+'판 '+w+'승 '+l+'패 · '+laneTxt+') — 이름·티어를 다시 입력해 전적 복원</span>'});
+  });
   if(!rows.length){box.innerHTML='<span style="color:var(--ink-dim);font-size:0.85rem">복구할 선수가 없어요.</span>';return;}
   box.innerHTML=rows.map((r,i)=>`<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><span>${r.label}</span><button class="ghost devRestoreBtn" data-i="${i}">복구</button></div>`).join("");
-  box.querySelectorAll(".devRestoreBtn").forEach(b=>{b.onclick=()=>devRestorePlayer(rows[+b.dataset.i].p);});
+  box.querySelectorAll(".devRestoreBtn").forEach(b=>{b.onclick=()=>{const r=rows[+b.dataset.i];if(r.src==='orphan')devRestoreOrphan(r.id);else devRestorePlayer(r.p);};});
 }
 function devRestorePlayer(pl){
   if(myName!==DEV_NAME||!devUnlocked())return;
