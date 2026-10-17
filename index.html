@@ -1459,6 +1459,12 @@ function renderSharedMatchArea(){
   const ticketNote = myName
     ? `<span style="color:var(--ink-dim)">🎫 ${escapeHtml(myName)}님 — 기본 ${basicRemainByMe}장 남음${basicAllowance>1?' (1티어 보너스)':''} · 임시 ${bonusRemainByMe}장 남음</span>`
     : `<span style="color:var(--ink-dim)">이름을 설정하면 리롤권이 개인별로 추적돼요</span>`;
+  // 개발자 전용: 누가 어떤 리롤권을 몇 번 썼는지 (일반 참가자 화면에는 안 보임)
+  let devRerollNote='';
+  if(myName===DEV_NAME && devUnlocked()){
+    const tally=(arr)=>{const m={};(arr||[]).forEach(n=>{m[n]=(m[n]||0)+1;});const e=Object.entries(m);return e.length?e.map(([n,c])=>escapeHtml(n)+(c>1?' ×'+c:'')).join(', '):'없음';};
+    devRerollNote=`<div class="balance-note" style="border:1px dashed #b8863c;border-radius:8px;padding:8px;margin-top:8px;text-align:left">🛠 <b>개발자 전용</b> · 이번 판 리롤 사용자<br>기본 리롤권: ${tally(cm.basicUsedBy)}<br>임시 리롤권: ${tally(cm.bonusUsedBy)}</div>`;
+  }
   const pleadList=cm.pleadedBy||[];
   // 누가 눌렀는지는 비공개 — 몇 명이 요청했는지 숫자만 공개 (심리전 요소 유지)
   const pleadNote = pleadList.length ? `<div class="warn" style="text-align:center;margin-top:8px">🙏 ${pleadList.length}명이 다시 섞어달라고 요청했어요!</div>` : '';
@@ -1476,6 +1482,7 @@ function renderSharedMatchArea(){
     ${cm.locked?'':`<div class="balance-note" id="readyNote">${readyHtml}</div>`}
     <div class="balance-note">${ticketNote}</div>
     ${pleadNote}
+    ${devRerollNote}
     ${(!cm.locked && iAmInMatch)?`<div style="text-align:center;margin-top:8px"><button class="${iAmReady?'ghost':'primary'}" id="readyBtnShared">${iAmReady?'✅ 준비 취소':'✅ 준비완료'}</button></div>`:''}
     ${(!cm.locked)?`<div style="text-align:center;margin-top:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="ghost" id="basicRerollBtn" ${basicUsedByMe?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🔄 기본 리롤권 (${basicRemainByMe})</button>
