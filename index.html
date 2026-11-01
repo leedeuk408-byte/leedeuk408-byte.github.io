@@ -104,6 +104,11 @@
   .r-tag.hot{background:#1e2431 !important;border-color:var(--gold) !important;color:var(--gold-bright) !important}
   .r-tag.hot b{color:var(--gold-bright) !important}
   .r-tag.lockable:hover{border-color:#b8863c}
+  .r-tag.off{opacity:0.35;text-decoration:line-through}
+  .lane-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+  .lane-row .lname{min-width:92px;font-weight:700}
+  .lane-row button.sel-pref{background:rgba(95,189,130,0.22);border-color:var(--win);color:#8fe0a8}
+  .lane-row button.sel-avoid{background:rgba(224,98,98,0.2);border-color:var(--loss);color:#f0a0a0}
   .r-tag.lockedpos{background:rgba(184,134,60,0.14);border-color:#b8863c;color:#e0b579}
   .r-actions{display:flex;gap:6px;margin-left:auto}
   .icon-btn{background:transparent;border:none;color:var(--ink-dim);cursor:pointer;font-size:0.8rem;padding:5px 9px;border-radius:8px;transition:all .12s}
@@ -365,6 +370,14 @@
     </div>
   </div>
 
+  <div class="modal-bg" id="laneModal">
+    <div class="modal" style="max-width:520px">
+      <h3>⚙️ 라인 설정</h3>
+      <div class="msub">끈 라인은 팀 짤 때 배정되지 않아요. 켜 둔 라인 중에서 "가장 하고 싶은 라인"과 "가장 하기 싫은 라인"을 하나씩 고르면 균형을 크게 해치지 않는 범위에서 반영돼요. 티어는 그대로 유지돼요.</div>
+      <div id="laneBody"></div>
+      <div style="display:flex;gap:8px;margin-top:16px"><button class="ghost" id="laneCloseBtn" style="flex:1">취소</button><button class="primary" id="laneSaveBtn" style="flex:2">저장</button></div>
+    </div>
+  </div>
   <div class="modal-bg" id="historyModal">
     <div class="modal" style="max-width:560px">
       <h3>📜 경기 기록</h3>
@@ -457,7 +470,33 @@ let lastProcessedPingMillis = null; // 이미 반영한 _ping 값 — 같은 값
 // 버그의 원인. 그래서 내가 보낸 핑인지 식별할 탭 고유 ID를 같이 실어 보냄.
 const myPingId = uid();
 function correctedNow(){ return Date.now() + clockOffsetMs; }
-function sendClockPing(){ lastPingSentAt = Date.now(); pushRemote({ _ping: serverTimestamp(), _pingBy: myPingId }); }
+// 핑을 여러 번 보내서, 왕복 시간(rtt)이 가장 짧았던 샘플로 시계 차이를 추정함 (rtt가 짧을수록 오차가 작음).
+// 이전에 "±10초로 제한"했더니 시계가 실제로 1분쯤 틀린 기기는 보정이 막혀서 2분 타이머가 1분으로 보이는 문제가 있었음.
+// 이제 제한 대신 "가장 정확한 샘플만 채택"해서, 실제 시계가 많이 틀린 기기도 제대로 보정하면서 지연 오차는 막음.
+let pingSeq = 0, bestPingRtt = Infinity;
+const pingSentAt = {};
+// 핑은 "기기(탭)마다 자기 칸"에 따로 기록함 — 예전엔 문서에 핑 칸이 하나뿐이라, 여러 명이 동시에 접속하면 서로 덮어써서
+// 내 응답을 못 받는 기기가 생겼고, 그 기기는 시계 보정이 안 돼서(0) 시계가 틀린 만큼 타이머가 1분 등으로 어긋나 보였음.
+let pingKey;
+try{ pingKey = sessionStorage.getItem("lol_pingkey"); if(!pingKey){ pingKey = myPingId; sessionStorage.setItem("lol_pingkey", pingKey); } }catch(e){ pingKey = myPingId; }
+function sendClockPing(){
+  const seq = ++pingSeq; pingSentAt[seq] = Date.now(); lastPingSentAt = pingSentAt[seq];
+  pushRemote({ ["_pings."+pingKey]: { ts: serverTimestamp(), seq } });
+}
+function processPingSample(raw){
+  // raw: serverTimestamps:'none'으로 읽은 문서 — 서버가 확정하기 전(로컬 추정값)이면 ts가 null이라 건너뜀
+  const mine = raw && raw._pings && raw._pings[pingKey];
+  if(!mine||!mine.ts||typeof mine.ts.toMillis!=='function')return;
+  const seq=mine.seq, sent=pingSentAt[seq];
+  if(sent==null||seq===lastProcessedPingMillis)return;
+  lastProcessedPingMillis=seq;
+  const recv=Date.now(), rtt=recv-sent;
+  if(rtt<0||rtt>8000)return;                       // 비정상적으로 느린 샘플은 버림
+  if(rtt<bestPingRtt){ bestPingRtt=rtt; clockOffsetMs = mine.ts.toMillis() - (sent+recv)/2; }
+}
+// 아직 보정값을 못 얻은 기기는 몇 번 더 재시도
+let pingRetries=0;
+const pingRetryTimer=setInterval(()=>{ if(bestPingRtt!==Infinity||++pingRetries>10){clearInterval(pingRetryTimer);return;} sendClockPing(); },3000);
 
 function pushRemote(partial){
   // updateDoc correctly handles dot-notation nested field paths (e.g. "currentMatch.timerStartedAt")
@@ -479,8 +518,8 @@ function pushRemote(partial){
 onSnapshot(sessionRef, (snap)=>{
   if(!snap.exists()){
     // first time: initialize the shared doc with whatever we have locally (migration from old localStorage-only version)
-    lastPingSentAt = Date.now();
-    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null, _ping: serverTimestamp(), _pingBy: myPingId });
+    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null });
+    setTimeout(sendClockPing, 500);
     return;
   }
   const data = snap.data({ serverTimestamps: 'estimate' });
@@ -490,24 +529,8 @@ onSnapshot(sessionRef, (snap)=>{
   remote.vote = data.vote || null;
   remote.currentAuction = data.currentAuction || null;
   remote.deletedPlayers = data.deletedPlayers || [];
-  // learn this device's clock offset from the server's authoritative clock — 단, "새로" 도착한 ping일 때만, 그리고
-  // 우리가 ping을 "보낸" 시점의 로컬 시각 기준으로 계산함. (예전엔 매번 오는 스냅샷마다 똑같은 옛날 _ping 값을
-  // "지금" Date.now()와 비교해서 재계산했는데, 그러면 세션이 길어질수록 시계가 점점 뒤로 재조정되면서
-  // 2분 타이머가 계속 늘어나 보이는 버그가 있었음)
-  if(data._ping && typeof data._ping.toMillis==='function' && data._pingBy===myPingId){
-    const pingMillis = data._ping.toMillis();
-    if(pingMillis !== lastProcessedPingMillis){
-      lastProcessedPingMillis = pingMillis;
-      if(lastPingSentAt!=null){
-        const rawOffset = pingMillis - lastPingSentAt;
-        // 핑 왕복 중 네트워크 지연(백그라운드 탭 등)이 길면 그 지연 시간이 통째로 "시계 차이"로 오인식돼서
-        // correctedNow()가 실제 시간보다 수십 초~수 분 앞서 계산되는 사고가 있었음 (그 기기 혼자 "2분 지났다"고
-        // 착각해서 팀을 뽑자마자 바로 확정시켜버리는 버그의 원인). 실제 기기 간 시계 차이는 보통 몇 초 이내이므로
-        // 비정상적으로 큰 값은 보정에 반영하지 않고 ±10초로 제한함.
-        clockOffsetMs = Math.max(-10000, Math.min(10000, rawOffset));
-      }
-    }
-  }
+  // 시계 보정: 내가 보낸 핑의 서버 확정값만 사용 (processPingSample 참고)
+  processPingSample(snap.data({ serverTimestamps: 'none' }));
   // sync into local working vars used throughout the app
   state.players = players = remote.players;
   state.matchLog = remote.matchLog;
@@ -530,7 +553,7 @@ onSnapshot(sessionRef, (snap)=>{
   renderSharedMatchArea();
 });
 // refresh the clock-offset ping once on load (in case the doc already existed and the bootstrap branch above didn't run)
-setTimeout(sendClockPing, 300);
+[300,1500,3500,7000].forEach(ms=>setTimeout(sendClockPing, ms));
 
 const POSITIONS=[
   {key:"TOP",label:"탑"},{key:"JUG",label:"정글"},{key:"MID",label:"미드"},
@@ -565,6 +588,11 @@ function clampTier(t){return Math.max(TIER_MIN,Math.min(TIER_MAX,t));}
 function ensure(pl){
   if(!pl.hist)pl.hist=[];
   if(pl.tiers){ POSITIONS.forEach(p=>{ if(pl.tiers[p.key]!=null) pl.tiers[p.key]=clampTier(pl.tiers[p.key]); }); }
+  // 라인 비활성/선호도 정리: 등록 해제된 라인이나 꺼진 라인을 가리키는 값은 제거
+  if(pl.laneOff&&pl.tiers){ Object.keys(pl.laneOff).forEach(k=>{ if(pl.tiers[k]==null||!pl.laneOff[k]) delete pl.laneOff[k]; }); }
+  if(pl.preferLane&&!laneActive(pl,pl.preferLane))pl.preferLane=null;
+  if(pl.avoidLane&&!laneActive(pl,pl.avoidLane))pl.avoidLane=null;
+  if(pl.preferLane&&pl.preferLane===pl.avoidLane)pl.avoidLane=null;
   if(pl.rec){/*old*/}
   return pl;
 }
@@ -723,6 +751,59 @@ function playerTags(pl){
   return tags;
 }
 
+
+/* ---------- 내 라인 설정 (비활성 / 선호도) ---------- */
+let laneEditId=null, laneDraft=null;
+function openLaneSettings(id){
+  const pl=players.find(p=>p.id===id);if(!pl)return;
+  laneEditId=id;
+  laneDraft={off:{...(pl.laneOff||{})},prefer:pl.preferLane||null,avoid:pl.avoidLane||null};
+  renderLaneSettings();
+  document.getElementById("laneModal").classList.add("on");
+}
+function renderLaneSettings(){
+  const pl=players.find(p=>p.id===laneEditId);if(!pl)return;
+  const body=document.getElementById("laneBody");
+  const rows=POSITIONS.filter(p=>pl.tiers[p.key]!=null).map(p=>{
+    const on=!laneDraft.off[p.key];
+    return `<div class="lane-row" data-lane="${p.key}">
+      <label class="lname"><input type="checkbox" class="lane-on" ${on?'checked':''}> ${p.label} <span style="color:var(--ink-dim);font-size:0.75rem">${pl.tiers[p.key]}티어</span></label>
+      <button class="ghost lane-pref ${laneDraft.prefer===p.key?'sel-pref':''}" ${on?'':'disabled style="opacity:0.35"'}>💚 가장 하고 싶음</button>
+      <button class="ghost lane-avoid ${laneDraft.avoid===p.key?'sel-avoid':''}" ${on?'':'disabled style="opacity:0.35"'}>😣 가장 하기 싫음</button>
+    </div>`;
+  }).join("");
+  body.innerHTML=rows+'<div class="hint" style="margin-top:10px">선호도를 비워 두면 균형·다양성만 보고 짜요.</div>';
+  body.querySelectorAll(".lane-row").forEach(row=>{
+    const key=row.dataset.lane;
+    row.querySelector(".lane-on").onchange=(e)=>{
+      if(!e.target.checked){
+        const activeCount=POSITIONS.filter(p=>pl.tiers[p.key]!=null&&!laneDraft.off[p.key]).length;
+        if(activeCount<=1){alert("라인을 최소 1개는 켜 둬야 해요.");e.target.checked=true;return;}
+        laneDraft.off[key]=true;
+        if(laneDraft.prefer===key)laneDraft.prefer=null;
+        if(laneDraft.avoid===key)laneDraft.avoid=null;
+      }else{ delete laneDraft.off[key]; }
+      renderLaneSettings();
+    };
+    row.querySelector(".lane-pref").onclick=()=>{ laneDraft.prefer=(laneDraft.prefer===key)?null:key; if(laneDraft.avoid===key)laneDraft.avoid=null; renderLaneSettings(); };
+    row.querySelector(".lane-avoid").onclick=()=>{ laneDraft.avoid=(laneDraft.avoid===key)?null:key; if(laneDraft.prefer===key)laneDraft.prefer=null; renderLaneSettings(); };
+  });
+}
+document.getElementById("laneCloseBtn").onclick=()=>document.getElementById("laneModal").classList.remove("on");
+document.getElementById("laneSaveBtn").onclick=()=>{
+  const id=laneEditId,d=laneDraft;if(!id||!d)return;
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};
+    const fp=[...(data.players||[])];
+    const idx=fp.findIndex(x=>x.id===id);
+    if(idx<0)throw new Error("선수를 찾을 수 없어요.");
+    const off={};Object.keys(d.off).forEach(k=>{if(d.off[k]&&fp[idx].tiers[k]!=null)off[k]=true;});
+    fp[idx]={...fp[idx],laneOff:off,preferLane:d.prefer||null,avoidLane:d.avoid||null};
+    tx.update(sessionRef,{players:fp});
+  }).then(()=>document.getElementById("laneModal").classList.remove("on")).catch(err=>alert(err&&err.message?err.message:"저장에 실패했어요."));
+};
+
 /* ---------- registration ---------- */
 function renderPosGrid(){
   const grid=document.getElementById("posGrid");grid.innerHTML="";
@@ -821,6 +902,10 @@ function renderRoster(){
           const king=(tier>=2&&isLaneTierKing(pl,p.key))?' 👑':'';
           tag.innerHTML=p.label+" <b>"+tier+"티어</b>"+king;
         }
+        const laneOffHere=!!(pl.laneOff&&pl.laneOff[p.key]);
+        if(laneOffHere){tag.classList.add("off");tag.title="비활성 라인 (팀 짤 때 배정 안 됨)";}
+        if(pl.preferLane===p.key)tag.innerHTML+=" 💚";
+        if(pl.avoidLane===p.key)tag.innerHTML+=" 😣";
         const doLock=(e)=>{if(e&&e.preventDefault)e.preventDefault();if(!picked.has(pl.id)){alert("먼저 이 선수를 체크(선택)한 뒤 라인 고정이 가능해요.");return;}if(locks[pl.id]===p.key)delete locks[pl.id];else locks[pl.id]=p.key;renderRoster();};
         tag.onclick=doLock;
         pos.appendChild(tag);
@@ -837,6 +922,7 @@ function renderRoster(){
       try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}
       pushRemote({ players: state.players, matchLog: state.matchLog||[], deletedPlayers: archived });
       renderRoster();}};
+    {const cfg=document.createElement("button");cfg.className="icon-btn";cfg.textContent="⚙️ 라인";cfg.title="라인 켜기/끄기 · 선호도";cfg.onclick=()=>openLaneSettings(pl.id);act.appendChild(cfg);}
     act.appendChild(edit);act.appendChild(del);item.appendChild(act);
     box.appendChild(item);
   });
@@ -953,6 +1039,72 @@ function openProfile(id){
 }
 
 /* ---------- balancing ---------- */
+
+/* ---------- 팀 짜기 엔진 (라인 비활성 / 선호도 / 다양성 반영) ---------- */
+// 라인 비활성: pl.laneOff[LANE]=true 면 그 라인은 등록(티어)은 남아 있지만 팀 짤 때 배정되지 않음
+// 선호도: pl.preferLane = 가장 하고 싶은 라인, pl.avoidLane = 가장 하기 싫은 라인 (둘 다 활성 라인 중에서만, 서로 달라야 함)
+const BALANCE_TOLERANCE=1;   // 최소 격차보다 이 점수까지는 "충분히 균형 잡힘"으로 보고 선호도·다양성을 반영
+const DIFF_WEIGHT=2;         // 격차 1점 = 선호도 2점어치 (균형이 선호도보다 우선)
+const PREFER_BONUS=1;        // 하고 싶은 라인 배정 시 +1
+const AVOID_PENALTY=2;       // 하기 싫은 라인 배정 시 -2 (피하고 싶은 쪽을 더 강하게 반영)
+const REPEAT_WEIGHT=0.5;     // 3연속 같은 라인 1명당 -0.5 (약한 선호)
+const VARIETY_BAND=1;        // 최고 점수에서 이 범위 안의 후보들 중 무작위로 뽑아서 매번 다양하게
+function laneActive(pl,key){ return pl.tiers[key]!=null && !(pl.laneOff&&pl.laneOff[key]); }
+function prefScore(pl,key){ if(pl.preferLane===key)return PREFER_BONUS; if(pl.avoidLane===key)return -AVOID_PENALTY; return 0; }
+function searchTeamPool(chosen,penalizedIds){
+  const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
+  // 방장이 🔒로 고정한 라인은 비활성이어도 우선 (명시적 선택), 고정이 없으면 활성 라인만
+  function canFill(pl,slot){
+    if(locks[pl.id]!=null) return locks[pl.id]===slot.pos && pl.tiers[slot.pos]!=null;
+    return laneActive(pl,slot.pos);
+  }
+  const CAP=400;
+  let bestDiff=Infinity,pool=[];const seen=new Set();
+  function leaf(assign){
+    let a=0,b=0,repeatCount=0,pref=0;
+    for(let s=0;s<10;s++){
+      const pl=assign[s],slot=slots[s];
+      const str=laneScore(pl,slot.pos,penalizedIds);
+      if(slot.team===0)a+=str;else b+=str;
+      if(locks[pl.id]!==slot.pos && consecutiveSameLane(pl,slot.pos)>=2) repeatCount++;
+      pref+=prefScore(pl,slot.pos);
+    }
+    const diff=Math.abs(a-b);
+    if(diff>bestDiff+BALANCE_TOLERANCE)return;
+    const key=assign.map(pl=>pl.id).join(',');
+    if(seen.has(key))return;
+    if(diff<bestDiff){ bestDiff=diff; pool=pool.filter(c=>c.diff<=bestDiff+BALANCE_TOLERANCE); }
+    seen.add(key);
+    const map=assign.map((pl,s)=>({slot:slots[s],player:pl}));
+    const sig=map.filter(m=>m.slot.team===0).map(m=>m.player.id).sort().join(',');
+    const cand={diff,total:a+b,repeatCount,pref,sumA:a,sumB:b,map,sig};
+    if(pool.length<CAP)pool.push(cand); else pool[Math.floor(Math.random()*CAP)]=cand;
+  }
+  function runOnce(attemptCap){
+    const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
+    const used=new Array(10).fill(false),assign=new Array(10).fill(null);let attempts=0;
+    (function run(idx){
+      if(attempts++>attemptCap)return;
+      if(idx===slotOrder.length){leaf(assign);return;}
+      const s=slotOrder[idx],slot=slots[s];
+      for(let i=0;i<order.length;i++){const pl=order[i];if(used[i]||!canFill(pl,slot))continue;used[i]=true;assign[s]=pl;run(idx+1);used[i]=false;assign[s]=null;}
+    })(0);
+  }
+  // 무작위로 여러 번 다시 시작해서 서로 다른 조합을 폭넓게 모음 (한 번 깊게 파면 비슷한 조합만 나옴)
+  for(let r=0;r<40;r++)runOnce(6000);
+  if(pool.length===0)runOnce(300000); // 제약이 빡빡해서 못 찾았으면 한 번 길게 시도
+  return {pool,bestDiff};
+}
+// 후보 풀에서 "균형 > 선호도·반복회피" 순으로 점수를 매기고, 최고점 근처 후보 중 무작위로 하나 선택 (그래서 매번 달라짐)
+function pickFromPool(pool,bestDiff,intensity,avoidSigs){
+  if(!pool.length)return null;
+  let cands=pool;
+  if(avoidSigs&&avoidSigs.length){const diffOnes=pool.filter(c=>!avoidSigs.includes(c.sig));if(diffOnes.length)cands=diffOnes;}
+  const sc=c=>c.pref-(c.diff-bestDiff)*DIFF_WEIGHT-c.repeatCount*REPEAT_WEIGHT+(intensity==='high'?c.total*0.02:intensity==='low'?-c.total*0.02:0);
+  let max=-Infinity;cands.forEach(c=>{c._sc=sc(c);if(c._sc>max)max=c._sc;});
+  const band=cands.filter(c=>c._sc>=max-VARIETY_BAND);
+  return band[Math.floor(Math.random()*band.length)];
+}
 function makeTeams(){
   ensureMyName();
   if(remote.currentAuction&&!remote.currentAuction.done){alert("진행 중인 경매가 있어요. 먼저 마무리하거나 초기화하세요.");return;}
@@ -961,48 +1113,13 @@ function makeTeams(){
   if(remote.currentMatch&&!remote.currentMatch.error){alert("이미 진행 중인 팀이 있어요. 승리 팀을 기록하고 다시 시도하세요.");return;}
   const chosen=players.filter(p=>picked.has(p.id));
   if(chosen.length!==10){alert("정확히 10명을 선택하세요. (현재 "+chosen.length+"명)");return;}
+  const noLane=chosen.filter(p=>locks[p.id]==null&&!POSITIONS.some(pp=>laneActive(p,pp.key)));
+  if(noLane.length){alert(noLane.map(p=>p.name).join(", ")+" 님은 활성화된 라인이 하나도 없어요. ⚙️ 라인 설정에서 라인을 켜거나 🔒 라인 고정을 해주세요.");return;}
   const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
-  const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
-  const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
-  const usedPlayer=new Array(10).fill(false);const assign=new Array(10).fill(null);
   // WORST 2개 누적으로 예약된 1회용 -1 페널티 대상자 (이번 판에 뽑힌 10명 중)
   const penalizedIds=new Set(chosen.filter(p=>p.pendingPenalty).map(p=>p.id));
-  let best=null,attempts=0;const MAX=300000;
-  function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
-  // 3연속 동일 라인은 더 이상 "금지"가 아니라 "가능하면 피하는" 약한 선호로 반영 (repeatCount가 작을수록 좋음)
-  function evaluate(){
-    let a=0,b=0,repeatCount=0;
-    for(let s=0;s<10;s++){
-      const pl=assign[s],slot=slots[s];
-      const str=laneScore(pl,slot.pos,penalizedIds);
-      if(slot.team===0)a+=str;else b+=str;
-      if(locks[pl.id]!==slot.pos && consecutiveSameLane(pl,slot.pos)>=2) repeatCount++;
-    }
-    return {a,b,diff:Math.abs(a-b),total:a+b,repeatCount};
-  }
-  function isBetter(cand,cur){
-    if(!cur)return true;
-    if(cand.diff!==cur.diff)return cand.diff<cur.diff;
-    if(cand.repeatCount!==cur.repeatCount)return cand.repeatCount<cur.repeatCount;
-    if(intensity==='high')return cand.total>cur.total;
-    if(intensity==='low')return cand.total<cur.total;
-    return false; // default: keep first found (random)
-  }
-  function bt(canFillFn){
-    return function run(idx){
-      if(intensity==='default'&&best&&best.diff===0&&best.repeatCount===0)return; // default mode: stop once perfectly balanced AND repeat-free
-      if(attempts++>MAX)return;
-      if(idx===slotOrder.length){
-        const ev=evaluate();
-        const cand={diff:ev.diff,total:ev.total,repeatCount:ev.repeatCount,sumA:ev.a,sumB:ev.b,map:assign.map((pl,s)=>({slot:slots[s],player:pl}))};
-        if(isBetter(cand,best))best=cand;
-        return;
-      }
-      const s=slotOrder[idx],slot=slots[s];
-      for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFillFn(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;run(idx+1);usedPlayer[i]=false;assign[s]=null;}
-    };
-  }
-  bt(baseFill)(0);
+  const res=searchTeamPool(chosen,penalizedIds);
+  const best=pickFromPool(res.pool,res.bestDiff,intensity,[]);
   publishDraw(best,penalizedIds);
 }
 document.getElementById("makeBtn").onclick=makeTeams;
@@ -1049,56 +1166,12 @@ function computeRerollDraw(ticketType){
   const currentBlueSig=(cm.assignments||[]).filter(a=>a.team===0).map(a=>a.id).sort().join(',');
   const currentRedSig=allIdsSorted.filter(id=>!currentBlueSig.split(',').includes(id)).join(',');
   const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
-  const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
-  const order=[...chosen];shuffle(order);const slotOrder=[...slots.keys()];shuffle(slotOrder);
-  const usedPlayer=new Array(10).fill(false);const assign=new Array(10).fill(null);
   // 리롤이어도 이번 매치에서 이미 확정된 페널티 대상자 목록은 그대로 유지 (매치 생성 시점에 이미 소모됨)
   const penalizedIds=new Set(cm.penalizedIds||[]);
-  // 3연속 동일 라인은 "금지"가 아니라 "가능하면 피하는" 약한 선호 (repeatCount가 작을수록 좋음)
-  function evaluate(){
-    let a=0,b=0,repeatCount=0;
-    for(let s=0;s<10;s++){
-      const pl=assign[s],slot=slots[s];
-      const str=laneScore(pl,slot.pos,penalizedIds);
-      if(slot.team===0)a+=str;else b+=str;
-      if(locks[pl.id]!==slot.pos && consecutiveSameLane(pl,slot.pos)>=2) repeatCount++;
-    }
-    return {a,b,diff:Math.abs(a-b),total:a+b,repeatCount};
-  }
-  function baseFill(pl,slot){if(pl.tiers[slot.pos]==null)return false;if(locks[pl.id]!=null&&locks[pl.id]!==slot.pos)return false;return true;}
-  // 최적(diff·repeatCount가 가장 작은) 조합을 "하나만" 찾는 게 아니라, 동률인 조합들을 모아뒀다가 그중 랜덤으로 고름
-  // (동률 최적해가 사실상 하나뿐이면 리롤해도 항상 같은 팀이 나오는 문제가 있었음)
-  const POOL_CAP=24, MAX=200000;
-  function search(canFillFn){
-    let bestDiff=Infinity,bestRepeat=Infinity,bestTotal=null;const pool=[];let attempts=0;
-    (function run(idx){
-      if(attempts++>MAX)return;
-      if(pool.length>=POOL_CAP&&bestDiff===0&&bestRepeat===0)return; // 완벽균형+반복없음 후보를 충분히 모았으면 성능 보호 차원에서 그만 찾음
-      if(idx===slotOrder.length){
-        const ev=evaluate();
-        const better = bestDiff===Infinity || ev.diff<bestDiff ||
-          (ev.diff===bestDiff && ev.repeatCount<bestRepeat) ||
-          (ev.diff===bestDiff && ev.repeatCount===bestRepeat && ((intensity==='high'&&ev.total>bestTotal)||(intensity==='low'&&ev.total<bestTotal)));
-        if(better){ bestDiff=ev.diff; bestRepeat=ev.repeatCount; bestTotal=ev.total; pool.length=0; }
-        const tied = ev.diff===bestDiff && ev.repeatCount===bestRepeat && (intensity==='default' || ev.total===bestTotal);
-        if(tied){
-          const map=assign.map((pl,s)=>({slot:slots[s],player:pl}));
-          const sig=map.filter(m=>m.slot.team===0).map(m=>m.player.id).sort().join(',');
-          if(!pool.some(c=>c.sig===sig)&&pool.length<POOL_CAP) pool.push({diff:ev.diff,total:ev.total,repeatCount:ev.repeatCount,sumA:ev.a,sumB:ev.b,map,sig});
-        }
-        return;
-      }
-      const s=slotOrder[idx],slot=slots[s];
-      for(let i=0;i<order.length;i++){const pl=order[i];if(usedPlayer[i]||!canFillFn(pl,slot))continue;usedPlayer[i]=true;assign[s]=pl;run(idx+1);usedPlayer[i]=false;assign[s]=null;}
-    })(0);
-    return pool;
-  }
-  let pool=search(baseFill);
-  if(pool.length===0)return null;
-  // 지금과 같은 매치업(색만 바뀐 것 포함)은 가능하면 피하고, 나머지 중 랜덤으로 하나 선택
-  const different=pool.filter(c=>c.sig!==currentBlueSig&&c.sig!==currentRedSig);
-  const pickFrom=different.length?different:pool;
-  const best=pickFrom[Math.floor(Math.random()*pickFrom.length)];
+  const res=searchTeamPool(chosen,penalizedIds);
+  // 지금과 같은 매치업(색만 바뀐 것 포함)은 가능하면 피하고, 나머지에서 점수 상위권 중 무작위 선택
+  const best=pickFromPool(res.pool,res.bestDiff,intensity,[currentBlueSig,currentRedSig]);
+  if(!best)return null;
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   const basicUsedBy=[...(cm.basicUsedBy||[])];
   const bonusUsedBy=[...(cm.bonusUsedBy||[])];
@@ -1448,10 +1521,10 @@ function renderSharedMatchArea(){
   (cm.assignments||[]).forEach(a=>{const pl=players.find(p=>p.id===a.id);if(pl)byTeam[a.team].push({slot:{pos:a.pos},player:pl});});
   byTeam[0].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);byTeam[1].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);
   const readyList=cm.readyBy||[];
-  function teamHtml(list,cls,title,sum){let rows="";list.forEach(m=>{const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 🔒":"";const king=isKing(m.player,m.slot.pos);
+  function teamHtml(list,cls,title,sum){let rows="";list.forEach(m=>{const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 🔒":"";const pf=m.player.preferLane===m.slot.pos?" 💚":(m.player.avoidLane===m.slot.pos?" 😣":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=king?'<span class="slot-tier" style="background:linear-gradient(160deg,#f5e6b0,#d4a94a);color:#2a1e05">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const readyTag=cm.locked?'':(readyList.includes(m.player.name)?' <span style="color:var(--win);font-size:0.7rem;font-weight:700">✅준비</span>':' <span style="color:var(--ink-dim);font-size:0.7rem">⏳준비중</span>');
-    rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}${readyTag}</span>${tierCell}</div>`;});
+    rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}${pf}${readyTag}</span>${tierCell}</div>`;});
     return `<div class="team ${cls}"><div class="team-head"><span class="team-title">${title}</span><span class="team-sum">전력 ${sum}</span></div>${rows}</div>`;}
   const basicList=cm.basicUsedBy||[];
   const myPlayer=myName?players.find(p=>p.name===myName):null;
@@ -1701,16 +1774,29 @@ function finalizeVoteResult(bestId,worstId,winners,losers){
   if(state.matchLog&&state.matchLog.length){const last=state.matchLog[state.matchLog.length-1];last.best=bestId;last.worst=worstId;}
   // 승급/강등 조건을 채운 사람이 있으면 당사자를 제외한 나머지(보통 9명) 투표로 순서대로 결정
   const participantIds=[...(winners||[]),...(losers||[])];
-  const queue=buildPromotionQueue(participantIds);
+  let queue=buildPromotionQueue(participantIds);
+  // "한 번 투표로 부결됐는데 또 조건을 채운" 사람은 투표 없이 바로 자동 승급/강등 (pl.autoPromo['라인_방향'] 표시로 판단)
+  const autoLog=[];
+  queue=queue.filter(c=>{
+    const pl=players.find(x=>x.id===c.playerId);if(!pl)return true;
+    const flagKey=c.laneKey+'_'+c.dir;
+    if(!(pl.autoPromo&&pl.autoPromo[flagKey]))return true; // 투표 대상으로 남김
+    const laneLabel=POSITIONS.find(pp=>pp.key===c.laneKey).label;
+    pl.tiers[c.laneKey]=clampTier(pl.tiers[c.laneKey]+(c.dir==='up'?-1:1));
+    pl.autoPromo={...pl.autoPromo};delete pl.autoPromo[flagKey];
+    for(let i=pl.hist.length-1;i>=0;i--){ if(pl.hist[i].pos===c.laneKey){ pl.hist[i].streakReset=true; break; } }
+    autoLog.push((c.dir==='up'?'⬆️ ':'⬇️ ')+pl.name+' — '+laneLabel+' 조건 재달성(이전 투표 부결)으로 자동 '+(c.dir==='up'?'승급! → ':'강등 → ')+pl.tiers[c.laneKey]+'티어');
+    return false;
+  });
   // 선수 데이터 저장과 투표 단계 전환을 한 번에 같이 보냄 (따로 보내면 그 사이 잠깐 "선수는 바뀌었는데 투표는 아직 안 끝난 것처럼" 보이는
   // 상태가 생겨서, onSnapshot이 그 순간을 다시 읽고 이 함수가 한 번 더 불려 WORST 페널티 카운트 등이 중복 적용될 수 있었음)
   if(queue.length){
     const first=queue.shift();
     pushRemote({ players: state.players, matchLog: state.matchLog||[], vote:{ active:true, stage:'promo', winners:winners||[], losers:losers||[], ballots:{}, round:1,
-      resolvedBest:bestId, resolvedWorst:worstId, participantIds, promoQueue:queue, promoCurrent:first, promoLog:[] } });
+      resolvedBest:bestId, resolvedWorst:worstId, participantIds, promoQueue:queue, promoCurrent:first, promoLog:autoLog } });
   }else{
     // show a result banner (who got BEST/WORST) until someone dismisses it — keep winners/losers so a redo can restart voting
-    pushRemote({ players: state.players, matchLog: state.matchLog||[], vote:{ active:false, stage:'done', winners:winners||[], losers:losers||[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId, promoLog:[] } });
+    pushRemote({ players: state.players, matchLog: state.matchLog||[], vote:{ active:false, stage:'done', winners:winners||[], losers:losers||[], ballots:{}, round:1, resolvedBest:bestId, resolvedWorst:worstId, promoLog:autoLog } });
   }
 }
 // 승급/강등 투표 1건 처리: 당사자를 제외한 참가자 전원(보통 9명)이 찬성/반대 투표, 과반수로 결정 (홀수라 동률 없음)
@@ -1749,8 +1835,10 @@ function maybeResolvePromoVote(v){
       if(approved){
         if(cur.dir==='up'){ pl.tiers[cur.laneKey]=clampTier(pl.tiers[cur.laneKey]-1); logLine='⬆️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 승급! → '+pl.tiers[cur.laneKey]+'티어'; }
         else{ pl.tiers[cur.laneKey]=clampTier(pl.tiers[cur.laneKey]+1); logLine='⬇️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 강등 → '+pl.tiers[cur.laneKey]+'티어'; }
+        if(pl.autoPromo){pl.autoPromo={...pl.autoPromo};delete pl.autoPromo[cur.laneKey+'_'+cur.dir];}
       }else{
-        logLine='➡️ '+pl.name+' — '+laneLabel+' '+(cur.dir==='up'?'승급':'강등')+' 부결('+yes+':'+no+') · 티어 유지';
+        logLine='➡️ '+pl.name+' — '+laneLabel+' '+(cur.dir==='up'?'승급':'강등')+' 부결('+yes+':'+no+') · 티어 유지 (다음에 조건을 또 채우면 투표 없이 자동 '+(cur.dir==='up'?'승급':'강등')+')';
+        pl.autoPromo={...(pl.autoPromo||{}),[cur.laneKey+'_'+cur.dir]:true};
       }
       // clearLaneStreak과 동일: 결과와 상관없이 이번 스트릭은 소모 (다음에 또 같은 조건으로 묻지 않도록)
       const hist=[...(pl.hist||[])];
@@ -2005,7 +2093,7 @@ document.getElementById("copyCodeBtn").onclick=()=>{
 document.getElementById("formCloseBtn").onclick=()=>document.getElementById("formModal").classList.remove("on");
 
 document.getElementById("nameInput").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("addBtn").click();});
-["voteModal","profModal","statsModal","formModal","hofModal","historyModal"].forEach(idm=>{const m=document.getElementById(idm);m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("on");});});
+["voteModal","profModal","statsModal","formModal","hofModal","historyModal","laneModal"].forEach(idm=>{const m=document.getElementById(idm);m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("on");});});
 
 /* search + sort */
 document.getElementById("searchBox").addEventListener("input",()=>renderRoster());
