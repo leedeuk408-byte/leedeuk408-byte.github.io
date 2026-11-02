@@ -767,7 +767,8 @@ function renderLaneSettings(){
   const rows=POSITIONS.filter(p=>pl.tiers[p.key]!=null).map(p=>{
     const on=!laneDraft.off[p.key];
     return `<div class="lane-row" data-lane="${p.key}">
-      <label class="lname"><input type="checkbox" class="lane-on" ${on?'checked':''}> ${p.label} <span style="color:var(--ink-dim);font-size:0.75rem">${pl.tiers[p.key]}티어</span></label>
+      <span class="lname">${p.label} <span style="color:var(--ink-dim);font-size:0.75rem">${pl.tiers[p.key]}티어${on?'':' · 비활성'}</span></span>
+      <button class="ghost lane-toggle" style="${on?'':'background:rgba(224,98,98,0.2);border-color:var(--loss);color:#f0a0a0'}">${on?'⛔ 비활성화':'✅ 다시 활성화'}</button>
       <button class="ghost lane-pref ${laneDraft.prefer===p.key?'sel-pref':''}" ${on?'':'disabled style="opacity:0.35"'}>💚 가장 하고 싶음</button>
       <button class="ghost lane-avoid ${laneDraft.avoid===p.key?'sel-avoid':''}" ${on?'':'disabled style="opacity:0.35"'}>😣 가장 하기 싫음</button>
     </div>`;
@@ -775,10 +776,11 @@ function renderLaneSettings(){
   body.innerHTML=rows+'<div class="hint" style="margin-top:10px">선호도를 비워 두면 균형·다양성만 보고 짜요.</div>';
   body.querySelectorAll(".lane-row").forEach(row=>{
     const key=row.dataset.lane;
-    row.querySelector(".lane-on").onchange=(e)=>{
-      if(!e.target.checked){
+    row.querySelector(".lane-toggle").onclick=()=>{
+      const turningOff=!laneDraft.off[key];
+      if(turningOff){
         const activeCount=POSITIONS.filter(p=>pl.tiers[p.key]!=null&&!laneDraft.off[p.key]).length;
-        if(activeCount<=1){alert("라인을 최소 1개는 켜 둬야 해요.");e.target.checked=true;return;}
+        if(activeCount<=1){alert("라인을 최소 1개는 켜 둬야 해요.");return;}
         laneDraft.off[key]=true;
         if(laneDraft.prefer===key)laneDraft.prefer=null;
         if(laneDraft.avoid===key)laneDraft.avoid=null;
