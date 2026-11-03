@@ -1404,7 +1404,7 @@ document.getElementById("makeBtn").onclick=makeTeams;
 // 팀이 뜨면 자동으로 시작되는 2분 하드캡 타이머 (전원 준비완료가 빠른 길, 이건 안전장치)
 const MATCH_TIMER_MS=120000;
 const REROLL_EXTEND_THRESHOLD_MS=30000; // 남은 시간이 이 값 이하일 때 리롤하면
-const REROLL_EXTEND_MS=5000;            // 리롤 1번당 이만큼 연장
+const REROLL_EXTEND_MS=10000;           // 리롤 1번당 이만큼 연장
 // 기본 리롤권 장수는 "처음 팀이 뜬 순간"의 배정 라인 티어로 딱 한 번 정해서 이름→장수로 저장하고,
 // 리롤로 라인이 바뀌어도 그대로 유지 (예전엔 매번 현재 라인 티어로 다시 계산해서, 리롤하면 장수가 1↔2로 널뛰었음)
 function computeBasicAllowances(assignments){
@@ -1869,7 +1869,7 @@ function renderSharedMatchArea(){
   const iAmReady=readyList.includes(myName);
   let readyHtml;
   const lockedBanner = cm.locked ? `<div class="locked-banner">고정 팀 확정! <span class="locked-sub">전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요</span></div>` : '';
-  if(!cm.locked){ readyHtml = `<div class="rd-panel"><div class="rd-top"><span>준비 현황 <b>${readyList.length}</b>/10명</span><span class="rd-timer"><span id="matchSeconds">--:--</span> 뒤 자동 확정</span></div><div class="rd-track"><i style="width:${Math.min(100,readyList.length*10)}%"></i></div><div class="rd-sub">전원 준비되면 팀이 바로 확정돼요 · 30초 이하에서 리롤하면 +5초</div></div>`; }
+  if(!cm.locked){ readyHtml = `<div class="rd-panel"><div class="rd-top"><span>준비 현황 <b>${readyList.length}</b>/10명</span><span class="rd-timer"><span id="matchSeconds">--:--</span> 뒤 자동 확정</span></div><div class="rd-track"><i style="width:${Math.min(100,readyList.length*10)}%"></i></div><div class="rd-sub">전원 준비되면 팀이 바로 확정돼요 · 30초 이하에서 리롤하면 +10초</div></div>`; }
   const noReroll=basicUsedByMe;
   box.innerHTML=`<div class="card"><h2>이번 판 팀</h2>
     ${lockedBanner}
@@ -1945,6 +1945,8 @@ function toggleReady(expectedMatchId){
   }).catch(err=>console.error("준비 상태 트랜잭션 실패:",err));
 }
 // 2분 하드캡이 지나면 전원 준비 여부와 상관없이 그냥 확정 (준비완료는 빠른 길, 이건 안전장치)
+const AUTOLOCK_GRACE_MS=1000;
+function clockCalibrated(){return bestPingRtt!==Infinity;}
 function safeAutoLockMatch(expectedMatchId){
   runTransaction(db, async(tx)=>{
     const snap=await tx.get(sessionRef);
@@ -1952,7 +1954,9 @@ function safeAutoLockMatch(expectedMatchId){
     const cur=data.currentMatch;
     if(!cur||cur.locked)return;
     if(cur.matchId!==expectedMatchId)return; // stale view, a new draw/reroll happened since
-    if(!cur.deadlineAt||correctedNow()<cur.deadlineAt)return; // not actually expired yet
+    if(!cur.deadlineAt||correctedNow()<cur.deadlineAt+AUTOLOCK_GRACE_MS)return; // not actually expired yet (작은 시계 오차로 일찍 확정되는 것 방지)
+    // 시계 보정이 아직 안 된 기기는 자기 시계를 믿을 수 없으니, 보정된 다른 기기에 맡기고 한참(15초) 지나도 안 잠기면 그때만 대신 잠금
+    if(!clockCalibrated()&&correctedNow()<cur.deadlineAt+15000)return;
     tx.update(sessionRef, { "currentMatch.locked": true });
   }).catch(err=>console.error("자동 확정 트랜잭션 실패:",err));
 }
@@ -1971,7 +1975,7 @@ if(!sharedTickInterval){
       const remainM=Math.max(0,Math.ceil((cm.deadlineAt-correctedNow())/1000));
       const elM=document.getElementById("matchSeconds");
       if(elM){ const mm=Math.floor(remainM/60),ss=remainM%60; elM.textContent=mm+":"+String(ss).padStart(2,'0'); }
-      if(correctedNow()>=cm.deadlineAt){ safeAutoLockMatch(cm.matchId); }
+      if(correctedNow()>=cm.deadlineAt+AUTOLOCK_GRACE_MS){ safeAutoLockMatch(cm.matchId); }
     }
   },1000);
 }
