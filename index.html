@@ -1433,8 +1433,8 @@ function publishDraw(best,penalizedIds){
   }});
 }
 // reroll: keep the same 10 players (from currentMatch assignments), redraw. Returns the new currentMatch object (or null), does not publish.
-function computeRerollDraw(ticketType){
-  const cm=remote.currentMatch;
+function computeRerollDraw(ticketType,cmArg){
+  const cm=cmArg||remote.currentMatch;
   const ids=(cm.assignments||[]).map(a=>a.id);
   const chosen=players.filter(p=>ids.includes(p.id));
   if(chosen.length!==10)return null;
@@ -1468,19 +1468,40 @@ function computeRerollDraw(ticketType){
     })()
   };
 }
-// basic reroll: no shared numeric counter to protect, plain publish is fine
-function makeTeamsForReroll(ticketType){
-  const draw=computeRerollDraw(ticketType);
-  if(!draw)return;
-  pushRemote({ currentMatch: draw });
+// 리롤 공통 검증: "내가 보고 있던 그 팀"이 서버에서도 아직 살아 있고(확정 안 됨, 같은 matchId), 시간이 남아 있을 때만 허용.
+// (예전엔 0초에 누르면 이미 만료된 마감시간 그대로 새 팀이 만들어져 바로 자동 확정되거나, 막 확정된 팀을 리롤이 덮어써서 꼬였음)
+const REROLL_MIN_REMAIN_MS=1500;
+function rerollGuard(cur,viewId){
+  if(!cur||cur.error)throw new Error("진행 중인 팀이 없어요.");
+  if(cur.matchId!==viewId)throw new Error("그 사이에 팀이 바뀌었어요. 화면을 확인하고 다시 눌러주세요.");
+  if(cur.locked)throw new Error("이미 팀이 확정됐어요. 리롤할 수 없어요.");
+  if(cur.deadlineAt&&cur.deadlineAt-correctedNow()<REROLL_MIN_REMAIN_MS)throw new Error("시간이 거의 끝나서 리롤할 수 없어요. 곧 팀이 확정돼요.");
 }
-// bonus reroll: spend exactly ONE ticket and publish the draw atomically, re-validated against the server's current data
+// basic reroll: 서버의 현재 팀을 다시 읽어 검증한 뒤 한 번에 교체
+function makeTeamsForReroll(ticketType){
+  const viewId=remote.currentMatch&&remote.currentMatch.matchId;
+  if(!viewId)return;
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const cur=(snap.data()||{}).currentMatch;
+    rerollGuard(cur,viewId);
+    const used=(cur.basicUsedBy||[]).filter(n=>n===myName).length;
+    const allow=(cur.basicAllowance&&cur.basicAllowance[myName]!=null)?cur.basicAllowance[myName]:null;
+    if(allow!=null&&used>=allow)throw new Error("이번 판의 기본 리롤권을 모두 사용했어요.");
+    const draw=computeRerollDraw(ticketType,cur);
+    if(!draw)throw new Error("팀을 다시 짤 수 없어요.");
+    tx.update(sessionRef,{currentMatch:draw});
+  }).catch(err=>alert(err&&err.message?err.message:"리롤에 실패했어요."));
+}
+// bonus reroll: 리롤권 1장 차감 + 새 팀 게시를 한 번에, 서버의 현재 데이터로 다시 검증
 function useBonusRerollAtomically(){
-  const draw=computeRerollDraw('bonus');
-  if(!draw){alert("팀을 다시 짤 수 없어요.");return;}
+  const viewId=remote.currentMatch&&remote.currentMatch.matchId;
+  if(!viewId)return;
   runTransaction(db, async(tx)=>{
     const snap=await tx.get(sessionRef);
     const data=snap.data()||{};
+    const cur=data.currentMatch;
+    rerollGuard(cur,viewId);
     const freshPlayers=[...(data.players||[])];
     const idx=freshPlayers.findIndex(p=>p.name===myName);
     if(idx<0)throw new Error("선수 정보를 찾을 수 없어요. 명단에 등록됐는지 확인해주세요.");
@@ -1489,6 +1510,8 @@ function useBonusRerollAtomically(){
     const earned=Math.floor(totalBest/BEST_PER_TICKET)+(pl.bonusGranted||0);
     const remain=earned-(pl.spentBonusTickets||0);
     if(remain<=0)throw new Error("사용 가능한 임시 리롤권이 없어요.");
+    const draw=computeRerollDraw('bonus',cur);
+    if(!draw)throw new Error("팀을 다시 짤 수 없어요.");
     freshPlayers[idx]={...pl, spentBonusTickets:(pl.spentBonusTickets||0)+1};
     tx.update(sessionRef, { players: freshPlayers, currentMatch: draw });
   }).catch(err=>{ alert(err&&err.message?err.message:"리롤권 사용에 실패했어요."); });
@@ -1894,6 +1917,7 @@ function renderSharedMatchArea(){
     if(bonusRemainByMe<=0){alert(myName+"님은 사용 가능한 임시 리롤권이 없어요.");return;}
     if(!confirm("임시 리롤권을 1장 사용할까요? (쓰면 보유 장수가 1장 줄어요)"))return;
     bonusBtn.disabled=true; // prevent double-click while the transaction is in flight
+    setTimeout(()=>{if(document.body.contains(bonusBtn))bonusBtn.disabled=false;},2500);
     useBonusRerollAtomically();
   };
   const pleadBtn=document.getElementById("pleadBtn");
