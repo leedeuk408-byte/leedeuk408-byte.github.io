@@ -3624,6 +3624,14 @@ document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.c
   if(id&&id!==lastMid){const v=document.getElementById('viewMatch');if(v){v.classList.add('enter');clearTimeout(tm);tm=setTimeout(()=>v.classList.remove('enter'),1400);}}
   lastMid=id||null;};}
 
+// 소환사의 협곡(5v5)만 집계: 칼바람(무작위 총력전)·기타 모드는 제외. 워커가 mapId/gameMode를 주면 그걸 쓰고, 아니면 라인 정보 유무로 판별
+function isSummonersRift(m){
+  if(m.mapId!=null)return m.mapId===11;
+  if(m.gameMode)return m.gameMode==='CLASSIC';
+  const withPos=(m.participants||[]).filter(p=>p.pos&&['TOP','JUNGLE','MIDDLE','BOTTOM','UTILITY'].includes(p.pos)).length;
+  return withPos>=8;
+}
+
 async function riotImportResult(btn){
   const cm=remote.currentMatch;
   if(!cm||!cm.locked||!cm.assignments){alert("팀이 확정된 경기에서만 쓸 수 있어요.");return;}
@@ -3639,7 +3647,7 @@ async function riotImportResult(btn){
     const done=new Set(remote.riotImported||[]);
     const regPuuids=new Set(reg.map(x=>x.pl.puuid));
     const since=(cm.createdAt||0)-10*60*1000;
-    let best=null;
+    let best=null;const skipSet=new Set();
     for(const kind of ["tourney","custom"]){
       const ids=new Set();
       for(const pu of probes){
@@ -3650,6 +3658,7 @@ async function riotImportResult(btn){
       for(const id of fresh.slice(0,8)){
         let m;try{m=await riotApi("/match?id="+id);}catch(e){continue;}
         if(m.gameCreation<since)continue;
+        if(!isSummonersRift(m)){skipSet.add(id);continue;}
         const score=m.participants.filter(p=>regPuuids.has(p.puuid)).length;
         if(score<Math.max(4,Math.ceil(reg.length*0.8)))continue;
         if(!best||m.gameCreation>best.gameCreation)best=m;
@@ -3657,7 +3666,7 @@ async function riotImportResult(btn){
       }
       if(best)break;
     }
-    if(!best){alert("이번 경기에 해당하는 롤 경기를 아직 못 찾았어요.\n게임이 끝나고 1~2분 뒤에 다시 눌러보세요.\n(라이엇 ID가 맞게 등록됐는지도 확인해보세요)");return;}
+    if(!best){alert((skipSet.size?"칼바람 같은 소환사의 협곡이 아닌 경기 "+skipSet.size+"건은 제외했어요. (소환사의 협곡만 기록해요)\n\n":"")+"이번 경기에 해당하는 롤 경기를 아직 못 찾았어요.\n게임이 끝나고 1~2분 뒤에 다시 눌러보세요.\n(라이엇 ID가 맞게 등록됐는지도 확인해보세요)");return;}
     // 승리 팀 판정: 앱 팀 단위로 일관되는지 확인
     const win=[{w:0,l:0},{w:0,l:0}];const champs={};const stats={};let matched=0;
     assigns.forEach(a=>{
