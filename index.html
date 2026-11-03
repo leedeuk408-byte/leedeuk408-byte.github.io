@@ -2848,6 +2848,18 @@ function renderDevPanel(){
         <div class="dev-help" style="margin:12px 0 0">임시 리롤권을 가진 선수 (보유 장수 순)</div>
         <div id="devTicketTable"></div>
       </div>
+      <div class="card dev-card"><h2>스킨 포인트 지급</h2>
+        <div class="dev-help">상점에서 쓰는 포인트를 선수에게 직접 주거나 회수해요. 기본으로 모두에게 100P가 들어가 있고, 경기 활동으로 쌓이는 포인트와는 따로 합산돼요.</div>
+        <div class="dev-form">
+          <select id="devPtSel"></select>
+          <input id="devPtQty" type="number" min="1" max="100000" value="100" step="50" inputmode="numeric" style="width:110px">
+          <button class="primary" id="devPtGrant">지급하기</button>
+          <button class="ghost" id="devPtRevoke">회수하기</button>
+          <button class="ghost" id="devPtAll">전체 지급</button>
+        </div>
+        <div id="devPtNow" class="dev-now"></div>
+        <div id="devPtResult" class="dev-result" aria-live="polite"></div>
+      </div>
       <div class="card dev-card"><h2>활동 기록</h2>
         <div class="dev-help">누가 언제 무엇을 했는지 최근 300건까지 남아요. 이 탭은 개발자 이름과 비밀번호로만 열려요.</div>
         <div class="dev-chips" id="devAuditChips"></div>
@@ -2867,7 +2879,13 @@ function renderDevPanel(){
     qtyEl.onchange=()=>{qtyEl.value=getQty();};
     document.getElementById("devGrantBtn").onclick=()=>devAdjustBonus(getQty());
     document.getElementById("devRevokeBtn").onclick=()=>devAdjustBonus(-getQty());
+    const ptQty=()=>Math.min(100000,Math.max(1,parseInt(document.getElementById("devPtQty").value,10)||0));
+    document.getElementById("devPtSel").onchange=devPtNow;
+    document.getElementById("devPtGrant").onclick=()=>devAdjustPoints(ptQty(),false);
+    document.getElementById("devPtRevoke").onclick=()=>devAdjustPoints(-ptQty(),false);
+    document.getElementById("devPtAll").onclick=()=>devAdjustPoints(ptQty(),true);
   }
+  { const ps=document.getElementById("devPtSel"),pv=ps.value;ps.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");if(pv&&players.some(p=>p.id===pv))ps.value=pv;devPtNow(); }
   renderDevRestore();
   updateDevLogs();
   sel.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
@@ -3013,6 +3031,26 @@ function updateDevCount(){
   const tbHtml=rows.length?('<div class="dev-scroll"><table class="dev-table"><thead><tr><th>선수</th><th>보유</th><th>BEST로 얻음</th><th>개발자 지급</th><th>사용함</th></tr></thead><tbody>'+
     rows.map(r=>`<tr><td>${escapeHtml(r.p.name)}</td><td><b>${r.have}</b></td><td>${r.auto}</td><td>${r.given>0?'+'+r.given:r.given}</td><td>${r.used}</td></tr>`).join("")+'</tbody></table></div>'):'<div class="dev-help">아직 임시 리롤권을 가진 선수가 없어요.</div>';
   if(tb._h!==tbHtml){tb._h=tbHtml;tb.innerHTML=tbHtml;}
+}
+function devPtNow(){const ps=document.getElementById("devPtSel"),el=document.getElementById("devPtNow");if(!ps||!el)return;const pl=players.find(p=>p.id===ps.value);el.innerHTML=pl?(escapeHtml(pl.name)+"님 현재 <b>"+skinBalance(pl)+"P</b> (직접 받은 포인트 "+(pl.bonusPts||0)+"P)"):"";}
+function devAdjustPoints(delta,all){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  const ps=document.getElementById("devPtSel"),out=document.getElementById("devPtResult");
+  const id=ps?ps.value:"";const n=Math.abs(delta);
+  const nameOfSel=all?"전체 선수":((players.find(p=>p.id===id)||{}).name||"선수");
+  if(!all&&!id){if(out)out.textContent="선수를 먼저 골라주세요.";return;}
+  if(!n){if(out)out.textContent="포인트를 입력해주세요.";return;}
+  if(!confirm(nameOfSel+"에게 "+n+"P를 "+(delta>0?"지급":"회수")+"할까요?"))return;
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);const data=snap.data()||{};
+    const fp=(data.players||[]).map(p=>(all||p.id===id)?{...p,bonusPts:(p.bonusPts||0)+delta}:p);
+    if(!all&&!fp.some(p=>p.id===id))throw new Error("선수를 찾을 수 없어요.");
+    tx.update(sessionRef,{players:fp});
+  }).then(()=>{
+    auditPush([{t:'dev',msg:'스킨 포인트 '+n+'P '+(delta>0?'지급':'회수')+' → '+nameOfSel}]);
+    if(out){out.textContent=nameOfSel+"에게 "+n+"P "+(delta>0?"지급":"회수")+" 완료";out.style.color="var(--win-ink)";}
+    setTimeout(devPtNow,400);
+  }).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
 }
 function devAdjustBonus(delta){
   const sel=document.getElementById("devPlayerSel");if(!sel||myName!==DEV_NAME||!devUnlocked())return;
@@ -3515,9 +3553,10 @@ const SKINS=[
 const SKIN_CATS={n:'이름 꾸밈',t:'칭호',b:'프로필 배경'};
 const SKIN_ALIAS={t_dawn:'t_ace',t_reroll:'t_lane',t_trust:'t_legend'};
 function skinById(id){id=SKIN_ALIAS[id]||id;return SKINS.find(x=>x.id===id);}
+const SKIN_BASE=100;
 function skinEarned(pl){let e=0;(pl.hist||[]).forEach(h=>{e+=10;e+=(h.result==='W')?10:5;if(h.award==='BEST')e+=5;});return e;}
 function skinSpent(pl){return (pl.skins||[]).reduce((a,id)=>a+((skinById(id)||{}).price||0),0);}
-function skinBalance(pl){return skinEarned(pl)-skinSpent(pl);}
+function skinBalance(pl){return SKIN_BASE+(pl.bonusPts||0)+skinEarned(pl)-skinSpent(pl);}
 function skinEq(pl,cat){const id=pl&&pl.eq&&pl.eq[cat];return id&&(pl.skins||[]).includes(id)?skinById(id):null;}
 function skinNameCls(pl){const k=skinEq(pl,'n');return k?' '+k.cls:'';}
 function skinTitleHtml(pl){const k=skinEq(pl,'t');return k?`<span class="sk-title ${k.cls||''}">${escapeHtml(k.text)}</span>`:'';}
@@ -3536,7 +3575,7 @@ function renderShop(){
       const pv=k.cat==='n'?`<span class="pv"><span class="${k.cls}">${escapeHtml(me.name)}</span></span>`:k.cat==='t'?`<span class="pv"><span class="sk-title ${k.cls||''}" style="margin:0">${escapeHtml(k.text)}</span></span>`:`<span class="shop-sw ${k.cls}"></span>`;
       const btn=own?`<button data-eq="${c}:${k.id}"${on?' disabled':''}>${on?'착용 중':'착용'}</button>`:`<button class="buy" data-buy="${k.id}"${bal<k.price?' disabled':''}>${k.price}P</button>`;
       return `<div class="shop-item${on?' eq':''}"><b>${escapeHtml(k.name)}</b>${pv}${btn}</div>`;}).join('')+`</div>`).join('');
-  el.innerHTML=`<div class="shop-head"><div><h3>상점</h3><div style="font-size:.78rem;color:var(--ink-dim)">참가 +10 · 승리 +10 · 패배 +5 · BEST +5</div></div><div class="shop-coin">${bal}<small>내 포인트</small></div></div>
+  el.innerHTML=`<div class="shop-head"><div><h3>상점</h3><div style="font-size:.78rem;color:var(--ink-dim)">기본 100P · 참가 +10 · 승리 +10 · 패배 +5 · BEST +5</div></div><div class="shop-coin">${bal}<small>내 포인트</small></div></div>
     <div class="shop-preview"><span class="nm${skinNameCls(me)}">${escapeHtml(me.name)}</span>${skinTitleHtml(me)}</div>${sec}
     <button class="primary" style="width:100%;margin-top:18px" onclick="document.getElementById('shopModal').classList.remove('on')">닫기</button>`;
   el.className='modal'+skinBgCls(me);
