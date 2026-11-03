@@ -709,6 +709,32 @@ h2,h3,h4{letter-spacing:-.01em}
   .shop-item button.buy{background:var(--gold);color:var(--on-accent);border-color:var(--gold)}
   .shop-item button:disabled{opacity:.4;cursor:default}
   .shop-sw{display:block;width:100%;height:34px;border-radius:8px;border:1px solid var(--line)}
+
+  /* ===== MOTION 2 ===== */
+  @keyframes mvInL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+  @keyframes mvInR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+  @keyframes mvScore{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+  @keyframes mvRipple{to{transform:scale(2.6);opacity:0}}
+  @keyframes mvSheen{0%{background-position:-120% 0}100%{background-position:220% 0}}
+  @keyframes mvFlow{to{background-position:-200% 0}}
+  @keyframes mvDrift{0%,100%{background-position:0% 0%}50%{background-position:100% 100%}}
+  #viewMatch.enter .vs-score{animation:mvScore .6s cubic-bezier(.2,.8,.2,1) both}
+  #viewMatch.enter .vs-cell.blue{animation:mvInL .55s cubic-bezier(.2,.8,.2,1) both}
+  #viewMatch.enter .vs-cell.red{animation:mvInR .55s cubic-bezier(.2,.8,.2,1) both}
+  #viewMatch.enter .vs-row:nth-child(1) .vs-cell{animation-delay:.1s}#viewMatch.enter .vs-row:nth-child(2) .vs-cell{animation-delay:.18s}
+  #viewMatch.enter .vs-row:nth-child(3) .vs-cell{animation-delay:.26s}#viewMatch.enter .vs-row:nth-child(4) .vs-cell{animation-delay:.34s}#viewMatch.enter .vs-row:nth-child(5) .vs-cell{animation-delay:.42s}
+  .rip{position:relative;overflow:hidden}
+  .rip-dot{position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:currentColor;opacity:.25;pointer-events:none;animation:mvRipple .6s ease-out forwards}
+  .nav-btn{position:relative}
+  .nav-btn::after{content:"";position:absolute;left:50%;bottom:4px;width:0;height:2px;border-radius:2px;background:currentColor;transition:width .22s ease,left .22s ease;opacity:.5}
+  .nav-btn:not(.on):hover::after{width:40%;left:30%}
+  .tier-btn:hover,.r-tag:hover{transform:translateY(-2px) scale(1.04)}
+  .sk-n-flow{background-image:linear-gradient(90deg,#2446F0,#8B5CF6,#14A38B,#2446F0);background-size:300% 100%;animation:mvFlow 5s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
+  .sk-n-fire{background-image:linear-gradient(90deg,#D92D20,#F59E0B,#E0359B,#D92D20);background-size:300% 100%;animation:mvFlow 4s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
+  .sk-t-gold{background-image:linear-gradient(100deg,#C28F0A 30%,#FFE08A 50%,#C28F0A 70%);background-size:250% 100%;animation:mvSheen 3.5s ease-in-out infinite;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+  .sk-t-grad{background-size:200% 100%;animation:mvFlow 5s linear infinite}
+  .sk-b-aurora{background-size:140% 140%,140% 140%,100% 100%;animation:mvDrift 14s ease-in-out infinite}
+  body,.card,.side,.modal,.vs-cell,.roster-item,.ct-hero,.shop-item{transition:background-color .35s,color .35s,border-color .35s}
 </style>
 
 
@@ -3446,6 +3472,8 @@ const SKINS=[
   {id:'n_em',cat:'n',name:'에메랄드',price:450,cls:'sk-n-em'},
   {id:'n_silver',cat:'n',name:'실버',price:500,cls:'sk-n-silver'},
   {id:'n_gold',cat:'n',name:'골드',price:600,cls:'sk-n-gold'},
+  {id:'n_flow',cat:'n',name:'블루 플로우 (움직임)',price:700,cls:'sk-n-flow'},
+  {id:'n_fire',cat:'n',name:'파이어 플로우 (움직임)',price:700,cls:'sk-n-fire'},
   {id:'n_aur',cat:'n',name:'오로라 (움직임)',price:800,cls:'sk-n-aur'},
   {id:'t_ace',cat:'t',name:'에이스',price:100,text:'ACE',cls:'sk-t-line'},
   {id:'t_lane',cat:'t',name:'라인의 지배자',price:150,text:'라인의 지배자',cls:'sk-t-ink'},
@@ -3503,6 +3531,16 @@ function renderShop(){
 const _rr=renderRoster;renderRoster=function(){_rr.apply(this,arguments);const m=document.getElementById('shopModal');if(m&&m.classList.contains('on'))renderShop();};
 document.getElementById('navShop').addEventListener('click',()=>{renderShop();document.getElementById('shopModal').classList.add('on');});
 document.getElementById('shopModal').addEventListener('click',e=>{if(e.target.id==='shopModal')e.target.classList.remove('on');});
+
+/* ===== 모션 도우미: 숫자 카운트업, 클릭 물결, 새 팀 등장 ===== */
+function countUp(el){const to=parseFloat(el.textContent);if(isNaN(to)||window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;const suf=el.textContent.replace(/[0-9.\-]/g,'');const t0=performance.now(),dur=900;
+  (function f(t){const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=(Number.isInteger(to)?Math.round(to*e):(to*e).toFixed(1))+suf;if(k<1)requestAnimationFrame(f);})(t0);}
+const _rct=renderChampTier;renderChampTier=function(){_rct.apply(this,arguments);document.querySelectorAll('.ct-stats b').forEach(countUp);};
+const _op=openProfile;openProfile=function(){_op.apply(this,arguments);document.querySelectorAll('#profBody .prof-cell .num').forEach(el=>{if(/^\d+%?$/.test(el.textContent))countUp(el);});};
+document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('button.primary,button.ghost,.nav-btn,.ct-lane,.shop-item button');if(!b)return;b.classList.add('rip');const r=b.getBoundingClientRect(),d=document.createElement('i');d.className='rip-dot';d.style.left=(e.clientX-r.left)+'px';d.style.top=(e.clientY-r.top)+'px';b.appendChild(d);setTimeout(()=>d.remove(),650);},{passive:true});
+{let lastMid=null,tm=null;const _rs=renderSharedMatchArea;renderSharedMatchArea=function(){_rs.apply(this,arguments);const cm=remote.currentMatch,id=cm&&cm.matchId;
+  if(id&&id!==lastMid){const v=document.getElementById('viewMatch');if(v){v.classList.add('enter');clearTimeout(tm);tm=setTimeout(()=>v.classList.remove('enter'),1400);}}
+  lastMid=id||null;};}
 
 async function riotImportResult(btn){
   const cm=remote.currentMatch;
