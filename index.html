@@ -659,7 +659,38 @@ h2,h3,h4{letter-spacing:-.01em}
   .vs-bar-track i{transition:flex-grow .6s ease,width .6s ease}
   html{scroll-behavior:smooth}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+  /* ===== SKINS (은은한 꾸미기) ===== */
+  .sk-n-u{text-decoration:underline!important;text-decoration-color:var(--blue)!important;text-decoration-thickness:2px!important;text-underline-offset:4px!important}
+  .sk-n-m{background:linear-gradient(transparent 58%,color-mix(in srgb,#F2B705 55%,transparent) 58%);padding:0 2px}
+  .sk-n-g{text-shadow:0 0 14px color-mix(in srgb,var(--blue) 55%,transparent)}
+  .sk-n-c{background:linear-gradient(90deg,var(--blue),var(--red));-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
+  .sk-title{display:inline-block;font-size:.66rem;font-weight:700;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--panel-2);letter-spacing:.01em;vertical-align:middle;margin-left:6px;white-space:nowrap}
+  .sk-t-fire{border-color:var(--ink);color:var(--ink)}
+  .sk-t-dash{border-style:dashed}
+  .sk-t-gold{background:#F2B705;border-color:#F2B705;color:#12141A}
+  .modal.sk-b-paper{background:linear-gradient(180deg,#FBF8EF,#F1EDE0);color:#12141A;--ink:#12141A;--ink-dim:#5A5F6E;--panel-2:#F7F5F0;--line:#DEDAD0}
+  .modal.sk-b-dusk{background:linear-gradient(160deg,#1B2140,#2B2350 60%,#3A2A55);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#B9BBD6;--panel-2:rgba(255,255,255,.07);--line:rgba(255,255,255,.14)}
+  .modal.sk-b-mint{background:linear-gradient(160deg,#E7F4EE,#D6EBE3);color:#12141A;--ink:#12141A;--ink-dim:#4A5F58;--panel-2:rgba(255,255,255,.6);--line:#BBD8CC}
+  .modal.sk-b-ink{background:repeating-linear-gradient(135deg,#12141A 0 14px,#161922 14px 15px);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#A3A9B8;--panel-2:rgba(255,255,255,.06);--line:rgba(255,255,255,.14)}
+  .shop-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .shop-head h3{font-size:1.2rem;font-weight:800}
+  .shop-coin{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.9rem;line-height:1}
+  .shop-coin small{display:block;font-family:inherit;font-size:.7rem;font-weight:600;color:var(--ink-dim);letter-spacing:.06em;text-align:right}
+  .shop-preview{display:flex;align-items:center;justify-content:center;gap:6px;padding:22px;border-radius:18px;background:var(--panel-2);border:1px solid var(--line);margin-bottom:16px;min-height:80px}
+  .shop-preview .nm{font-size:1.4rem;font-weight:800}
+  .shop-cat{font-size:.72rem;font-weight:700;letter-spacing:.12em;color:var(--ink-dim);margin:16px 0 8px}
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+  .shop-item{border:1px solid var(--line);background:var(--panel-2);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;font:inherit;color:var(--ink);text-align:left}
+  .shop-item.eq{border-color:var(--ink)}
+  .shop-item b{font-size:.9rem}
+  .shop-item .pv{font-size:.95rem;font-weight:800;min-height:26px}
+  .shop-item button{margin-top:auto;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:.76rem;font-weight:700;padding:6px 12px;border-radius:999px;cursor:pointer}
+  .shop-item button.buy{background:var(--gold);color:var(--on-accent);border-color:var(--gold)}
+  .shop-item button:disabled{opacity:.4;cursor:default}
+  .shop-sw{display:block;width:100%;height:34px;border-radius:8px;border:1px solid var(--line)}
 </style>
+
 
 
 
@@ -673,6 +704,7 @@ h2,h3,h4{letter-spacing:-.01em}
       <button type="button" class="nav-btn" data-view="match" id="navMatch"><span class="nav-ic" aria-hidden="true"></span>팀 결과<i class="nav-dot" id="navDot"></i></button>
       <div class="nav-sep"></div>
       <button type="button" class="nav-btn" data-view="champ" id="navChamp"><span class="nav-ic" aria-hidden="true"></span>챔피언 티어</button>
+      <button type="button" class="nav-btn" id="navShop">상점</button>
       <button type="button" class="nav-btn" data-open="statsBtn"><span class="nav-ic" aria-hidden="true"></span>전체 통계</button>
       <button type="button" class="nav-btn" data-open="hofBtn"><span class="nav-ic" aria-hidden="true"></span>명예의 전당</button>
       <button type="button" class="nav-btn" data-open="riotIdBtn"><span class="nav-ic" aria-hidden="true"></span>라이엇 ID</button>
@@ -810,6 +842,9 @@ h2,h3,h4{letter-spacing:-.01em}
     </div>
   </div>
 
+  <div class="modal-bg" id="shopModal">
+    <div class="modal" id="shopBody" style="max-width:640px"></div>
+  </div>
   <div class="modal-bg" id="hofModal">
     <div class="modal" style="max-width:520px">
       <h3>명예의 전당</h3>
@@ -1356,7 +1391,7 @@ function renderRoster(){
     item.appendChild(pb);
 
     const main=document.createElement("div");main.className="r-main";
-    const nm=document.createElement("span");nm.className="r-name";nm.textContent=pl.name;nm.onclick=()=>openProfile(pl.id);main.appendChild(nm);
+    const nm=document.createElement("span");nm.className="r-name"+skinNameCls(pl);nm.textContent=pl.name;nm.onclick=()=>openProfile(pl.id);main.appendChild(nm);{const tt=skinTitleHtml(pl);if(tt){const sp=document.createElement("span");sp.innerHTML=tt;main.appendChild(sp.firstChild);}}
     const t=totals(pl);
     if(t.g>0){const rec=document.createElement("span");rec.className="r-record";rec.innerHTML='<span class="w">'+t.w+'승</span> <span class="l">'+t.l+'패</span>';main.appendChild(rec);}
     
@@ -1471,7 +1506,7 @@ function openProfile(id){
   }
 
   document.getElementById("profBody").innerHTML=`
-    <div class="prof-head"><span class="prof-big">${escapeHtml(pl.name)}</span></div>
+    <div class="prof-head"><span class="prof-big${skinNameCls(pl)}">${escapeHtml(pl.name)}</span>${skinTitleHtml(pl)}</div>
     <div class="tags" style="margin-bottom:10px">${tagsHtml}</div>
     <div class="prof-line">가능 라인: <b>${posText}</b></div>
     <div class="prof-stats">
@@ -1505,6 +1540,7 @@ function openProfile(id){
       <button class="ghost" onclick="startEdit('${pl.id}');document.getElementById('profModal').classList.remove('on')">티어 수정</button>
       <button class="primary" style="flex:1" onclick="document.getElementById('profModal').classList.remove('on')">닫기</button>
     </div>`;
+  document.getElementById("profBody").className="modal"+skinBgCls(pl);
   document.getElementById("profModal").classList.add("on");
   document.querySelectorAll("#profBody .h2h-tab").forEach(btn=>{
     btn.onclick=()=>{
@@ -2036,7 +2072,7 @@ function renderSharedMatchArea(){
   function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=king?'<span class="slot-tier king">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const dot=cm.locked?'':(readyList.includes(m.player.name)?'<span class="rdy on" title="준비완료">✅</span>':'<span class="rdy" title="준비중">⏳</span>');
-    return `<div class="vs-cell ${side}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name">${escapeHtml(m.player.name)}${lk}${pf}</span>${tierCell}</div>`;}
+    return `<div class="vs-cell ${side}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${lk}${pf}</span>${tierCell}</div>`;}
   function vsHtml(A,B,sumA,sumB){
     if(A.length!==5||B.length!==5||A.some((m,i)=>m.slot.pos!==B[i].slot.pos)){
       return `<div class="teams">${teamHtml(A,"blue","블루 팀",sumA)}${teamHtml(B,"red","레드 팀",sumB)}</div>`;}
@@ -3377,6 +3413,59 @@ function renderChampTier(){
 }
 window.renderChampTier=renderChampTier;
 document.getElementById('navChamp').addEventListener('click',()=>{renderChampTier();if(!CH.list.length)loadChamps().then(renderChampTier);});
+
+/* ===== 스킨 상점: 경기 활동으로 포인트가 쌓이고, 겉모습(이름 꾸밈·칭호·프로필 배경)만 살 수 있어요 ===== */
+const SKINS=[
+  {id:'n_u',cat:'n',name:'블루 밑줄',price:150,cls:'sk-n-u'},
+  {id:'n_m',cat:'n',name:'형광펜',price:250,cls:'sk-n-m'},
+  {id:'n_g',cat:'n',name:'은은한 글로우',price:350,cls:'sk-n-g'},
+  {id:'n_c',cat:'n',name:'블루→레드',price:500,cls:'sk-n-c'},
+  {id:'t_dawn',cat:'t',name:'새벽반',price:100,text:'새벽반'},
+  {id:'t_reroll',cat:'t',name:'리롤 장인',price:150,text:'리롤 장인',cls:'sk-t-dash'},
+  {id:'t_carry',cat:'t',name:'한 방 있는 놈',price:250,text:'한 방 있는 놈',cls:'sk-t-fire'},
+  {id:'t_trust',cat:'t',name:'믿고 쓰는',price:400,text:'믿고 쓰는',cls:'sk-t-gold'},
+  {id:'b_paper',cat:'b',name:'종이',price:200,cls:'sk-b-paper',sw:'linear-gradient(180deg,#FBF8EF,#F1EDE0)'},
+  {id:'b_mint',cat:'b',name:'민트',price:300,cls:'sk-b-mint',sw:'linear-gradient(160deg,#E7F4EE,#D6EBE3)'},
+  {id:'b_dusk',cat:'b',name:'새벽 하늘',price:300,cls:'sk-b-dusk',sw:'linear-gradient(160deg,#1B2140,#3A2A55)'},
+  {id:'b_ink',cat:'b',name:'잉크 결',price:500,cls:'sk-b-ink',sw:'repeating-linear-gradient(135deg,#12141A 0 8px,#1c2029 8px 9px)'}
+];
+const SKIN_CATS={n:'이름 꾸밈',t:'칭호',b:'프로필 배경'};
+function skinById(id){return SKINS.find(x=>x.id===id);}
+function skinEarned(pl){let e=0;(pl.hist||[]).forEach(h=>{e+=5;if(h.result==='W')e+=5;if(h.award==='BEST')e+=5;if(h.st)e+=3;});return e;}
+function skinSpent(pl){return (pl.skins||[]).reduce((a,id)=>a+((skinById(id)||{}).price||0),0);}
+function skinBalance(pl){return skinEarned(pl)-skinSpent(pl);}
+function skinEq(pl,cat){const id=pl&&pl.eq&&pl.eq[cat];return id&&(pl.skins||[]).includes(id)?skinById(id):null;}
+function skinNameCls(pl){const k=skinEq(pl,'n');return k?' '+k.cls:'';}
+function skinTitleHtml(pl){const k=skinEq(pl,'t');return k?`<span class="sk-title ${k.cls||''}">${escapeHtml(k.text)}</span>`:'';}
+function skinBgCls(pl){const k=skinEq(pl,'b');return k?' '+k.cls:'';}
+function skinMe(){return myName?players.find(p=>p.name===myName):null;}
+function renderShop(){
+  const me=skinMe();
+  const el=document.getElementById('shopBody');
+  if(!me){el.innerHTML='<div class="empty" style="padding:30px;text-align:center">상점은 명단에 있는 내 이름으로만 쓸 수 있어요.<br>왼쪽 위 "변경"에서 내 이름을 명단의 닉네임과 똑같이 맞춰주세요.</div><button class="primary" style="width:100%" onclick="document.getElementById(\'shopModal\').classList.remove(\'on\')">닫기</button>';return;}
+  const bal=skinBalance(me);
+  const nameK=skinEq(me,'n');
+  const sec=Object.keys(SKIN_CATS).map(c=>`<div class="shop-cat">${SKIN_CATS[c]}</div><div class="shop-grid">`+
+    `<div class="shop-item${!skinEq(me,c)?' eq':''}"><b>기본</b><span class="pv" style="color:var(--ink-dim)">없음</span><button data-eq="${c}:">${!skinEq(me,c)?'착용 중':'벗기'}</button></div>`+
+    SKINS.filter(k=>k.cat===c).map(k=>{
+      const own=(me.skins||[]).includes(k.id),on=skinEq(me,c)&&skinEq(me,c).id===k.id;
+      const pv=k.cat==='n'?`<span class="pv"><span class="${k.cls}">${escapeHtml(me.name)}</span></span>`:k.cat==='t'?`<span class="pv"><span class="sk-title ${k.cls||''}" style="margin:0">${escapeHtml(k.text)}</span></span>`:`<span class="shop-sw" style="background:${k.sw}"></span>`;
+      const btn=own?`<button data-eq="${c}:${k.id}"${on?' disabled':''}>${on?'착용 중':'착용'}</button>`:`<button class="buy" data-buy="${k.id}"${bal<k.price?' disabled':''}>${k.price}P</button>`;
+      return `<div class="shop-item${on?' eq':''}"><b>${escapeHtml(k.name)}</b>${pv}${btn}</div>`;}).join('')+`</div>`).join('');
+  el.innerHTML=`<div class="shop-head"><div><h3>상점</h3><div style="font-size:.78rem;color:var(--ink-dim)">경기 +5 · 승리 +5 · BEST +5 · 롤 자동 가져오기 +3</div></div><div class="shop-coin">${bal}<small>내 포인트</small></div></div>
+    <div class="shop-preview"><span class="nm${skinNameCls(me)}">${escapeHtml(me.name)}</span>${skinTitleHtml(me)}</div>${sec}
+    <button class="primary" style="width:100%;margin-top:18px" onclick="document.getElementById('shopModal').classList.remove('on')">닫기</button>`;
+  el.className='modal'+skinBgCls(me);
+  el.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
+    const me=skinMe();if(!me)return;const k=skinById(b.dataset.buy);if(!k||skinBalance(me)<k.price)return;
+    if(!confirm(k.name+' ('+k.price+'P)을(를) 살까요?'))return;
+    me.skins=(me.skins||[]).concat(k.id);me.eq=me.eq||{};me.eq[k.cat]=k.id;save();renderShop();renderRoster();});
+  el.querySelectorAll('[data-eq]').forEach(b=>b.onclick=()=>{
+    const me=skinMe();if(!me)return;const [c,id]=b.dataset.eq.split(':');me.eq=me.eq||{};if(id)me.eq[c]=id;else delete me.eq[c];save();renderShop();renderRoster();});
+}
+const _rr=renderRoster;renderRoster=function(){_rr.apply(this,arguments);const m=document.getElementById('shopModal');if(m&&m.classList.contains('on'))renderShop();};
+document.getElementById('navShop').addEventListener('click',()=>{renderShop();document.getElementById('shopModal').classList.add('on');});
+document.getElementById('shopModal').addEventListener('click',e=>{if(e.target.id==='shopModal')e.target.classList.remove('on');});
 
 async function riotImportResult(btn){
   const cm=remote.currentMatch;
