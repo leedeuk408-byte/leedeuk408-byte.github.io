@@ -668,20 +668,20 @@ h2,h3,h4{letter-spacing:-.01em}
   .sk-n-r{text-shadow:0 0 14px color-mix(in srgb,var(--red) 55%,transparent)}
   .sk-n-o{border:1.5px solid var(--blue);border-radius:999px;padding:0 10px;text-decoration:none!important}
   .sk-n-k{background:var(--ink);color:var(--bg)!important;border-radius:6px;padding:0 9px;text-decoration:none!important}
-  .sk-n-s{font-family:Georgia,"Noto Serif KR",serif;font-style:italic;text-decoration:none!important}
   .sk-n-c,.sk-n-gold,.sk-n-mb,.sk-n-aur{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
   .sk-n-c{background-image:linear-gradient(90deg,var(--blue),var(--red))}
   .sk-n-gold{background-image:linear-gradient(90deg,#A8720A,#E3AE1C,#A8720A)}
   .sk-n-mb{background-image:linear-gradient(90deg,#14A38B,#3B6BFF)}
   .sk-n-aur{background-image:linear-gradient(90deg,#14A38B,#6F8BFF,#B06BFF,#14A38B);background-size:200% 100%;animation:mvShine 6s linear infinite}
   @keyframes mvShine{to{background-position:-200% 0}}
-  .sk-title{display:inline-block;font-size:.66rem;font-weight:700;padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--panel-2);letter-spacing:.02em;vertical-align:middle;margin-left:6px;white-space:nowrap}
-  .sk-t-ink{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-  .sk-t-line{background:transparent;color:var(--ink);border-color:var(--ink)}
-  .sk-t-blue{background:var(--blue);color:#fff;border-color:var(--blue)}
-  .sk-t-red{background:var(--red);color:#fff;border-color:var(--red)}
-  .sk-t-grad{background:linear-gradient(90deg,#2446F0,#B02BD9);color:#fff;border-color:transparent}
-  .sk-t-gold{background:linear-gradient(90deg,#E0A800,#F6D365);border-color:#E0A800;color:#12141A}
+  .sk-title{display:inline;font-size:.74em;font-weight:700;letter-spacing:.04em;color:var(--ink-dim);margin-left:8px;white-space:nowrap;vertical-align:baseline;opacity:.95}
+  .sk-title::before{content:"";display:inline-block;width:1px;height:.9em;background:currentColor;opacity:.35;margin-right:8px;vertical-align:-.1em}
+  .sk-t-ink{color:var(--ink)}
+  .sk-t-line{color:var(--ink-dim);font-family:"Barlow Condensed",sans-serif;font-size:.85em;letter-spacing:.18em}
+  .sk-t-blue{color:var(--blue-ink)}
+  .sk-t-red{color:var(--red-ink)}
+  .sk-t-grad{background:linear-gradient(90deg,var(--blue),var(--red));-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+  .sk-t-gold{color:#C28F0A;font-family:"Barlow Condensed",sans-serif;font-size:.85em;letter-spacing:.18em}
   .sk-b-paper{background:linear-gradient(180deg,#FBF8EF,#F1EDE0);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
   .sk-b-mint{background:linear-gradient(160deg,#E7F4EE,#D3EADF);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
   .sk-b-sky{background:linear-gradient(160deg,#E8F0FF,#CFE0FF);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
@@ -3440,7 +3440,6 @@ const SKINS=[
   {id:'n_d',cat:'n',name:'레드 점선',price:150,cls:'sk-n-d'},
   {id:'n_m',cat:'n',name:'형광펜',price:250,cls:'sk-n-m'},
   {id:'n_o',cat:'n',name:'동그라미',price:250,cls:'sk-n-o'},
-  {id:'n_s',cat:'n',name:'클래식 이탤릭',price:250,cls:'sk-n-s'},
   {id:'n_k',cat:'n',name:'잉크 라벨',price:300,cls:'sk-n-k'},
   {id:'n_g',cat:'n',name:'블루 글로우',price:350,cls:'sk-n-g'},
   {id:'n_r',cat:'n',name:'레드 글로우',price:350,cls:'sk-n-r'},
