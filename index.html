@@ -332,7 +332,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   .side .theme-toggle button.on{background:var(--gold);color:var(--on-accent)}
   .main{padding:34px 40px 90px;max-width:960px;width:100%;box-sizing:border-box;min-width:0}
   .view{display:none}
-  .main[data-view="lobby"] #viewLobby,.main[data-view="match"] #viewMatch{display:block}
+  .main[data-view="lobby"] #viewLobby,.main[data-view="match"] #viewMatch,.main[data-view="dev"] #viewDev{display:block}
   .empty-match{display:none;text-align:center;color:var(--ink-dim);padding:70px 20px;font-size:0.95rem;line-height:1.8;background:var(--panel);border:1px dashed var(--line);border-radius:20px}
   .view.noresult .empty-match{display:block}
   /* VS board */
@@ -513,6 +513,27 @@ h2,h3,h4{letter-spacing:-.01em}
 .in-none{font-size:.78rem;color:var(--ink-dim)}
 .in-note{font-size:.72rem;color:var(--ink-dim);margin-top:8px;line-height:1.5}
 @media (max-width:560px){.insight{grid-template-columns:1fr}}
+
+/* ---- developer tab ---- */
+#viewDev .dev-card{margin-bottom:14px}
+.dev-order{list-style:none;counter-reset:ro;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.dev-order li::before{counter-increment:ro;content:counter(ro);width:22px;height:22px;border-radius:50%;background:var(--sunken);color:var(--ink-dim);font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.dev-order li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.88rem}
+.dev-badge{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--sunken);color:var(--ink-dim);white-space:nowrap}
+.dev-badge.bonus,.dev-badge.dev{background:rgba(232,174,98,.18);color:var(--gold-bright)}
+.dev-badge.reroll{background:rgba(91,140,255,.15);color:var(--blue-ink)}
+.dev-badge.edit{background:rgba(194,168,255,.16);color:var(--swing)}
+.dev-badge.match{background:rgba(95,189,130,.16);color:var(--win-ink,var(--win))}
+.dev-badge.manage{background:rgba(224,98,98,.14);color:var(--loss-ink,var(--loss))}
+.dev-meta,.dev-time{font-size:.74rem;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.dev-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.dev-chip{border:1px solid var(--line);background:var(--panel-2);color:var(--ink-dim);border-radius:999px;padding:5px 12px;font-size:.76rem;font-weight:600;cursor:pointer}
+.dev-chip.on{background:var(--gold-bright);color:#2a1e05;border-color:transparent}
+.dev-scroll.tall{max-height:420px}
+.dev-audit{list-style:none;margin:0;padding:0}
+.dev-audit li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:9px 12px;border-bottom:1px solid var(--hair);font-size:.82rem}
+.dev-audit li:last-child{border-bottom:0}
+.dev-msg{flex-basis:100%;color:var(--ink);padding-left:0}
 </style>
 
 </head>
@@ -528,6 +549,7 @@ h2,h3,h4{letter-spacing:-.01em}
       <button type="button" class="nav-btn" data-open="hofBtn"><span class="nav-ic" aria-hidden="true"></span>명예의 전당</button>
       <button type="button" class="nav-btn" data-open="riotIdBtn"><span class="nav-ic" aria-hidden="true"></span>라이엇 ID</button>
       <button type="button" class="nav-btn" data-open="historyBtn"><span class="nav-ic" aria-hidden="true"></span>경기 기록</button>
+      <button type="button" class="nav-btn" data-view="dev" id="navDev" style="display:none"><span class="nav-ic" aria-hidden="true"></span>개발자</button>
     </nav>
     <div class="theme-toggle" role="group" aria-label="화면 모드">
       <button type="button" id="themeDark" aria-pressed="true">다크</button>
@@ -537,8 +559,6 @@ h2,h3,h4{letter-spacing:-.01em}
   <main class="main" id="appMain" data-view="lobby">
   <p class="sub">라인·라인별 티어 등록 → 10명 골라 밸런스 팀 구성 → 경기 후 승패·BEST/WORST 기록. 최근 3판 기준으로 태그가 자동으로 붙어요. (1티어=에이스)</p>
   <div class="hint" style="margin-bottom:14px"> 내 이름: <b id="myNameDisplay" style="color:var(--gold-bright)">-</b> <button class="icon-btn" id="changeNameBtn" style="text-decoration:underline">변경</button> · 이 이름은 리롤권·투표 참여에 쓰여요. <b>명단의 닉네임과 똑같이</b> 맞춰주세요. · <button class="icon-btn" id="resetMatchBtnTop" style="text-decoration:underline;color:var(--loss)">진행 중인 경기 초기화</button></div>
-  <div id="devPanel" style="display:none;margin-bottom:14px"></div>
-
   <section id="viewLobby" class="view">
   <div class="card">
     <h2>플레이어 등록</h2>
@@ -605,6 +625,8 @@ h2,h3,h4{letter-spacing:-.01em}
   </div>
 
   </section>
+  <section id="viewDev" class="view"><div id="devPanel" style="display:none"></div></section>
+
   <section id="viewMatch" class="view"><div class="empty-match" id="emptyMatch">아직 진행 중인 매치가 없어요.<br>대기실에서 선수를 고르고 팀을 만들어 보세요.</div>
   <div id="result"></div></section>
   </main>
@@ -763,7 +785,7 @@ function changeMyName(){
 }
 
 /* ---------- shared remote state (Firestore) ---------- */
-let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [], currentDraft: null, riotImported: [] };
+let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [], currentDraft: null, riotImported: [], auditLog: [] };
 let remoteLoaded = false;
 let suppressNextSnapshot = false;
 // correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
@@ -836,12 +858,14 @@ onSnapshot(sessionRef, (snap)=>{
   remote.currentAuction = data.currentAuction || null;
   remote.currentDraft = data.currentDraft || null;
   remote.riotImported = data.riotImported || [];
+  remote.auditLog = data.auditLog || [];
   remote.deletedPlayers = data.deletedPlayers || [];
   // 시계 보정: 내가 보낸 핑의 서버 확정값만 사용 (processPingSample 참고)
   processPingSample(snap.data({ serverTimestamps: 'none' }));
   // sync into local working vars used throughout the app
   state.players = players = remote.players;
   state.matchLog = remote.matchLog;
+  auditShadow = auditSnap(); // 다른 사람이 바꾼 건 그 사람 기기에서 이미 기록했으니, 내 기준선만 갱신
   // 과거 버그로 들어간 범위 밖 티어(0티어·7티어 등)가 있으면 지금 바로잡아서 공유 문서에도 되돌려 씀
   let hadOutOfRangeTier=false;
   players.forEach(pl=>{
@@ -882,8 +906,40 @@ function load(){try{const raw=localStorage.getItem(STORE_KEY);if(raw){const s=JS
   // migrate from v2 if present
   try{const old=localStorage.getItem("lol_balancer_v2");if(old){const s=JSON.parse(old);if(s.players){if(!s.matchLog)s.matchLog=[];return s;}}}catch(e){}
   return {players:[],matchLog:[]};}
+/* ---------- 활동 기록 (개발자 탭에서만 보임) ---------- */
+let auditShadow=null; // 마지막으로 본 명단 상태 — save() 때 이것과 비교해서 "누가 뭘 바꿨는지" 기록
+function auditSnap(){const o={};(players||[]).forEach(p=>{o[p.id]={n:p.name,t:JSON.stringify(p.tiers||{}),lo:JSON.stringify(p.laneOff||{}),pf:p.preferLane||'',av:p.avoidLane||'',rid:p.riotId||''};});return o;}
+function auditDiff(prev,cur){
+  const L={TOP:'탑',JUG:'정글',MID:'미드',ADC:'원딜',SUP:'서폿'};const out=[];
+  Object.keys(cur).forEach(id=>{
+    const c=cur[id],o=prev[id];
+    if(!o){out.push('선수 추가: '+c.n);return;}
+    if(o.n!==c.n)out.push('이름 변경: '+o.n+' → '+c.n);
+    if(o.t!==c.t){
+      const a=JSON.parse(o.t),b=JSON.parse(c.t);
+      Object.keys(L).forEach(k=>{
+        if(a[k]==null&&b[k]!=null)out.push(c.n+' '+L[k]+' 라인 추가 ('+b[k]+'티어)');
+        else if(a[k]!=null&&b[k]==null)out.push(c.n+' '+L[k]+' 라인 삭제');
+        else if(a[k]!==b[k])out.push(c.n+' '+L[k]+' 티어 '+a[k]+' → '+b[k]);
+      });
+    }
+    if(o.lo!==c.lo||o.pf!==c.pf||o.av!==c.av)out.push('라인 설정 변경: '+c.n);
+    if(o.rid!==c.rid)out.push('라이엇 ID '+(c.rid?'등록/변경':'삭제')+': '+c.n);
+  });
+  Object.keys(prev).forEach(id=>{if(!cur[id])out.push('선수 삭제: '+prev[id].n);});
+  return out;
+}
+function auditEntries(entries){const at=Date.now(),by=myName||'(이름 없음)';return entries.map(e=>({at,by,t:e.t,msg:e.msg}));}
+// 이미 진행 중인 트랜잭션 안에서 쓸 때: 기존 기록에 이어붙인 새 배열을 돌려줌
+function auditAppend(data,entries){return [...((data&&data.auditLog)||[]),...auditEntries(entries)].slice(-300);}
+function auditPush(entries){
+  if(!entries||!entries.length)return;
+  const add=auditEntries(entries);
+  runTransaction(db,async(tx)=>{const sn=await tx.get(sessionRef);const cur=(sn.data()||{}).auditLog||[];tx.update(sessionRef,{auditLog:[...cur,...add].slice(-300)});}).catch(e=>console.warn("활동 기록 저장 실패",e));
+}
 function save(){
   try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}
+  { const cur=auditSnap(); if(auditShadow){ const msgs=auditDiff(auditShadow,cur); if(msgs.length)auditPush(msgs.map(m=>({t:'edit',msg:m}))); } auditShadow=cur; }
   // push roster + match log to the shared Firestore doc so everyone sees the same data
   pushRemote({ players: state.players, matchLog: state.matchLog||[] });
 }
@@ -1440,9 +1496,10 @@ function publishDraw(best,penalizedIds){
     pIds.forEach(id=>{const pl=players.find(p=>p.id===id);if(pl)pl.pendingPenalty=false;});
     save();
   }
+  auditPush([{t:'match',msg:'랭크게임 팀 생성 · 점수차 '+best.diff}]);
   pushRemote({ currentMatch: {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    basicUsedBy: [], bonusUsedBy: [], pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
+    basicUsedBy: [], bonusUsedBy: [], rerollLog: [], pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
     basicAllowance: computeBasicAllowances(assignments),
     penalizedIds: pIds, deadlineAt: correctedNow()+MATCH_TIMER_MS
   }});
@@ -1468,11 +1525,12 @@ function computeRerollDraw(ticketType,cmArg){
   const assignments = best.map.map(m=>({ id:m.player.id, team:m.slot.team, pos:m.slot.pos }));
   const basicUsedBy=[...(cm.basicUsedBy||[])];
   const bonusUsedBy=[...(cm.bonusUsedBy||[])];
+  const remainSec=Math.max(0,Math.round(((cm.deadlineAt||0)-correctedNow())/1000));
   if(ticketType==='bonus') bonusUsedBy.push(myName);
   else basicUsedBy.push(myName); // 1인당 여러 번 쓸 수 있으므로(1티어 2장) 매번 push — 횟수는 필터링해서 셈
   return {
     matchId: uid(), assignments, sumA:best.sumA, sumB:best.sumB, diff:best.diff,
-    basicUsedBy, bonusUsedBy, pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
+    basicUsedBy, bonusUsedBy, rerollLog:[...(cm.rerollLog||[]),{n:myName,t:ticketType==='bonus'?'bonus':'basic',at:Date.now(),left:remainSec}], pleadedBy: [], readyBy: [], locked:false, createdAt: Date.now(),
     basicAllowance: cm.basicAllowance||computeBasicAllowances(cm.assignments),
     // 2분 하드캡은 리롤해도 리셋되지 않고 처음 팀이 뜬 시점 그대로 유지.
     // 단, 남은 시간이 30초 이하일 때 리롤하면 리롤 1번마다 +5초 연장 (막판 5초 남기고 돌려서 바로 확정되는 것 방지)
@@ -1486,6 +1544,7 @@ function computeRerollDraw(ticketType,cmArg){
 // 리롤 공통 검증: "내가 보고 있던 그 팀"이 서버에서도 아직 살아 있고(확정 안 됨, 같은 matchId), 시간이 남아 있을 때만 허용.
 // (예전엔 0초에 누르면 이미 만료된 마감시간 그대로 새 팀이 만들어져 바로 자동 확정되거나, 막 확정된 팀을 리롤이 덮어써서 꼬였음)
 const REROLL_MIN_REMAIN_MS=1500;
+function remainOf(draw){const l=(draw.rerollLog||[]);return l.length?l[l.length-1].left:0;}
 function rerollGuard(cur,viewId){
   if(!cur||cur.error)throw new Error("진행 중인 팀이 없어요.");
   if(cur.matchId!==viewId)throw new Error("그 사이에 팀이 바뀌었어요. 화면을 확인하고 다시 눌러주세요.");
@@ -1498,14 +1557,14 @@ function makeTeamsForReroll(ticketType){
   if(!viewId)return;
   runTransaction(db, async(tx)=>{
     const snap=await tx.get(sessionRef);
-    const cur=(snap.data()||{}).currentMatch;
+    const sdata=snap.data()||{};const cur=sdata.currentMatch;
     rerollGuard(cur,viewId);
     const used=(cur.basicUsedBy||[]).filter(n=>n===myName).length;
     const allow=(cur.basicAllowance&&cur.basicAllowance[myName]!=null)?cur.basicAllowance[myName]:null;
     if(allow!=null&&used>=allow)throw new Error("이번 판의 기본 리롤권을 모두 사용했어요.");
     const draw=computeRerollDraw(ticketType,cur);
     if(!draw)throw new Error("팀을 다시 짤 수 없어요.");
-    tx.update(sessionRef,{currentMatch:draw});
+    tx.update(sessionRef,{currentMatch:draw,auditLog:auditAppend(sdata,[{t:'reroll',msg:'기본 리롤권 사용 · 남은 '+remainOf(draw)+'초'}])});
   }).catch(err=>alert(err&&err.message?err.message:"리롤에 실패했어요."));
 }
 // bonus reroll: 리롤권 1장 차감 + 새 팀 게시를 한 번에, 서버의 현재 데이터로 다시 검증
@@ -1528,7 +1587,7 @@ function useBonusRerollAtomically(){
     const draw=computeRerollDraw('bonus',cur);
     if(!draw)throw new Error("팀을 다시 짤 수 없어요.");
     freshPlayers[idx]={...pl, spentBonusTickets:(pl.spentBonusTickets||0)+1};
-    tx.update(sessionRef, { players: freshPlayers, currentMatch: draw });
+    tx.update(sessionRef, { players: freshPlayers, currentMatch: draw, auditLog: auditAppend(data,[{t:'reroll',msg:'임시 리롤권 사용 · 남은 '+remainOf(draw)+'초'}]) });
   }).catch(err=>{ alert(err&&err.message?err.message:"리롤권 사용에 실패했어요."); });
 }
 
@@ -1870,12 +1929,6 @@ function renderSharedMatchArea(){
   const ticketNote = myName
     ? `<span style="color:var(--ink-dim)"> ${escapeHtml(myName)}님 — 기본 ${basicRemainByMe}장 남음${basicAllowance>1?' (1티어 보너스)':''} · 임시 ${bonusRemainByMe}장 남음</span>`
     : `<span style="color:var(--ink-dim)">이름을 설정하면 리롤권이 개인별로 추적돼요</span>`;
-  // 개발자 전용: 누가 어떤 리롤권을 몇 번 썼는지 (일반 참가자 화면에는 안 보임)
-  let devRerollNote='';
-  if(myName===DEV_NAME && devUnlocked()){
-    const tally=(arr)=>{const m={};(arr||[]).forEach(n=>{m[n]=(m[n]||0)+1;});const e=Object.entries(m);return e.length?e.map(([n,c])=>escapeHtml(n)+(c>1?' ×'+c:'')).join(', '):'없음';};
-    devRerollNote=`<details class="dev-note"><summary>개발자 전용 · 이번 판 리롤 사용자</summary><div>기본 리롤권: ${tally(cm.basicUsedBy)}<br>임시 리롤권: ${tally(cm.bonusUsedBy)}</div></details>`;
-  }
   const pleadList=cm.pleadedBy||[];
   // 누가 눌렀는지는 비공개 — 몇 명이 요청했는지 숫자만 공개 (심리전 요소 유지)
   const pleadNote = pleadList.length ? `<div class="warn" style="text-align:center;margin-top:8px"> ${pleadList.length}명이 다시 섞어달라고 요청했어요!</div>` : '';
@@ -1893,7 +1946,6 @@ function renderSharedMatchArea(){
     ${draftControls(cm)}
     <div class="tk-note">${ticketNote}</div>
     ${pleadNote}
-    ${devRerollNote}
     ${(!cm.locked && iAmInMatch)?`<div style="text-align:center;margin-top:8px"><button class="${iAmReady?'ghost':'primary'}" id="readyBtnShared">${iAmReady?'✅ 준비 취소':'✅ 준비완료'}</button></div>`:''}
     ${(!cm.locked)?`<div style="text-align:center;margin-top:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="ghost" id="basicRerollBtn" ${basicUsedByMe?'disabled style="opacity:0.4;cursor:not-allowed"':''}>기본 리롤권 (${basicRemainByMe})</button>
@@ -1910,6 +1962,7 @@ function renderSharedMatchArea(){
   document.getElementById("redWin").onclick=()=>recordSharedWin(1);
   document.getElementById("resetMatchBtn").onclick=()=>{
     if(!confirm("진행 중인 경기 상태를 초기화할까요? (명단·전적은 그대로 남고, 지금 뜬 팀·준비상태·리롤권만 지워져요)"))return;
+    auditPush([{t:'manage',msg:'진행 중인 경기 초기화'}]);
     pushRemote({ currentMatch:null, vote:null });
   };
   const readyBtn=document.getElementById("readyBtnShared");
@@ -2265,6 +2318,8 @@ function recordMatch(winners,losers,shared){
   // snapshot full state for undo (deep copy of players + matchlog length)
   undoStack.push(JSON.stringify({players:state.players,matchLog:state.matchLog||[]}));
   if(undoStack.length>10)undoStack.shift();
+  { const nm=m=>(players.find(p=>p.id===m.player.id)||{}).name||'?';
+    auditPush([{t:'match',msg:'경기 결과 기록'+(pendingStats?' (롤 자동 가져오기)':'')+' · 승: '+winners.map(nm).join(', ')+' / 패: '+losers.map(nm).join(', ')}]); }
   // build lane opponent map (only meaningful when both sides have slot.pos, i.e. rank/auto mode)
   const oppByPos={};
   winners.forEach(m=>{if(m.slot&&m.slot.pos)oppByPos[m.slot.pos]=oppByPos[m.slot.pos]||{};if(m.slot&&m.slot.pos)oppByPos[m.slot.pos].w=m.player.id;});
@@ -2464,7 +2519,8 @@ document.getElementById("importFile").addEventListener("change",function(){
       if(!s.matchLog)s.matchLog=[];
       state=s;players=state.players;players.forEach(ensure);
       picked.clear();locks={};undoStack=[];
-      save();renderRoster();
+      auditShadow=null;save();renderRoster();
+      auditPush([{t:'manage',msg:'백업 불러오기 ('+players.length+'명으로 덮어씀)'}]);
       alert("불러오기 완료! ("+players.length+"명)");
     }catch(err){alert("파일을 읽을 수 없어요. 올바른 백업 파일인지 확인해주세요.");}
   };
@@ -2531,7 +2587,14 @@ document.getElementById("historyBtn").onclick=()=>{
 document.getElementById("historyCloseBtn").onclick=()=>document.getElementById("historyModal").classList.remove("on");
 
 /* ---------- name identity UI ---------- */
-function refreshNameDisplay(){const el=document.getElementById("myNameDisplay");if(el)el.textContent=myName||"(미설정)";renderDevPanel();}
+function refreshNameDisplay(){
+  const el=document.getElementById("myNameDisplay");if(el)el.textContent=myName||"(미설정)";
+  const isDev=myName===DEV_NAME&&devUnlocked();
+  const nav=document.getElementById("navDev");if(nav)nav.style.display=isDev?"":"none";
+  const mainEl=document.getElementById("appMain");
+  if(!isDev&&mainEl&&mainEl.dataset.view==="dev"&&window.__setView)window.__setView("lobby");
+  renderDevPanel();
+}
 // 개발자(이름이 "권순현"인 기기) 전용: 임시 리롤권을 직접 지급/회수. 이름은 이 기기 localStorage 기준이라 친구끼리 쓰는 신뢰 기반 용도.
 function renderDevPanel(){
   const box=document.getElementById("devPanel");if(!box)return;
@@ -2540,22 +2603,29 @@ function renderDevPanel(){
   let sel=document.getElementById("devPlayerSel");
   const prev=sel?sel.value:"";
   if(!sel){
-    box.innerHTML=`<div class="card dev-card"><h2>개발자 도구</h2>
-      <div class="dev-h">임시 리롤권 지급</div>
-      <div class="dev-help">선수와 장수를 고른 뒤 <b>지급하기</b>를 누르면 그 선수에게 바로 들어가요. 선수는 팀 결과 화면의 <b>임시 리롤권</b> 버튼으로 한 장씩 쓰고, 쓸 때마다 보유 장수가 줄어요. (BEST 2개마다 1장은 자동으로 생겨요)</div>
-      <div class="dev-form">
-        <select id="devPlayerSel"></select>
-        <div class="dev-stepper"><button type="button" id="devMinusBtn" aria-label="장수 줄이기">−</button><input id="devQty" type="number" min="1" max="10" value="1" inputmode="numeric"><button type="button" id="devPlusBtn" aria-label="장수 늘리기">+</button><span>장</span></div>
-        <button class="primary" id="devGrantBtn">지급하기</button>
-        <button class="ghost" id="devRevokeBtn">회수하기</button>
+    box.innerHTML=`
+      <div class="card dev-card"><h2>이번 판 리롤 순서</h2><div id="devRerollLog"></div></div>
+      <div class="card dev-card"><h2>임시 리롤권 지급</h2>
+        <div class="dev-help">선수와 장수를 고른 뒤 <b>지급하기</b>를 누르면 그 선수에게 바로 들어가요. 선수는 팀 결과 화면의 <b>임시 리롤권</b> 버튼으로 한 장씩 쓰고, 쓸 때마다 보유 장수가 줄어요. (BEST 2개마다 1장은 자동으로 생겨요)</div>
+        <div class="dev-form">
+          <select id="devPlayerSel"></select>
+          <div class="dev-stepper"><button type="button" id="devMinusBtn" aria-label="장수 줄이기">−</button><input id="devQty" type="number" min="1" max="10" value="1" inputmode="numeric"><button type="button" id="devPlusBtn" aria-label="장수 늘리기">+</button><span>장</span></div>
+          <button class="primary" id="devGrantBtn">지급하기</button>
+          <button class="ghost" id="devRevokeBtn">회수하기</button>
+        </div>
+        <div id="devPlayerCount" class="dev-now"></div>
+        <div id="devResult" class="dev-result" aria-live="polite"></div>
+        <div class="dev-help" style="margin:12px 0 0">임시 리롤권을 가진 선수 (보유 장수 순)</div>
+        <div id="devTicketTable"></div>
       </div>
-      <div id="devPlayerCount" class="dev-now"></div>
-      <div id="devResult" class="dev-result" aria-live="polite"></div>
-      <div class="dev-help" style="margin:12px 0 0">임시 리롤권을 가진 선수 (보유 장수 순)</div><div id="devTicketTable"></div>
-      <div class="dev-sep"></div>
-      <div class="dev-h">삭제된 선수 복구</div>
-      <div id="devRestoreList"></div>
-      <button class="ghost" id="devScanLocalBtn">이 기기에 남은 예전 백업에서 찾기</button>
+      <div class="card dev-card"><h2>활동 기록</h2>
+        <div class="dev-help">누가 언제 무엇을 했는지 최근 300건까지 남아요. 이 탭은 개발자 이름과 비밀번호로만 열려요.</div>
+        <div class="dev-chips" id="devAuditChips"></div>
+        <div id="devAudit"></div>
+      </div>
+      <div class="card dev-card"><h2>삭제된 선수 복구</h2>
+        <div id="devRestoreList"></div>
+        <button class="ghost" id="devScanLocalBtn">이 기기에 남은 예전 백업에서 찾기</button>
       </div>`;
     sel=document.getElementById("devPlayerSel");
     document.getElementById("devScanLocalBtn").onclick=devScanLocalBackup;
@@ -2569,6 +2639,7 @@ function renderDevPanel(){
     document.getElementById("devRevokeBtn").onclick=()=>devAdjustBonus(-getQty());
   }
   renderDevRestore();
+  updateDevLogs();
   sel.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
   if(prev&&players.some(p=>p.id===prev))sel.value=prev;
   updateDevCount();
@@ -2675,6 +2746,31 @@ function devRestorePlayer(pl){
     tx.update(sessionRef,{players:fp,deletedPlayers:dp});
   }).then(()=>{devLocalCandidates=devLocalCandidates.filter(c=>c.id!==pl.id);}).catch(err=>alert(err&&err.message?err.message:"복구에 실패했어요."));
 }
+
+let devAuditFilter="all";
+const AUDIT_LABEL={reroll:"리롤",edit:"수정",match:"경기",manage:"관리",dev:"개발자"};
+function fmtAuditTime(at){try{return new Date(at).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});}catch(e){return "";}}
+function updateDevLogs(){
+  // 1) 이번 판 리롤 순서
+  const rl=document.getElementById("devRerollLog");
+  if(rl){
+    const cm=remote.currentMatch;let html;
+    if(!cm||cm.error)html='<div class="dev-help">진행 중인 팀이 없어요.</div>';
+    else if(cm.rerollLog&&cm.rerollLog.length)html='<ol class="dev-order">'+cm.rerollLog.map(r=>`<li><b>${escapeHtml(r.n||"?")}</b><span class="dev-badge ${r.t==="bonus"?"bonus":""}">${r.t==="bonus"?"임시":"기본"} 리롤권</span><span class="dev-meta">남은 ${r.left}초 · ${fmtAuditTime(r.at)}</span></li>`).join("")+'</ol>';
+    else if((cm.basicUsedBy||[]).length||(cm.bonusUsedBy||[]).length)html='<div class="dev-help">이 팀은 순서 기록이 생기기 전에 만들어졌어요.<br>기본: '+escapeHtml((cm.basicUsedBy||[]).join(", ")||"없음")+'<br>임시: '+escapeHtml((cm.bonusUsedBy||[]).join(", ")||"없음")+'</div>';
+    else html='<div class="dev-help">아직 리롤한 사람이 없어요.</div>';
+    if(rl._h!==html){rl._h=html;rl.innerHTML=html;}
+  }
+  // 2) 활동 기록
+  const chips=document.getElementById("devAuditChips"),box=document.getElementById("devAudit");
+  if(!chips||!box)return;
+  const chipHtml=[["all","전체"],...Object.entries(AUDIT_LABEL)].map(([k,l])=>`<button type="button" class="dev-chip ${devAuditFilter===k?"on":""}" data-f="${k}">${l}</button>`).join("");
+  if(chips._h!==chipHtml){chips._h=chipHtml;chips.innerHTML=chipHtml;chips.querySelectorAll("button").forEach(b=>b.onclick=()=>{devAuditFilter=b.dataset.f;chips._h=null;box._h=null;updateDevLogs();});}
+  const list=[...(remote.auditLog||[])].reverse().filter(e=>devAuditFilter==="all"||e.t===devAuditFilter).slice(0,120);
+  const html=list.length?'<div class="dev-scroll tall"><ul class="dev-audit">'+list.map(e=>`<li><span class="dev-time">${fmtAuditTime(e.at)}</span><span class="dev-badge ${e.t}">${AUDIT_LABEL[e.t]||e.t}</span><b>${escapeHtml(e.by||"?")}</b><span class="dev-msg">${escapeHtml(e.msg||"")}</span></li>`).join("")+'</ul></div>':'<div class="dev-help">아직 기록이 없어요. 이제부터의 활동이 쌓여요.</div>';
+  if(box._h!==html){box._h=html;box.innerHTML=html;}
+}
+
 function updateDevCount(){
   const sel=document.getElementById("devPlayerSel"),el=document.getElementById("devPlayerCount");if(!sel||!el)return;
   const pl=players.find(p=>p.id===sel.value);
@@ -2684,8 +2780,9 @@ function updateDevCount(){
     const auto=Math.floor(totals(p).best/BEST_PER_TICKET),given=p.bonusGranted||0,used=p.spentBonusTickets||0,have=bonusRerollAvailable(p);
     return {p,auto,given,used,have};
   }).filter(r=>r.have>0||r.given!==0).sort((x,y)=>y.have-x.have||(x.p.name<y.p.name?-1:1));
-  tb.innerHTML=rows.length?('<div class="dev-scroll"><table class="dev-table"><thead><tr><th>선수</th><th>보유</th><th>BEST로 얻음</th><th>개발자 지급</th><th>사용함</th></tr></thead><tbody>'+
+  const tbHtml=rows.length?('<div class="dev-scroll"><table class="dev-table"><thead><tr><th>선수</th><th>보유</th><th>BEST로 얻음</th><th>개발자 지급</th><th>사용함</th></tr></thead><tbody>'+
     rows.map(r=>`<tr><td>${escapeHtml(r.p.name)}</td><td><b>${r.have}</b></td><td>${r.auto}</td><td>${r.given>0?'+'+r.given:r.given}</td><td>${r.used}</td></tr>`).join("")+'</tbody></table></div>'):'<div class="dev-help">아직 임시 리롤권을 가진 선수가 없어요.</div>';
+  if(tb._h!==tbHtml){tb._h=tbHtml;tb.innerHTML=tbHtml;}
 }
 function devAdjustBonus(delta){
   const sel=document.getElementById("devPlayerSel");if(!sel||myName!==DEV_NAME||!devUnlocked())return;
@@ -2709,6 +2806,7 @@ function devAdjustBonus(delta){
     fp[idx]={...pl, bonusGranted:(pl.bonusGranted||0)+delta};
     tx.update(sessionRef,{players:fp});
   }).then(()=>{
+    auditPush([{t:'dev',msg:'임시 리롤권 '+n+'장 '+(delta>0?'지급':'회수')+' → '+nameOfSel}]);
     if(out){out.className="dev-result ok";out.textContent="✅ "+nameOfSel+"님에게 "+n+"장 "+(delta>0?"지급":"회수")+"했어요. (보유 "+before+"장 → "+after+"장)";}
   }).catch(err=>{
     if(out){out.className="dev-result err";out.textContent="⚠️ "+(err&&err.message?err.message:"처리하지 못했어요.");}
@@ -2717,6 +2815,7 @@ function devAdjustBonus(delta){
 document.getElementById("changeNameBtn").onclick=changeMyName;
 document.getElementById("resetMatchBtnTop").onclick=()=>{
   if(!confirm("진행 중인 경기 상태를 초기화할까요? (명단·전적은 그대로 남고, 지금 뜬 팀·타이머·리롤권·투표만 지워져요)"))return;
+  auditPush([{t:'manage',msg:'진행 중인 경기 초기화 (상단 버튼)'}]);
   pushRemote({ currentMatch:null, vote:null });
 };
 ensureMyName();
@@ -3195,11 +3294,12 @@ async function riotImportResult(btn){
   var vm=document.getElementById('viewMatch');
   function has(){return res.children.length>0}
   function sync(){vm.classList.toggle('noresult',!has());var d=document.getElementById('navDot');if(d)d.classList.toggle('on',has()&&main.dataset.view!=='match')}
-  function setView(v,noScroll){main.dataset.view=v;
+  function setView(v,noScroll){main.dataset.view=v;window.__setView=setView;
     document.querySelectorAll('.nav-btn[data-view]').forEach(function(b){b.classList.toggle('on',b.dataset.view===v)});
     sync();if(!noScroll)window.scrollTo({top:0})}
   document.querySelectorAll('.nav-btn[data-view]').forEach(function(b){b.addEventListener('click',function(){setView(b.dataset.view)})});
   document.querySelectorAll('.nav-btn[data-open]').forEach(function(b){b.addEventListener('click',function(){var t=document.getElementById(b.dataset.open);if(t)t.click()})});
+  window.__setView=setView;
   var was=has();
   new MutationObserver(function(){var now=has();if(now&&!was)setView('match',true);else if(!now&&was&&main.dataset.view==='match')setView('lobby',true);was=now;sync()}).observe(res,{childList:true});
   ['makeBtn','manualBtn','auctionBtn'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('click',function(){setTimeout(function(){if(has())setView('match')},80)})});
