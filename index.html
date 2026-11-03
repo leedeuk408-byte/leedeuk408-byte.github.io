@@ -440,6 +440,18 @@ document.documentElement.setAttribute('data-theme',t);})();
   .riot-row input{flex:1;min-width:0;min-height:40px;padding:8px 12px}
   .riot-row .rs{width:120px;flex-shrink:0;font-size:.72rem;color:var(--ink-dim)}
   @media(max-width:560px){.riot-row{flex-wrap:wrap}.riot-row .rs{width:auto}}
+
+/* ---- modern card polish ---- */
+.tag.king{background:linear-gradient(160deg,#f5e6b0,#d4a94a);color:#2a1e05;border:0}
+.card,.stat-box,.panel,.box{border-radius:16px}
+:root{--rad:16px}
+.main .card,.main section,.vs-row,.vs-score,.stat-box{border-radius:var(--rad);box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px -12px rgba(0,0,0,.28);border:1px solid var(--line,rgba(128,128,128,.16))}
+button.primary,button.ghost,.icon-btn{border-radius:12px;letter-spacing:.01em;transition:transform .12s ease,box-shadow .12s ease,background .12s ease}
+button.primary:hover,button.ghost:hover{transform:translateY(-1px)}
+button.primary:active,button.ghost:active{transform:none}
+.r-tag,.slot-tier,.tag{border-radius:999px}
+h2,h3,h4{letter-spacing:-.01em}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 </head>
@@ -463,7 +475,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   </aside>
   <main class="main" id="appMain" data-view="lobby">
   <p class="sub">라인·라인별 티어 등록 → 10명 골라 밸런스 팀 구성 → 경기 후 승패·BEST/WORST 기록. 최근 3판 기준으로 태그가 자동으로 붙어요. (1티어=에이스)</p>
-  <div class="hint" style="margin-bottom:14px">👤 내 이름: <b id="myNameDisplay" style="color:var(--gold-bright)">-</b> <button class="icon-btn" id="changeNameBtn" style="text-decoration:underline">변경</button> · 이 이름은 리롤권·투표 참여에 쓰여요. <b>명단의 닉네임과 똑같이</b> 맞춰주세요. · <button class="icon-btn" id="resetMatchBtnTop" style="text-decoration:underline;color:var(--loss)">진행 중인 경기 초기화</button></div>
+  <div class="hint" style="margin-bottom:14px"> 내 이름: <b id="myNameDisplay" style="color:var(--gold-bright)">-</b> <button class="icon-btn" id="changeNameBtn" style="text-decoration:underline">변경</button> · 이 이름은 리롤권·투표 참여에 쓰여요. <b>명단의 닉네임과 똑같이</b> 맞춰주세요. · <button class="icon-btn" id="resetMatchBtnTop" style="text-decoration:underline;color:var(--loss)">진행 중인 경기 초기화</button></div>
   <div id="devPanel" style="display:none;margin-bottom:14px"></div>
 
   <section id="viewLobby" class="view">
@@ -492,21 +504,21 @@ document.documentElement.setAttribute('data-theme',t);})();
     <div class="flex-between">
       <h2 style="margin:0">명단 <span class="count-pill" id="pickCount">0 / 10 선택</span></h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="ghost" id="statsBtn">📊 전체 통계</button>
-        <button class="ghost" id="hofBtn">🏅 명예의 전당</button>
-        <button class="ghost" id="riotIdBtn">🎮 라이엇 ID</button>
-        <button class="ghost" id="historyBtn">📜 경기 기록</button>
-        <button class="ghost" id="undoBtn">↩️ 경기 취소</button>
-        <button class="ghost" id="formBtn">📝 투표폼 코드</button>
-        <button class="ghost" id="exportBtn">💾 백업</button>
-        <button class="ghost" id="importBtn">📂 불러오기</button>
+        <button class="ghost" id="statsBtn">전체 통계</button>
+        <button class="ghost" id="hofBtn">명예의 전당</button>
+        <button class="ghost" id="riotIdBtn">라이엇 ID</button>
+        <button class="ghost" id="historyBtn">경기 기록</button>
+        <button class="ghost" id="undoBtn">경기 취소</button>
+        <button class="ghost" id="formBtn">투표폼 코드</button>
+        <button class="ghost" id="exportBtn">백업</button>
+        <button class="ghost" id="importBtn">불러오기</button>
         <button class="ghost" id="clearPickBtn">선택 해제</button>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none">
       </div>
     </div>
     <div class="filter-bar" id="filterBar"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <input type="text" id="searchBox" placeholder="🔍 이름 검색" style="flex:1;min-width:140px" autocomplete="off">
+      <input type="text" id="searchBox" placeholder=" 이름 검색" style="flex:1;min-width:140px" autocomplete="off">
       <select id="sortSel" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 10px;border-radius:8px;font-size:0.85rem">
         <option value="name">이름순</option>
         <option value="winrate">승률순</option>
@@ -516,7 +528,7 @@ document.documentElement.setAttribute('data-theme',t);})();
     </div>
     <div id="roster"></div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap">
-      <label style="margin:0;white-space:nowrap">🏆 랭크게임 강도</label>
+      <label style="margin:0;white-space:nowrap">랭크게임 강도</label>
       <select id="intensitySel" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:7px 10px;border-radius:8px;font-size:0.85rem">
         <option value="default" selected>기본 (랜덤)</option>
         <option value="high">높게 (주라인 위주 · 수준↑)</option>
@@ -524,11 +536,11 @@ document.documentElement.setAttribute('data-theme',t);})();
       </select>
     </div>
     <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="primary" id="makeBtn">🏆 랭크게임</button>
-      <button class="ghost" id="manualBtn">✋ 수동 배치</button>
-      <button class="ghost" id="auctionBtn">💰 경매 드래프트</button>
+      <button class="primary" id="makeBtn">랭크게임</button>
+      <button class="ghost" id="manualBtn">수동 배치</button>
+      <button class="ghost" id="auctionBtn">경매 드래프트</button>
     </div>
-    <div class="hint">💡 선수 체크 후 라인 태그(예: <b>원딜 2티어</b>)를 <b>클릭</b> → 그 라인 <b>고정</b> (다시 클릭하면 해제). 이름을 누르면 <b>프로필</b>이 열려요.</div>
+    <div class="hint">선수 체크 후 라인 태그(예: <b>원딜 2티어</b>)를 <b>클릭</b> → 그 라인 <b>고정</b> (다시 클릭하면 해제). 이름을 누르면 <b>프로필</b>이 열려요.</div>
   </div>
 
   </section>
@@ -560,7 +572,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   <div class="modal-bg" id="statsModal">
     <div class="modal" style="max-width:640px">
       <h3>전체 통계표</h3>
-      <div class="msub">💰 시장 몸값 순위 · 누적 전적 · 최근3판 · BEST/WORST</div>
+      <div class="msub">시장 몸값 순위 · 누적 전적 · 최근3판 · BEST/WORST</div>
       <div class="stat-scroll" id="statsBody"></div>
       <div style="display:flex;gap:10px;margin-top:16px">
         <button class="ghost" id="statsResetBtn">통계 초기화</button>
@@ -580,7 +592,7 @@ document.documentElement.setAttribute('data-theme',t);})();
       <div class="step">4. 실행 로그(하단)에 <b>폼 링크</b>가 뜸 → 그 링크를 단톡방에 공유</div>
       <textarea id="formCode" readonly></textarea>
       <div style="display:flex;gap:10px;margin-top:12px">
-        <button class="primary" id="copyCodeBtn" style="flex:1">📋 코드 복사</button>
+        <button class="primary" id="copyCodeBtn" style="flex:1">코드 복사</button>
         <button class="ghost" id="formCloseBtn">닫기</button>
       </div>
     </div>
@@ -588,7 +600,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 
   <div class="modal-bg" id="hofModal">
     <div class="modal" style="max-width:520px">
-      <h3>🏅 명예의 전당</h3>
+      <h3>명예의 전당</h3>
       <div class="msub">역대 최고 기록 · 오늘의 MVP</div>
       <div id="hofBody"></div>
       <div style="margin-top:16px"><button class="primary" id="hofCloseBtn" style="width:100%">닫기</button></div>
@@ -597,7 +609,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 
   <div class="modal-bg" id="riotModal">
     <div class="modal" style="max-width:560px">
-      <h3>🎮 라이엇 ID 등록</h3>
+      <h3>라이엇 ID 등록</h3>
       <div class="msub">닉네임#태그 형식으로 입력하고 저장하면 라이엇에서 계정을 확인해요. 등록된 선수는 경기 결과를 자동으로 가져올 수 있어요. 안 쓰는 선수는 비워두세요.</div>
       <div id="riotBody"></div>
       <div style="display:flex;gap:8px;margin-top:16px"><button class="ghost" id="riotCloseBtn" style="flex:1">닫기</button><button class="primary" id="riotSaveBtn" style="flex:2">확인하고 저장</button></div>
@@ -605,7 +617,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   </div>
   <div class="modal-bg" id="laneModal">
     <div class="modal" style="max-width:520px">
-      <h3>⚙️ 라인 설정</h3>
+      <h3>라인 설정</h3>
       <div class="msub">끈 라인은 팀 짤 때 배정되지 않아요. 켜 둔 라인 중에서 "가장 하고 싶은 라인"과 "가장 하기 싫은 라인"을 하나씩 고르면 균형을 크게 해치지 않는 범위에서 반영돼요. 티어는 그대로 유지돼요.</div>
       <div id="laneBody"></div>
       <div style="display:flex;gap:8px;margin-top:16px"><button class="ghost" id="laneCloseBtn" style="flex:1">취소</button><button class="primary" id="laneSaveBtn" style="flex:2">저장</button></div>
@@ -613,7 +625,7 @@ document.documentElement.setAttribute('data-theme',t);})();
   </div>
   <div class="modal-bg" id="historyModal">
     <div class="modal" style="max-width:560px">
-      <h3>📜 경기 기록</h3>
+      <h3>경기 기록</h3>
       <div class="msub">최근 경기부터 (승리 팀 · BEST/WORST)</div>
       <div class="stat-scroll" id="historyBody"></div>
       <div style="margin-top:16px"><button class="primary" id="historyCloseBtn" style="width:100%">닫기</button></div>
@@ -961,28 +973,8 @@ function winrateBottomId(){
   return tied[0].p.id;
 }
 function playerTags(pl){
-  const tags=[];const r=recent(pl);
-  // overall winrate #1 / last place (min 5 games, ties broken by more games)
-  if(winrateTopId()===pl.id)tags.push({t:'wrtop',label:'🏆승률1위'});
-  if(winrateBottomId()===pl.id)tags.push({t:'wrbottom',label:'🥶승률꼴찌'});
-  // streak (global, trailing) — not lane-specific
-  let streak=0,st=null;
-  for(let i=pl.hist.length-1;i>=0;i--){const res=pl.hist[i].result;if(st==null)st=res;if(res===st)streak++;else break;}
-  if(st==='W'&&streak>=2)tags.push({t:'sw',label:'🔥'+streak+'연승'});
-  else if(st==='L'&&streak>=2)tags.push({t:'sl',label:'💀'+streak+'연패'});
-
-  // award-based tags PER LANE, from recent5 entries that have a lane recorded
-  const byLane={};
-  r.forEach(h=>{if(!h.pos)return;if(!byLane[h.pos])byLane[h.pos]={best:0,worst:0};if(h.award==='BEST')byLane[h.pos].best++;if(h.award==='WORST')byLane[h.pos].worst++;});
-  POSITIONS.forEach(p=>{
-    const d=byLane[p.key];if(!d)return;
-    const laneTier=pl.tiers[p.key];const lab=p.label;
-    if(d.best>0&&d.worst>0){tags.push({t:'swing',label:'🎭'+lab+'-기복'});return;}
-    if(d.best>=2)tags.push({t:'core',label:'⚡'+lab+'-핵심'});
-    if(d.worst>=1)tags.push({t:'bad',label:'📉'+lab+'-폼↓'});
-    if(d.best>0&&laneTier!=null&&laneTier>=4)tags.push({t:'value',label:'💎'+lab+'-가성비'});
-    if(d.worst>0&&laneTier===1)tags.push({t:'hippo',label:'🦛'+lab+'-하마'});
-  });
+  const tags=[];
+  POSITIONS.forEach(p=>{ if(pl.tiers[p.key]!=null && isKing(pl,p.key)) tags.push({t:'king',label:p.label+' KING 👑'}); });
   return tags;
 }
 
@@ -1003,9 +995,9 @@ function renderLaneSettings(){
     const on=!laneDraft.off[p.key];
     return `<div class="lane-row" data-lane="${p.key}">
       <span class="lname">${p.label} <span style="color:var(--ink-dim);font-size:0.75rem">${pl.tiers[p.key]}티어${on?'':' · 비활성'}</span></span>
-      <button class="ghost lane-toggle" style="${on?'':'background:rgba(224,98,98,0.2);border-color:var(--loss);color:var(--loss-ink)'}">${on?'⛔ 비활성화':'✅ 다시 활성화'}</button>
-      <button class="ghost lane-pref ${laneDraft.prefer===p.key?'sel-pref':''}" ${on?'':'disabled style="opacity:0.35"'}>💚 가장 하고 싶음</button>
-      <button class="ghost lane-avoid ${laneDraft.avoid===p.key?'sel-avoid':''}" ${on?'':'disabled style="opacity:0.35"'}>😣 가장 하기 싫음</button>
+      <button class="ghost lane-toggle" style="${on?'':'background:rgba(224,98,98,0.2);border-color:var(--loss);color:var(--loss-ink)'}">${on?' 비활성화':'✅ 다시 활성화'}</button>
+      <button class="ghost lane-pref ${laneDraft.prefer===p.key?'sel-pref':''}" ${on?'':'disabled style="opacity:0.35"'}>가장 하고 싶음</button>
+      <button class="ghost lane-avoid ${laneDraft.avoid===p.key?'sel-avoid':''}" ${on?'':'disabled style="opacity:0.35"'}>가장 하기 싫음</button>
     </div>`;
   }).join("");
   body.innerHTML=rows+'<div class="hint" style="margin-top:10px">선호도를 비워 두면 균형·다양성만 보고 짜요.</div>';
@@ -1121,8 +1113,8 @@ function renderRoster(){
     const nm=document.createElement("span");nm.className="r-name";nm.textContent=pl.name;nm.onclick=()=>openProfile(pl.id);main.appendChild(nm);
     const t=totals(pl);
     if(t.g>0){const rec=document.createElement("span");rec.className="r-record";rec.innerHTML='<span class="w">'+t.w+'승</span> <span class="l">'+t.l+'패</span>';main.appendChild(rec);}
-    playerTags(pl).forEach(tg=>{const s=document.createElement("span");s.className="tag "+tg.t;s.textContent=tg.label;main.appendChild(s);});
-    if(isLocked){const ln=document.createElement("span");ln.className="lock-note";ln.textContent="🔒 "+POSITIONS.find(p=>p.key===locks[pl.id]).label+" 고정";main.appendChild(ln);}
+    
+    if(isLocked){const ln=document.createElement("span");ln.className="lock-note";ln.textContent="고정 · "+POSITIONS.find(p=>p.key===locks[pl.id]).label+" 고정";main.appendChild(ln);}
     item.appendChild(main);
 
     const pos=document.createElement("div");pos.className="r-pos";
@@ -1141,8 +1133,8 @@ function renderRoster(){
         }
         const laneOffHere=!!(pl.laneOff&&pl.laneOff[p.key]);
         if(laneOffHere){tag.classList.add("off");tag.title="비활성 라인 (팀 짤 때 배정 안 됨)";}
-        if(pl.preferLane===p.key)tag.innerHTML+=" 💚";
-        if(pl.avoidLane===p.key)tag.innerHTML+=" 😣";
+        if(pl.preferLane===p.key)tag.innerHTML+=" 선호";
+        if(pl.avoidLane===p.key)tag.innerHTML+=" 기피";
         const doLock=(e)=>{if(e&&e.preventDefault)e.preventDefault();if(!picked.has(pl.id)){alert("먼저 이 선수를 체크(선택)한 뒤 라인 고정이 가능해요.");return;}if(locks[pl.id]===p.key)delete locks[pl.id];else locks[pl.id]=p.key;renderRoster();};
         tag.onclick=doLock;
         pos.appendChild(tag);
@@ -1159,7 +1151,7 @@ function renderRoster(){
       try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}
       pushRemote({ players: state.players, matchLog: state.matchLog||[], deletedPlayers: archived });
       renderRoster();}};
-    {const cfg=document.createElement("button");cfg.className="icon-btn";cfg.textContent="⚙️ 라인";cfg.title="라인 켜기/끄기 · 선호도";cfg.onclick=()=>openLaneSettings(pl.id);act.appendChild(cfg);}
+    {const cfg=document.createElement("button");cfg.className="icon-btn";cfg.textContent="라인";cfg.title="라인 켜기/끄기 · 선호도";cfg.onclick=()=>openLaneSettings(pl.id);act.appendChild(cfg);}
     act.appendChild(edit);act.appendChild(del);item.appendChild(act);
     box.appendChild(item);
   });
@@ -1201,11 +1193,11 @@ function openProfile(id){
     if(stk.type==='W'&&stk.count>=1){
       const left=3-stk.count;
       const upInfo=(tier!=null&&tier>1)?(left>0?' (승급까지 '+left+'승)':' (승급!)'):(tier===1?' (최고)':'');
-      streakTxt=' · <span style="color:var(--win)">🔥'+stk.count+'연승 중'+upInfo+'</span>';
+      streakTxt=' · <span style="color:var(--win)">'+stk.count+'연승 중'+upInfo+'</span>';
     }else if(stk.type==='L'&&stk.count>=1){
       const left=3-stk.count;
       const downInfo=(tier!=null&&tier<6)?(left>0?' (강등까지 '+left+'패)':' (강등)'):(tier===6?' (최하)':'');
-      streakTxt=' · <span style="color:var(--loss)">💀'+stk.count+'연패 중'+downInfo+'</span>';
+      streakTxt=' · <span style="color:var(--loss)">'+stk.count+'연패 중'+downInfo+'</span>';
     }
     return `<div class="prof-line" style="display:flex;justify-content:space-between;flex-wrap:wrap"><b>${p.label} ${tier!=null?tier+'티어':''}</b><span class="mini">${s.w}승 ${s.l}패 (${lwr}%) · B${s.best} W${s.worst}${streakTxt}</span></div>`;
   }).join("");
@@ -1242,7 +1234,7 @@ function openProfile(id){
       <div class="prof-cell"><div class="num">${t.g}</div><div class="lab">총 경기</div></div>
     </div>
 
-    <div class="prof-section-h">💰 시장 몸값</div>
+    <div class="prof-section-h">시장 몸값</div>
     <div class="mv-total">${mvTotal}<span class="mv-unit">원</span></div>
     <div class="mv-breakdown">
       ${mvLines}
@@ -1250,15 +1242,15 @@ function openProfile(id){
       <div class="mv-row mv-sum"><span>라인 보너스 합계</span><span>+${mvBonus}원</span></div>
     </div>
 
-    <div class="prof-section-h">📊 최근 전적</div>
+    <div class="prof-section-h">최근 전적</div>
     <div class="prof-line">누적 BEST <b>${t.best}</b>회 · WORST <b>${t.worst}</b>회 · 최근3판 B${rb} W${rw}</div>
     <div class="recent-dots">${dots}</div>
 
-    <div class="prof-section-h">🎯 라인별 전적</div>
+    <div class="prof-section-h">라인별 전적</div>
     ${laneSection}
 
     ${champSection(pl)}
-    <div class="prof-section-h">⚔️ 라인 상대 전적</div>
+    <div class="prof-section-h">라인 상대 전적</div>
     ${h2hSection}
 
     <div style="display:flex;gap:10px;margin-top:20px">
@@ -1291,7 +1283,7 @@ function laneActive(pl,key){ return pl.tiers[key]!=null && !(pl.laneOff&&pl.lane
 function prefScore(pl,key){ if(pl.preferLane===key)return PREFER_BONUS; if(pl.avoidLane===key)return -AVOID_PENALTY; return 0; }
 function searchTeamPool(chosen,penalizedIds){
   const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
-  // 방장이 🔒로 고정한 라인은 비활성이어도 우선 (명시적 선택), 고정이 없으면 활성 라인만
+  // 방장이 고정로 고정한 라인은 비활성이어도 우선 (명시적 선택), 고정이 없으면 활성 라인만
   function canFill(pl,slot){
     if(locks[pl.id]!=null) return locks[pl.id]===slot.pos && pl.tiers[slot.pos]!=null;
     return laneActive(pl,slot.pos);
@@ -1352,7 +1344,7 @@ function makeTeams(){
   const chosen=players.filter(p=>picked.has(p.id));
   if(chosen.length!==10){alert("정확히 10명을 선택하세요. (현재 "+chosen.length+"명)");return;}
   const noLane=chosen.filter(p=>locks[p.id]==null&&!POSITIONS.some(pp=>laneActive(p,pp.key)));
-  if(noLane.length){alert(noLane.map(p=>p.name).join(", ")+" 님은 활성화된 라인이 하나도 없어요. ⚙️ 라인 설정에서 라인을 켜거나 🔒 라인 고정을 해주세요.");return;}
+  if(noLane.length){alert(noLane.map(p=>p.name).join(", ")+" 님은 활성화된 라인이 하나도 없어요.  라인 설정에서 라인을 켜거나 고정 라인 고정을 해주세요.");return;}
   const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
   // WORST 2개 누적으로 예약된 1회용 -1 페널티 대상자 (이번 판에 뽑힌 10명 중)
   const penalizedIds=new Set(chosen.filter(p=>p.pendingPenalty).map(p=>p.id));
@@ -1488,7 +1480,7 @@ function renderManual(){
     </div>
     <div class="dnd-note">전력 차이 <b>${diff}</b> · 점수는 <b>라인별 가중치</b> 반영 (정글·서폿은 영향력만큼 낮게 계산)</div>
     <div class="win-btns" style="margin-top:10px">
-      <button class="win-btn" id="autoFillBtn" style="border-color:var(--gold);color:var(--gold-bright)">🎯 나머지 자동 채우기</button>
+      <button class="win-btn" id="autoFillBtn" style="border-color:var(--gold);color:var(--gold-bright)">나머지 자동 채우기</button>
     </div>
     <div class="win-btns"><button class="win-btn blue" id="mBlueWin">🔵 블루 승리</button><button class="win-btn red" id="mRedWin">🔴 레드 승리</button></div>
     <div class="dnd-note">배치한 사람은 두고 <b>대기 인원만</b> 균형 맞춰 자동 배분해요. 각 팀 5명 채운 뒤 승리 팀 기록.</div>
@@ -1621,7 +1613,7 @@ function renderSharedAuction(){
   const tierText=POSITIONS.filter(p=>cur.tiers[p.key]!=null).map(p=>p.label+" "+cur.tiers[p.key]+"티어").join(" · ");
   function teamCol(key,cls,label){
     const members=(auc.teams[key]||[]).map(id=>{const pl=players.find(p=>p.id===id);if(!pl)return"";const paid=auc.paid&&auc.paid[id]!=null?auc.paid[id]+"코인":(id===auc.captains[key]?"팀장":"");return `<div class="auc-member">${escapeHtml(pl.name)}<span class="paid">${paid}</span></div>`;}).join("");
-    return `<div class="auc-team ${cls}"><h4>${label}<span class="coin">💰 ${auc.coins[key]}</span></h4>${members}<div class="auc-remain">${(auc.teams[key]||[]).length}/${auc.teamSize}명</div></div>`;
+    return `<div class="auc-team ${cls}"><h4>${label}<span class="coin"> ${auc.coins[key]}</span></h4>${members}<div class="auc-remain">${(auc.teams[key]||[]).length}/${auc.teamSize}명</div></div>`;
   }
   const bidTxt = (auc.bid&&auc.bid.team) ? ((auc.bid.team==='blue'?'🔵 블루':'🔴 레드')+' '+auc.bid.amount+'코인') : '없음';
   box.innerHTML=`<div class="card"><h2>경매 진행</h2>
@@ -1724,7 +1716,7 @@ function renderAuctionResultShared(auc){
   const box=document.getElementById("result");if(!box)return;
   function teamCol(key,cls,label){
     const members=(auc.teams[key]||[]).map(id=>{const pl=players.find(p=>p.id===id);if(!pl)return"";const paid=id===auc.captains[key]?'팀장':(auc.paid&&auc.paid[id]!=null?auc.paid[id]+'코인':'자동');return `<div class="auc-member">${escapeHtml(pl.name)}<span class="paid">${paid}</span></div>`;}).join("");
-    return `<div class="auc-team ${cls}"><h4>${label}<span class="coin">💰 남은 ${auc.coins[key]}</span></h4>${members}</div>`;
+    return `<div class="auc-team ${cls}"><h4>${label}<span class="coin"> 남은 ${auc.coins[key]}</span></h4>${members}</div>`;
   }
   box.innerHTML=`<div class="card"><h2>경매 완료 — 최종 팀</h2>
     <div class="auc-teams">${teamCol('blue','blue','🔵 블루')}${teamCol('red','red','🔴 레드')}</div>
@@ -1761,13 +1753,13 @@ function renderSharedMatchArea(){
   (cm.assignments||[]).forEach(a=>{const pl=players.find(p=>p.id===a.id);if(pl)byTeam[a.team].push({slot:{pos:a.pos},player:pl});});
   byTeam[0].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);byTeam[1].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);
   const readyList=cm.readyBy||[];
-  function teamHtml(list,cls,title,sum){let rows="";list.forEach(m=>{const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 🔒":"";const pf=m.player.preferLane===m.slot.pos?" 💚":(m.player.avoidLane===m.slot.pos?" 😣":"");const king=isKing(m.player,m.slot.pos);
+  function teamHtml(list,cls,title,sum){let rows="";list.forEach(m=>{const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=king?'<span class="slot-tier" style="background:linear-gradient(160deg,#f5e6b0,#d4a94a);color:#2a1e05">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const readyTag=cm.locked?'':(readyList.includes(m.player.name)?' <span style="color:var(--win);font-size:0.7rem;font-weight:700">✅준비</span>':' <span style="color:var(--ink-dim);font-size:0.7rem">⏳준비중</span>');
     rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}${pf}${readyTag}</span>${tierCell}</div>`;});
     return `<div class="team ${cls}"><div class="team-head"><span class="team-title">${title}</span><span class="team-sum">전력 ${sum}</span></div>${rows}</div>`;}
 
-  function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 🔒":"";const pf=m.player.preferLane===m.slot.pos?" 💚":(m.player.avoidLane===m.slot.pos?" 😣":"");const king=isKing(m.player,m.slot.pos);
+  function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=king?'<span class="slot-tier king">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const dot=cm.locked?'':(readyList.includes(m.player.name)?'<span class="rdy on" title="준비완료">✅</span>':'<span class="rdy" title="준비중">⏳</span>');
     return `<div class="vs-cell ${side}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name">${escapeHtml(m.player.name)}${lk}${pf}</span>${tierCell}</div>`;}
@@ -1790,22 +1782,22 @@ function renderSharedMatchArea(){
   const basicUsedByMe=basicRemainByMe<=0;
   const bonusRemainByMe=bonusRerollAvailable(myPlayer);
   const ticketNote = myName
-    ? `<span style="color:var(--ink-dim)">🎫 ${escapeHtml(myName)}님 — 기본 ${basicRemainByMe}장 남음${basicAllowance>1?' (1티어 보너스)':''} · 임시 ${bonusRemainByMe}장 남음</span>`
+    ? `<span style="color:var(--ink-dim)"> ${escapeHtml(myName)}님 — 기본 ${basicRemainByMe}장 남음${basicAllowance>1?' (1티어 보너스)':''} · 임시 ${bonusRemainByMe}장 남음</span>`
     : `<span style="color:var(--ink-dim)">이름을 설정하면 리롤권이 개인별로 추적돼요</span>`;
   // 개발자 전용: 누가 어떤 리롤권을 몇 번 썼는지 (일반 참가자 화면에는 안 보임)
   let devRerollNote='';
   if(myName===DEV_NAME && devUnlocked()){
     const tally=(arr)=>{const m={};(arr||[]).forEach(n=>{m[n]=(m[n]||0)+1;});const e=Object.entries(m);return e.length?e.map(([n,c])=>escapeHtml(n)+(c>1?' ×'+c:'')).join(', '):'없음';};
-    devRerollNote=`<div class="balance-note" style="border:1px dashed var(--lock);border-radius:8px;padding:8px;margin-top:8px;text-align:left">🛠 <b>개발자 전용</b> · 이번 판 리롤 사용자<br>기본 리롤권: ${tally(cm.basicUsedBy)}<br>임시 리롤권: ${tally(cm.bonusUsedBy)}</div>`;
+    devRerollNote=`<div class="balance-note" style="border:1px dashed var(--lock);border-radius:8px;padding:8px;margin-top:8px;text-align:left"> <b>개발자 전용</b> · 이번 판 리롤 사용자<br>기본 리롤권: ${tally(cm.basicUsedBy)}<br>임시 리롤권: ${tally(cm.bonusUsedBy)}</div>`;
   }
   const pleadList=cm.pleadedBy||[];
   // 누가 눌렀는지는 비공개 — 몇 명이 요청했는지 숫자만 공개 (심리전 요소 유지)
-  const pleadNote = pleadList.length ? `<div class="warn" style="text-align:center;margin-top:8px">🙏 ${pleadList.length}명이 다시 섞어달라고 요청했어요!</div>` : '';
+  const pleadNote = pleadList.length ? `<div class="warn" style="text-align:center;margin-top:8px"> ${pleadList.length}명이 다시 섞어달라고 요청했어요!</div>` : '';
   const allNames=(cm.assignments||[]).map(a=>{const pl=players.find(p=>p.id===a.id);return pl?pl.name:null;}).filter(Boolean);
   const iAmInMatch=myName && allNames.includes(myName);
   const iAmReady=readyList.includes(myName);
   let readyHtml;
-  const lockedBanner = cm.locked ? `<div class="locked-banner">🔒 팀 확정! <span class="locked-sub">전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요</span></div>` : '';
+  const lockedBanner = cm.locked ? `<div class="locked-banner">고정 팀 확정! <span class="locked-sub">전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요</span></div>` : '';
   if(!cm.locked){ readyHtml = `✅ 준비완료 <b>${readyList.length}</b>/10명 — 전원 준비되면 자동으로 팀이 확정돼요 · ⏱️ <span id="matchSeconds">--:--</span> 뒤 자동 확정 <span style="color:var(--ink-dim)">(30초 이하에서 리롤하면 +5초)</span>`; }
   const noReroll=basicUsedByMe;
   box.innerHTML=`<div class="card"><h2>결과</h2>
@@ -1819,9 +1811,9 @@ function renderSharedMatchArea(){
     ${devRerollNote}
     ${(!cm.locked && iAmInMatch)?`<div style="text-align:center;margin-top:8px"><button class="${iAmReady?'ghost':'primary'}" id="readyBtnShared">${iAmReady?'✅ 준비 취소':'✅ 준비완료'}</button></div>`:''}
     ${(!cm.locked)?`<div style="text-align:center;margin-top:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button class="ghost" id="basicRerollBtn" ${basicUsedByMe?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🔄 기본 리롤권 (${basicRemainByMe})</button>
-        <button class="ghost" id="bonusRerollBtn" ${bonusRemainByMe<=0?'disabled style="opacity:0.4;cursor:not-allowed"':''}>🎫 임시 리롤권 (${bonusRemainByMe})</button>
-        ${noReroll?'<button class="ghost" id="pleadBtn">🙏 돌려주세요!</button>':''}
+        <button class="ghost" id="basicRerollBtn" ${basicUsedByMe?'disabled style="opacity:0.4;cursor:not-allowed"':''}>기본 리롤권 (${basicRemainByMe})</button>
+        <button class="ghost" id="bonusRerollBtn" ${bonusRemainByMe<=0?'disabled style="opacity:0.4;cursor:not-allowed"':''}>임시 리롤권 (${bonusRemainByMe})</button>
+        ${noReroll?'<button class="ghost" id="pleadBtn">돌려주세요!</button>':''}
       </div>`:''}
     <div class="win-btns"><button class="win-btn blue" id="blueWin">🔵 블루 승리</button><button class="win-btn red" id="redWin">🔴 레드 승리</button></div>
     <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작 (오클릭 방지로 확인창이 떠요)</div>
@@ -1938,7 +1930,7 @@ function renderSharedVote(){
   const votedCount=Object.keys(ballots).filter(n=>eligibleVoterNames.includes(n)).length;
   const myBallot=myName?ballots[myName]:null;
   const iAmEligible=myName&&eligibleVoterNames.includes(myName);
-  const title=stage==='best'?'🏆 BEST 투표 (이긴 팀)':'💀 WORST 투표 (진 팀)';
+  const title=stage==='best'?' BEST 투표 (이긴 팀)':' WORST 투표 (진 팀)';
   const narrowed=(v.candidates&&v.candidates.length<voterIds.length);
   const roundNote=narrowed
     ?`<div class="warn">과반수 미달! 0표 받은 사람은 빠지고, 남은 ${cands.length}명으로 재투표입니다. (${v.round}차)</div>`
@@ -1953,7 +1945,7 @@ function renderSharedVote(){
     ${roundNote}
     <div id="sharedVoteList">${rows}</div>
     ${iAmEligible?'<div class="hint" style="text-align:center;margin-top:10px">본인 팀 후보 중 한 명을 선택하세요. 다시 누르면 표를 바꿀 수 있어요.</div>':'<div class="hint" style="text-align:center;margin-top:10px">이번 투표는 '+(stage==='best'?'이긴 팀':'진 팀')+' 만 참여할 수 있어요.</div>'}
-    <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">🔄 이 투표 초기화하고 처음부터 다시</button></div>
+    <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">이 투표 초기화하고 처음부터 다시</button></div>
   </div>`;
   if(iAmEligible){
     box.querySelectorAll("#sharedVoteList .vote-btn").forEach(btn=>{
@@ -2041,7 +2033,7 @@ function finalizeVoteResult(bestId,worstId,winners,losers){
     pl.tiers[c.laneKey]=clampTier(pl.tiers[c.laneKey]+(c.dir==='up'?-1:1));
     pl.autoPromo={...pl.autoPromo};delete pl.autoPromo[flagKey];
     for(let i=pl.hist.length-1;i>=0;i--){ if(pl.hist[i].pos===c.laneKey){ pl.hist[i].streakReset=true; break; } }
-    autoLog.push((c.dir==='up'?'⬆️ ':'⬇️ ')+pl.name+' — '+laneLabel+' 조건 재달성(이전 투표 부결)으로 자동 '+(c.dir==='up'?'승급! → ':'강등 → ')+pl.tiers[c.laneKey]+'티어');
+    autoLog.push((c.dir==='up'?'▲ ':'⬇️ ')+pl.name+' — '+laneLabel+' 조건 재달성(이전 투표 부결)으로 자동 '+(c.dir==='up'?'승급! → ':'강등 → ')+pl.tiers[c.laneKey]+'티어');
     return false;
   });
   // 선수 데이터 저장과 투표 단계 전환을 한 번에 같이 보냄 (따로 보내면 그 사이 잠깐 "선수는 바뀌었는데 투표는 아직 안 끝난 것처럼" 보이는
@@ -2089,11 +2081,11 @@ function maybeResolvePromoVote(v){
     if(idx>=0){
       const pl={...freshPlayers[idx], tiers:{...freshPlayers[idx].tiers}};
       if(approved){
-        if(cur.dir==='up'){ pl.tiers[cur.laneKey]=clampTier(pl.tiers[cur.laneKey]-1); logLine='⬆️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 승급! → '+pl.tiers[cur.laneKey]+'티어'; }
+        if(cur.dir==='up'){ pl.tiers[cur.laneKey]=clampTier(pl.tiers[cur.laneKey]-1); logLine='▲ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 승급! → '+pl.tiers[cur.laneKey]+'티어'; }
         else{ pl.tiers[cur.laneKey]=clampTier(pl.tiers[cur.laneKey]+1); logLine='⬇️ '+pl.name+' — '+laneLabel+' 투표 찬성('+yes+':'+no+')으로 강등 → '+pl.tiers[cur.laneKey]+'티어'; }
         if(pl.autoPromo){pl.autoPromo={...pl.autoPromo};delete pl.autoPromo[cur.laneKey+'_'+cur.dir];}
       }else{
-        logLine='➡️ '+pl.name+' — '+laneLabel+' '+(cur.dir==='up'?'승급':'강등')+' 부결('+yes+':'+no+') · 티어 유지 (다음에 조건을 또 채우면 투표 없이 자동 '+(cur.dir==='up'?'승급':'강등')+')';
+        logLine='→ '+pl.name+' — '+laneLabel+' '+(cur.dir==='up'?'승급':'강등')+' 부결('+yes+':'+no+') · 티어 유지 (다음에 조건을 또 채우면 투표 없이 자동 '+(cur.dir==='up'?'승급':'강등')+')';
         pl.autoPromo={...(pl.autoPromo||{}),[cur.laneKey+'_'+cur.dir]:true};
       }
       // clearLaneStreak과 동일: 결과와 상관없이 이번 스트릭은 소모 (다음에 또 같은 조건으로 묻지 않도록)
@@ -2131,11 +2123,11 @@ function renderPromoVote(){
   const myBallot=myName?ballots[myName]:null;
   const iAmEligible=myName&&eligibleVoterNames.includes(myName);
   const remaining=(v.promoQueue||[]).length;
-  box.innerHTML=`<div class="card"><h2>${cur.dir==='up'?'⬆️':'⬇️'} 승급·강등 투표</h2>
+  box.innerHTML=`<div class="card"><h2>${cur.dir==='up'?'▲':'⬇️'} 승급·강등 투표</h2>
     <div class="msub">${escapeHtml(pl.name)}님 — ${laneLabel} ${dirLabel} 조건 달성! 당사자를 제외한 ${voters.length}명이 익명 투표 · ${votedCount}/${voters.length}명 투표함${remaining>0?' · 다음 '+remaining+'건 더 있어요':''}</div>
     ${iAmEligible?`<div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
-        <button class="win-btn blue" id="promoYesBtn">👍 찬성 (${dirLabel})</button>
-        <button class="win-btn red" id="promoNoBtn">👎 반대 (유지)</button>
+        <button class="win-btn blue" id="promoYesBtn">찬성 (${dirLabel})</button>
+        <button class="win-btn red" id="promoNoBtn">반대 (유지)</button>
       </div>
       <div class="hint" style="text-align:center;margin-top:10px">${myBallot?'내 투표: '+(myBallot==='yes'?'찬성':'반대')+' · 다시 누르면 바꿀 수 있어요':'당사자를 제외한 한 명으로서 투표하세요'}</div>`
       :`<div class="hint" style="text-align:center;margin-top:10px">이번 투표는 당사자 본인을 제외한 참가자만 할 수 있어요.</div>`}
@@ -2154,12 +2146,12 @@ function renderVoteResultBanner(){
   const promoHtml=promoLog.length?`<div class="balance-note" style="margin-top:10px;text-align:left">${promoLog.map(escapeHtml).join('<br>')}</div>`:'';
   box.innerHTML=`<div class="card"><h2>이번 판 결과</h2>
     <div class="prof-stats" style="grid-template-columns:1fr 1fr">
-      <div class="prof-cell"><div class="num" style="color:var(--gold-bright)">🏆 ${bestP?escapeHtml(bestP.name):'-'}</div><div class="lab">BEST</div></div>
-      <div class="prof-cell"><div class="num" style="color:var(--loss)">💀 ${worstP?escapeHtml(worstP.name):'-'}</div><div class="lab">WORST</div></div>
+      <div class="prof-cell"><div class="num" style="color:var(--gold-bright)"> ${bestP?escapeHtml(bestP.name):'-'}</div><div class="lab">BEST</div></div>
+      <div class="prof-cell"><div class="num" style="color:var(--loss)"> ${worstP?escapeHtml(worstP.name):'-'}</div><div class="lab">WORST</div></div>
     </div>
     ${promoHtml}
     <div style="margin-top:14px"><button class="primary" id="closeVoteResultBtn" style="width:100%">확인 · 다음 판 준비</button></div>
-    <div style="text-align:center;margin-top:10px"><button class="icon-btn" id="redoVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">↩️ 이 결과 취소하고 다시 투표하기</button></div>
+    <div style="text-align:center;margin-top:10px"><button class="icon-btn" id="redoVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">이 결과 취소하고 다시 투표하기</button></div>
   </div>`;
   document.getElementById("closeVoteResultBtn").onclick=()=>{ pushRemote({ vote:null }); };
   document.getElementById("redoVoteBtn").onclick=()=>{
@@ -2228,7 +2220,7 @@ function applyPromotions(ids){
       let streak=0,st=null;
       for(let i=pl.hist.length-1;i>=0;i--){const h=pl.hist[i];if(h.pos!==laneKey)continue;if(st==null)st=h.result;if(h.result===st)streak++;else break;if(h.streakReset)break;}
       if(streak>=3&&st==='W'&&pl.tiers[laneKey]>TIER_MIN){
-        const from=pl.tiers[laneKey];pl.tiers[laneKey]=clampTier(from-1);msgs.push('⬆️ '+pl.name+' — '+p.label+' '+from+'티어 → '+pl.tiers[laneKey]+'티어 승급!');
+        const from=pl.tiers[laneKey];pl.tiers[laneKey]=clampTier(from-1);msgs.push('▲ '+pl.name+' — '+p.label+' '+from+'티어 → '+pl.tiers[laneKey]+'티어 승급!');
         clearLaneStreak(pl,laneKey);
       }else if(streak>=3&&st==='L'&&pl.tiers[laneKey]<TIER_MAX){
         const from=pl.tiers[laneKey];pl.tiers[laneKey]=clampTier(from+1);msgs.push('⬇️ '+pl.name+' — '+p.label+' '+from+'티어 → '+pl.tiers[laneKey]+'티어 강등');
@@ -2260,11 +2252,11 @@ function checkAwardPromotion(pl){
   const laneLabel=POSITIONS.find(p=>p.key===laneKey).label;
   if(last.award==='BEST'&&st==='W'&&effective>=3&&pl.tiers[laneKey]>TIER_MIN){
     pl.tiers[laneKey]=clampTier(pl.tiers[laneKey]-1);clearLaneStreak(pl,laneKey);
-    return '⚡ '+pl.name+' — '+laneLabel+' BEST 획득으로 조기 승급! → '+pl.tiers[laneKey]+'티어';
+    return ' '+pl.name+' — '+laneLabel+' BEST 획득으로 조기 승급! → '+pl.tiers[laneKey]+'티어';
   }
   if(last.award==='WORST'&&st==='L'&&effective>=3&&pl.tiers[laneKey]<TIER_MAX){
     pl.tiers[laneKey]=clampTier(pl.tiers[laneKey]+1);clearLaneStreak(pl,laneKey);
-    return '⚡ '+pl.name+' — '+laneLabel+' WORST로 조기 강등 → '+pl.tiers[laneKey]+'티어';
+    return ' '+pl.name+' — '+laneLabel+' WORST로 조기 강등 → '+pl.tiers[laneKey]+'티어';
   }
   return null;
 }
@@ -2299,7 +2291,7 @@ document.getElementById("statsBtn").onclick=()=>{
   else{
     const rows=[...players].map(pl=>{const t=totals(pl);const r=recent(pl);const rb=r.filter(h=>h.award==='BEST').length;const rw=r.filter(h=>h.award==='WORST').length;const wr=t.g?Math.round(t.w/t.g*100):0;const form=r.map(h=>h.result).join("")||"-";const mv=marketValue(pl);return {pl,t,wr,rb,rw,form,mv};})
       .sort((a,b)=>b.mv-a.mv);
-    let html='<table class="stat-table"><thead><tr><th>선수</th><th>💰몸값</th><th>승</th><th>패</th><th>승률</th><th>최근3</th><th>B</th><th>W</th></tr></thead><tbody>';
+    let html='<table class="stat-table"><thead><tr><th>선수</th><th>몸값</th><th>승</th><th>패</th><th>승률</th><th>최근3</th><th>B</th><th>W</th></tr></thead><tbody>';
     rows.forEach(r=>{html+=`<tr><td class="name">${escapeHtml(r.pl.name)}</td><td><b style="color:var(--gold-bright)">${r.mv}원</b></td><td style="color:var(--win)">${r.t.w}</td><td style="color:var(--loss)">${r.t.l}</td><td>${r.wr}%</td><td class="mini">${r.form}</td><td>${r.t.best}</td><td>${r.t.worst}</td></tr>`;});
     html+='</tbody></table>';body.innerHTML=html;
   }
@@ -2326,12 +2318,12 @@ document.getElementById("formBtn").onclick=()=>{
   form.setLimitOneResponsePerUser(false);
 
   var best = form.addMultipleChoiceItem();
-  best.setTitle('🏆 BEST - 이번 판 제일 잘한 사람');
+  best.setTitle(' BEST - 이번 판 제일 잘한 사람');
   best.setChoiceValues(players);
   best.setRequired(true);
 
   var worst = form.addMultipleChoiceItem();
-  worst.setTitle('💀 WORST - 이번 판 제일 아쉬운 사람');
+  worst.setTitle(' WORST - 이번 판 제일 아쉬운 사람');
   worst.setChoiceValues(players);
   worst.setRequired(true);
 
@@ -2343,7 +2335,7 @@ document.getElementById("formBtn").onclick=()=>{
 };
 document.getElementById("copyCodeBtn").onclick=()=>{
   const ta=document.getElementById("formCode");ta.select();
-  try{navigator.clipboard.writeText(ta.value);document.getElementById("copyCodeBtn").textContent="✓ 복사됨";setTimeout(()=>document.getElementById("copyCodeBtn").textContent="📋 코드 복사",1500);}
+  try{navigator.clipboard.writeText(ta.value);document.getElementById("copyCodeBtn").textContent="✓ 복사됨";setTimeout(()=>document.getElementById("copyCodeBtn").textContent=" 코드 복사",1500);}
   catch(e){document.execCommand&&document.execCommand("copy");}
 };
 document.getElementById("formCloseBtn").onclick=()=>document.getElementById("formModal").classList.remove("on");
@@ -2415,10 +2407,10 @@ document.getElementById("hofBtn").onclick=()=>{
   let html='';
   if(mvp)html+=`<div class="stat-box" style="border-color:var(--gold);margin-bottom:12px"><h4>👑 오늘의 MVP</h4><div class="stat-line" style="justify-content:center;font-size:1.1rem"><b style="color:var(--gold-bright)">${escapeHtml(mvp.name)}</b><span class="stat-val">BEST ${mvpN}회</span></div></div>`;
   html+='<div class="stat-grid">';
-  html+=`<div class="stat-box"><h4>🏆 최고 승률 (5판+)</h4>${byWR.length?byWR.slice(0,3).map((p,i)=>{const t=totals(p);return `<div class="stat-line"><b>${['🥇','🥈','🥉'][i]} ${escapeHtml(p.name)}</b><span class="stat-val">${Math.round(t.w/t.g*100)}%</span></div>`;}).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
-  html+=`<div class="stat-box"><h4>⭐ 최다 BEST</h4>${byBest.length?byBest.slice(0,3).map((p,i)=>`<div class="stat-line"><b>${['🥇','🥈','🥉'][i]} ${escapeHtml(p.name)}</b><span class="stat-val">${totals(p).best}회</span></div>`).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
-  html+=`<div class="stat-box"><h4>🔥 역대 최다 연승</h4>${byStreak.length?byStreak.slice(0,3).map((x,i)=>`<div class="stat-line"><b>${['🥇','🥈','🥉'][i]} ${escapeHtml(x.p.name)}</b><span class="stat-val">${x.s}연승</span></div>`).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
-  html+=`<div class="stat-box"><h4>🎮 최다 경기</h4>${byGames.length?byGames.slice(0,3).map((p,i)=>`<div class="stat-line"><b>${['🥇','🥈','🥉'][i]} ${escapeHtml(p.name)}</b><span class="stat-val">${totals(p).g}판</span></div>`).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
+  html+=`<div class="stat-box"><h4>최고 승률 (5판+)</h4>${byWR.length?byWR.slice(0,3).map((p,i)=>{const t=totals(p);return `<div class="stat-line"><b>${['1위','2위','3위'][i]} ${escapeHtml(p.name)}</b><span class="stat-val">${Math.round(t.w/t.g*100)}%</span></div>`;}).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
+  html+=`<div class="stat-box"><h4>최다 BEST</h4>${byBest.length?byBest.slice(0,3).map((p,i)=>`<div class="stat-line"><b>${['1위','2위','3위'][i]} ${escapeHtml(p.name)}</b><span class="stat-val">${totals(p).best}회</span></div>`).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
+  html+=`<div class="stat-box"><h4>역대 최다 연승</h4>${byStreak.length?byStreak.slice(0,3).map((x,i)=>`<div class="stat-line"><b>${['1위','2위','3위'][i]} ${escapeHtml(x.p.name)}</b><span class="stat-val">${x.s}연승</span></div>`).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
+  html+=`<div class="stat-box"><h4>최다 경기</h4>${byGames.length?byGames.slice(0,3).map((p,i)=>`<div class="stat-line"><b>${['1위','2위','3위'][i]} ${escapeHtml(p.name)}</b><span class="stat-val">${totals(p).g}판</span></div>`).join(""):'<div class="stat-line mini">기록 없음</div>'}</div>`;
   html+='</div>';
   body.innerHTML=html;
   document.getElementById("hofModal").classList.add("on");
@@ -2434,8 +2426,8 @@ document.getElementById("historyBtn").onclick=()=>{
   let html='';
   [...log].reverse().slice(0,50).forEach((m,idx)=>{
     const d=new Date(m.ts);const time=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-    const bestTxt=m.best?'🏆 '+nameOf(m.best):'';
-    const worstTxt=m.worst?'💀 '+nameOf(m.worst):'';
+    const bestTxt=m.best?' '+nameOf(m.best):'';
+    const worstTxt=m.worst?' '+nameOf(m.worst):'';
     html+=`<div style="padding:10px 4px;border-bottom:1px solid var(--line)">
       <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--ink-dim);margin-bottom:4px"><span>${time}</span><span>${bestTxt} ${worstTxt}</span></div>
       <div style="font-size:0.82rem"><span style="color:var(--win)">승 </span>${m.win.map(nameOf).join(", ")}</div>
@@ -2457,7 +2449,7 @@ function renderDevPanel(){
   let sel=document.getElementById("devPlayerSel");
   const prev=sel?sel.value:"";
   if(!sel){
-    box.innerHTML=`<div class="card" style="border-color:var(--lock)"><h2>🛠 개발자: 임시 리롤권 지급</h2>
+    box.innerHTML=`<div class="card" style="border-color:var(--lock)"><h2>개발자: 임시 리롤권 지급</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select id="devPlayerSel"></select>
         <b id="devPlayerCount" style="color:var(--gold-bright)"></b>
@@ -2465,9 +2457,9 @@ function renderDevPanel(){
         <button class="ghost" id="devRevokeBtn">－1장 회수</button>
       </div>
       <div style="margin-top:14px;border-top:1px dashed var(--lock);padding-top:10px">
-        <b>♻️ 삭제된 선수 복구</b>
+        <b> 삭제된 선수 복구</b>
         <div id="devRestoreList" style="margin-top:6px"></div>
-        <button class="ghost" id="devScanLocalBtn" style="margin-top:6px">🔍 이 기기에 남은 예전 백업에서 찾기</button>
+        <button class="ghost" id="devScanLocalBtn" style="margin-top:6px">이 기기에 남은 예전 백업에서 찾기</button>
       </div></div>`;
     sel=document.getElementById("devPlayerSel");
     document.getElementById("devScanLocalBtn").onclick=devScanLocalBackup;
@@ -2655,8 +2647,7 @@ function champBadge(pid,cm){const d=remote.currentDraft;if(!d||d.matchId!==cm.ma
 function draftControls(cm){
   if(!cm.locked)return '';
   const d=remote.currentDraft;
-  let h='<div style="text-align:center;margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="primary" id="riotImportBtn">🔄 롤 결과 자동 가져오기</button>';
-  if(!(d&&d.matchId===cm.matchId))h+='<button class="ghost" id="startDraftBtn">🎮 챔피언 밴픽 시작</button>';
+  let h='<div style="text-align:center;margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="primary" id="riotImportBtn">롤 결과 자동 가져오기</button>';
   h+='</div><div class="hint" style="text-align:center">게임이 끝난 뒤 눌러주세요. 라이엇 ID가 등록된 선수 기준으로 경기를 찾아서 승패·챔피언을 전적에 기록해요.</div>';
   return h;
 }
@@ -2791,7 +2782,7 @@ function renderDraftView(cm,d){
   let actions="";
   if(cur){
     if(!can)actions=`<div class="hint" style="text-align:center">${teamName(curTeam)} 선수가 고르고 있어요. 지켜보는 중…</div>`;
-    else if(curType==="ban")actions=`<div class="dr-actions"><button class="primary" id="drConfirm" ${dstate.sel?'':'disabled style="opacity:.4"'}>🚫 ${dstate.sel?escapeHtml(chName(dstate.sel))+" ":""}밴 확정</button><button class="ghost" id="drSkip">밴 건너뛰기</button></div>`;
+    else if(curType==="ban")actions=`<div class="dr-actions"><button class="primary" id="drConfirm" ${dstate.sel?'':'disabled style="opacity:.4"'}>${dstate.sel?escapeHtml(chName(dstate.sel))+" ":""}밴 확정</button><button class="ghost" id="drSkip">밴 건너뛰기</button></div>`;
     else actions=`<div class="dr-actions"><button class="primary" id="drConfirm" ${(dstate.sel&&targetSlot)?'':'disabled style="opacity:.4"'}>✅ ${dstate.sel?escapeHtml(chName(dstate.sel))+" ":""}픽 확정</button></div><div class="hint" style="text-align:center">위 선수 칸을 눌러 누가 쓸 챔피언인지 고를 수 있어요 (기본: 위에서부터 순서대로)</div>`;
   }
   const hadFocus=document.activeElement&&document.activeElement.id==="drSearch";
@@ -2802,7 +2793,7 @@ function renderDraftView(cm,d){
       <div class="dr-team blue"><div class="dr-thead">블루 팀</div><div class="dr-label">밴</div>${banRow(0)}<div class="dr-label">픽</div>${pickRows(0)}</div>
       <div class="dr-team red"><div class="dr-thead">레드 팀</div><div class="dr-label">밴</div>${banRow(1)}<div class="dr-label">픽</div>${pickRows(1)}</div>
     </div>
-    ${cur?`<div class="dr-picker"><div class="dr-tools"><input type="text" id="drSearch" placeholder="🔍 챔피언 검색 (한글 · 초성 · 영문)" value="${escapeHtml(dstate.q)}" autocomplete="off"><div class="filter-bar" style="margin:0">${tagBtns}</div></div>${grid}${actions}</div>`:'<div class="hint" style="text-align:center;margin-top:14px">밴픽이 끝났어요. 결과로 돌아가서 승패를 기록하세요.</div>'}
+    ${cur?`<div class="dr-picker"><div class="dr-tools"><input type="text" id="drSearch" placeholder=" 챔피언 검색 (한글 · 초성 · 영문)" value="${escapeHtml(dstate.q)}" autocomplete="off"><div class="filter-bar" style="margin:0">${tagBtns}</div></div>${grid}${actions}</div>`:'<div class="hint" style="text-align:center;margin-top:14px">밴픽이 끝났어요. 결과로 돌아가서 승패를 기록하세요.</div>'}
     <div class="dr-legal">이 앱은 Riot Games와 관련 없는 팬 프로젝트예요. League of Legends 및 챔피언 이미지는 Riot Games의 자산이에요.</div></div>`;
   box.querySelectorAll(".dr-ch").forEach(b=>b.onclick=()=>{dstate.sel=b.dataset.ch;renderSharedMatchArea();});
   box.querySelectorAll(".dr-pick[data-slot]").forEach(b=>b.onclick=()=>{dstate.slot=b.dataset.slot;renderSharedMatchArea();});
@@ -2820,8 +2811,8 @@ function champSection(pl){
   const m={};
   (pl.hist||[]).forEach(h=>{if(!h.champ)return;const x=m[h.champ]||(m[h.champ]={g:0,w:0});x.g++;if(h.result==="W")x.w++;});
   const rows=Object.entries(m).sort((a,b)=>b[1].g-a[1].g).slice(0,8);
-  if(!rows.length)return '<div class="prof-section-h">🛡️ 챔피언별 전적</div><div class="prof-line mini">밴픽으로 챔피언을 고르고 경기를 기록하면 여기에 쌓여요</div>';
-  return '<div class="prof-section-h">🛡️ 챔피언별 전적</div>'+rows.map(([id,x])=>`<div class="prof-line" style="display:flex;align-items:center;gap:8px">${chImg(id,"dr-pimg")}<b>${escapeHtml(chName(id))}</b><span class="mini">${x.g}판 ${x.w}승 ${x.g-x.w}패 (${Math.round(x.w/x.g*100)}%)</span></div>`).join("");
+  if(!rows.length)return '<div class="prof-section-h">챔피언별 전적</div><div class="prof-line mini">밴픽으로 챔피언을 고르고 경기를 기록하면 여기에 쌓여요</div>';
+  return '<div class="prof-section-h">챔피언별 전적</div>'+rows.map(([id,x])=>`<div class="prof-line" style="display:flex;align-items:center;gap:8px">${chImg(id,"dr-pimg")}<b>${escapeHtml(chName(id))}</b><span class="mini">${x.g}판 ${x.w}승 ${x.g-x.w}패 (${Math.round(x.w/x.g*100)}%)</span></div>`).join("");
 }
 
 /* =====================================================================
@@ -2890,7 +2881,7 @@ async function riotImportResult(btn){
   if(!cm||!cm.locked||!cm.assignments){alert("팀이 확정된 경기에서만 쓸 수 있어요.");return;}
   const assigns=cm.assignments;
   const reg=assigns.map(a=>({a,pl:players.find(p=>p.id===a.id)})).filter(x=>x.pl&&x.pl.puuid);
-  if(reg.length<4){alert("라이엇 ID가 등록된 선수가 "+reg.length+"명뿐이에요. (최소 4명)\n'🎮 라이엇 ID'에서 먼저 등록해주세요.");return;}
+  if(reg.length<4){alert("라이엇 ID가 등록된 선수가 "+reg.length+"명뿐이에요. (최소 4명)\n' 라이엇 ID'에서 먼저 등록해주세요.");return;}
   const origText=btn?btn.textContent:"";
   if(btn){btn.disabled=true;btn.textContent="롤에서 찾는 중…";}
   try{
