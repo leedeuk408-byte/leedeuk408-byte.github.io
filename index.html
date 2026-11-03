@@ -16,7 +16,7 @@ document.documentElement.setAttribute('data-theme',t);})();
     --bg:#0a0b0f; --panel:#12141b; --panel-2:#191c26; --line:rgba(255,255,255,0.09);
     --ink:#f2f3f7; --ink-dim:#9ba2b5; --gold:#ffb547; --gold-bright:#ffc970;
     --on-accent:#1a1205; --on-tier:#1a1205; --raise:rgba(255,181,71,0.10); --sunken:rgba(0,0,0,0.28); --hair:rgba(255,255,255,0.07); --ul:rgba(255,255,255,0.18);
-    --t1:#ffd27a; --t2:#6fe0b0; --t3:#8fb4ff; --t4:#c2a8ff; --t5:#ff9fd0; --t6:#a9adbd;
+    --t1:#ffd27a; --t2:#6fe0b0; --t3:#8fb4ff; --t4:#c2a8ff; --t5:#ff9fd0; --t6:#a9adbd; --t7:#8d93a6; --t8:#737888;
     --win:#5fd08a; --loss:#ff7b7b; --on-win:#0c2214; --on-loss:#2a0f0c;
     --blue:#5b8cff; --red:#ff6b6b; --blue-ink:#8fb4ff; --red-ink:#ff9f9f; --warn-ink:#e8c88a; --lock:#d9a24a;
     --core:#e8ae62; --bad:#ff8f8f; --swing:#c2a8ff; --value:#5fd9c2; --hippo:#b5a3d6; --streak-w:#6fe0b0; --streak-l:#ff8f8f;
@@ -29,7 +29,7 @@ document.documentElement.setAttribute('data-theme',t);})();
     --bg:#eef1f6; --panel:#ffffff; --panel-2:#f3f5fa; --line:rgba(15,23,34,0.11);
     --ink:#0f1722; --ink-dim:#566176; --gold:#2f5bff; --gold-bright:#2447d6;
     --on-accent:#ffffff; --on-tier:#ffffff; --raise:#eaf0ff; --sunken:rgba(15,23,34,0.06); --hair:rgba(15,23,34,0.08); --ul:rgba(15,23,34,0.28);
-    --t1:#a87400; --t2:#1b8558; --t3:#2d68b8; --t4:#7550c2; --t5:#b3407a; --t6:#667085;
+    --t1:#a87400; --t2:#1b8558; --t3:#2d68b8; --t4:#7550c2; --t5:#b3407a; --t6:#667085; --t7:#788092; --t8:#8e95a3;
     --win:#1a8f4e; --loss:#c8473d; --on-win:#ffffff; --on-loss:#ffffff;
     --blue:#2f5bff; --red:#ff5a4e; --blue-ink:#2354b8; --red-ink:#b8352b; --warn-ink:#7a5a10; --lock:#9a6a12;
     --core:#a8661a; --bad:#b0463c; --swing:#7550c2; --value:#1b7f70; --hippo:#6b5a8e; --streak-w:#1b8558; --streak-l:#c8473d;
@@ -534,6 +534,14 @@ h2,h3,h4{letter-spacing:-.01em}
 .dev-audit li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:9px 12px;border-bottom:1px solid var(--hair);font-size:.82rem}
 .dev-audit li:last-child{border-bottom:0}
 .dev-msg{flex-basis:100%;color:var(--ink);padding-left:0}
+
+  .tier-btn.t7{border-color:color-mix(in srgb,var(--t7) 38%,var(--line))} .tier-btn.t7:hover{color:var(--t7);border-color:var(--t7)}
+  .tier-btn.t8{border-color:color-mix(in srgb,var(--t8) 38%,var(--line))} .tier-btn.t8:hover{color:var(--t8);border-color:var(--t8)}
+  .tier-btn.t7.sel{background:var(--t7);color:var(--on-tier);border-color:var(--t7)}
+  .tier-btn.t8.sel{background:var(--t8);color:var(--on-tier);border-color:var(--t8)}
+  .tierlabel-7{color:var(--t7)} .tierlabel-8{color:var(--t8)}
+  .r-tag.rtier-7{border-color:rgba(141,147,166,0.4);color:var(--t7)} .r-tag.rtier-7 b{color:var(--t7)}
+  .r-tag.rtier-8{border-color:rgba(115,120,136,0.4);color:var(--t8)} .r-tag.rtier-8 b{color:var(--t8)}
 </style>
 
 </head>
@@ -566,11 +574,11 @@ h2,h3,h4{letter-spacing:-.01em}
       <div style="flex:2"><label>닉네임</label>
         <input type="text" id="nameInput" placeholder="닉네임 입력" maxlength="16" autocomplete="off"></div>
     </div>
-    <label>가능한 라인 &amp; 라인별 티어 (1티어=에이스 ~ 6티어) · 정글/서폿 중 1개 필수</label>
+    <label>가능한 라인 &amp; 라인별 티어 (1티어=에이스 ~ 8티어) · 정글/서폿 중 1개 필수</label>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <label style="margin:0;white-space:nowrap">새 라인 켤 때 기본값</label>
       <select id="defaultTierSel" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:6px 10px;border-radius:8px;font-size:0.82rem">
-        <option value="1">1티어</option><option value="2" selected>2티어</option><option value="3">3티어</option><option value="4">4티어</option><option value="5">5티어</option><option value="6">6티어</option>
+        <option value="1">1티어</option><option value="2" selected>2티어</option><option value="3">3티어</option><option value="4">4티어</option><option value="5">5티어</option><option value="6">6티어</option><option value="7">7티어</option><option value="8">8티어</option>
       </select>
     </div>
     <div class="pos-grid" id="posGrid"></div>
@@ -891,7 +899,7 @@ const POSITIONS=[
   {key:"TOP",label:"탑"},{key:"JUG",label:"정글"},{key:"MID",label:"미드"},
   {key:"ADC",label:"원딜"},{key:"SUP",label:"서폿"}];
 const posIndex={TOP:0,JUG:1,MID:2,ADC:3,SUP:4};
-const TIER_MIN=1, TIER_MAX=6; // 1티어(에이스) ~ 6티어(최하) — 이 범위를 벗어난 값은 항상 여기로 눌러 담음
+const TIER_MIN=1, TIER_MAX=8; // 1티어(에이스) ~ 8티어(최하) — 이 범위를 벗어난 값은 항상 여기로 눌러 담음
 const STORE_KEY="lol_balancer_v3";
 const RECENT=3;
 
@@ -947,7 +955,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
 // history: array of {result:'W'|'L', award:'BEST'|'WORST'|null}, newest last
-// 과거 버그로 0티어·7티어처럼 범위를 벗어난 값이 저장된 적이 있어서, 불러올 때마다 항상 1~6으로 눌러 담음
+// 과거 버그로 0티어·7티어처럼 범위를 벗어난 값이 저장된 적이 있어서, 불러올 때마다 항상 1~8로 눌러 담음
 function clampTier(t){return Math.max(TIER_MIN,Math.min(TIER_MAX,t));}
 function ensure(pl){
   if(!pl.hist)pl.hist=[];
@@ -973,8 +981,8 @@ function bonusRerollAvailable(pl){
   return Math.max(0, earned-(pl.spentBonusTickets||0));
 }
 /* ---------- 시장 몸값 (재미 지표, 밸런싱에는 미반영) ---------- */
-const MV_TIER_MONEY={1:300,2:250,3:200,4:150,5:100,6:50};
-const MV_LANE_BONUS={1:20,2:15,3:10,4:7,5:3,6:0};
+const MV_TIER_MONEY={1:300,2:250,3:200,4:150,5:100,6:50,7:30,8:10};
+const MV_LANE_BONUS={1:20,2:15,3:10,4:7,5:3,6:0,7:0,8:0};
 function marketBaseValue(pl){
   const moneys=Object.values(pl.tiers||{}).map(t=>MV_TIER_MONEY[t]).filter(v=>v!=null);
   if(!moneys.length)return 0;
@@ -1006,9 +1014,9 @@ function laneKingId(laneKey){
 function isKing(pl,laneKey){return pl.tiers[laneKey]===1 && laneKingId(laneKey)===pl.id;}
 // lane-specific strength tables (per user's balancing: JUG/SUP have less carry impact)
 // 6티어 확장: 기존 바닥값(5티어)은 그대로 6티어로, 위에 더 높은 1티어 값을 새로 추가 (한 칸씩 아래로 이동)
-const SCORE_LANE={1:6,2:5,3:4,4:3,5:2,6:1};        // TOP/MID/ADC
-const SCORE_JUG={1:3.5,2:3,3:2.5,4:2,5:1.5,6:1};   // JUNGLE
-const SCORE_SUP={1:5,2:4,3:3,4:2,5:1,6:0};         // SUPPORT
+const SCORE_LANE={1:6,2:5,3:4,4:3,5:2,6:1,7:0.5,8:0};        // TOP/MID/ADC
+const SCORE_JUG={1:3.5,2:3,3:2.5,4:2,5:1.5,6:1,7:0.5,8:0};   // JUNGLE
+const SCORE_SUP={1:5,2:4,3:3,4:2,5:1,6:0,7:-0.5,8:-1};         // SUPPORT
 // 부진 보정: 누적 20판 이상 + 전체 승률 40% 미만 → 모든 포지션 -1점
 function slumpPenalty(pl){const t=totals(pl);if(t.g>=20&&(t.w/t.g)<0.4)return 1;return 0;}
 // strength of a player playing a specific lane at their tier there (KING은 칭호만, 점수 보너스 없음)
@@ -1164,7 +1172,7 @@ function renderPosGrid(){
     };
     cell.appendChild(name);
     const trow=document.createElement("div");trow.className="tier-row";
-    for(let t=1;t<=6;t++){const b=document.createElement("button");b.className="tier-btn t"+t+(draft[p.key]===t?" sel":"");b.innerHTML='<span class="tnum">'+t+'</span><span class="tlab">티어</span>';
+    for(let t=TIER_MIN;t<=TIER_MAX;t++){const b=document.createElement("button");b.className="tier-btn t"+t+(draft[p.key]===t?" sel":"");b.innerHTML='<span class="tnum">'+t+'</span><span class="tlab">티어</span>';
       b.onclick=(e)=>{e.stopPropagation();draft[p.key]=t;renderPosGrid();};trow.appendChild(b);}
     cell.appendChild(trow);grid.appendChild(cell);
   });
@@ -1313,7 +1321,7 @@ function openProfile(id){
       streakTxt=' · <span style="color:var(--win)">'+stk.count+'연승 중'+upInfo+'</span>';
     }else if(stk.type==='L'&&stk.count>=1){
       const left=3-stk.count;
-      const downInfo=(tier!=null&&tier<6)?(left>0?' (강등까지 '+left+'패)':' (강등)'):(tier===6?' (최하)':'');
+      const downInfo=(tier!=null&&tier<TIER_MAX)?(left>0?' (강등까지 '+left+'패)':' (강등)'):(tier===TIER_MAX?' (최하)':'');
       streakTxt=' · <span style="color:var(--loss)">'+stk.count+'연패 중'+downInfo+'</span>';
     }
     return `<div class="prof-line" style="display:flex;justify-content:space-between;flex-wrap:wrap"><b>${p.label} ${tier!=null?tier+'티어':''}</b><span class="mini">${s.w}승 ${s.l}패 (${lwr}%) · B${s.best} W${s.worst}${streakTxt}</span></div>`;
@@ -2683,7 +2691,7 @@ function devRestoreOrphan(id){
   if(players.some(x=>x.name===name.trim())){alert("이미 같은 이름의 선수가 있어요.");return;}
   const laneKeys=Object.keys(lanes).length?Object.keys(lanes):["MID"];
   const defaultTxt=laneKeys.map(k=>k+"=3").join(",");
-  const t=prompt("라인별 티어를 '라인=티어' 형식으로 쉼표로 입력하세요. (라인: TOP, JUG, MID, ADC, SUP / 티어 1~6)\n전적에서 추정된 라인으로 채워뒀어요.",defaultTxt);
+  const t=prompt("라인별 티어를 '라인=티어' 형식으로 쉼표로 입력하세요. (라인: TOP, JUG, MID, ADC, SUP / 티어 1~8)\n전적에서 추정된 라인으로 채워뒀어요.",defaultTxt);
   if(t==null)return;
   const tiers={};
   t.split(",").forEach(part=>{
