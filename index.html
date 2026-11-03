@@ -500,6 +500,19 @@ h2,h3,h4{letter-spacing:-.01em}
 .dev-table td:not(:first-child),.dev-table th:not(:first-child){text-align:center}
 .dev-table td b{color:var(--gold-bright)}
 .dev-sep{border-top:1px dashed var(--lock);margin:18px 0 12px}
+
+/* ---- insights ---- */
+.insight{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.in-col{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--panel-2)}
+.in-col h5{margin:0 0 8px;font-size:.8rem;letter-spacing:.04em}
+.in-col.good{border-top:3px solid var(--win)} .in-col.good h5{color:var(--win-ink,var(--win))}
+.in-col.bad{border-top:3px solid var(--loss)} .in-col.bad h5{color:var(--loss-ink,var(--loss))}
+.in-col ul{margin:0;padding-left:16px;font-size:.82rem;line-height:1.6}
+.in-col li{margin-bottom:5px}
+.in-src{font-size:.7rem;color:var(--ink-dim);white-space:nowrap}
+.in-none{font-size:.78rem;color:var(--ink-dim)}
+.in-note{font-size:.72rem;color:var(--ink-dim);margin-top:8px;line-height:1.5}
+@media (max-width:560px){.insight{grid-template-columns:1fr}}
 </style>
 
 </head>
@@ -1281,6 +1294,8 @@ function openProfile(id){
       <div class="prof-cell"><div class="num">${t.w}·${t.l}</div><div class="lab">승 · 패</div></div>
       <div class="prof-cell"><div class="num">${t.g}</div><div class="lab">총 경기</div></div>
     </div>
+
+    ${insightSection(pl)}
 
     <div class="prof-section-h">시장 몸값</div>
     <div class="mv-total">${mvTotal}<span class="mv-unit">원</span></div>
@@ -2257,8 +2272,8 @@ function recordMatch(winners,losers,shared){
   // push results; award filled in after vote. store lane (pos) + direct opponent id if known (auto mode)
   const entryIds=[];
   const winIds=[],loseIds=[];
-  winners.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].l:null;pl.hist.push({result:'W',award:null,pos,opp:opp||null,...champField(pl.id)});entryIds.push(pl.id);winIds.push(pl.id);});
-  losers.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].w:null;pl.hist.push({result:'L',award:null,pos,opp:opp||null,...champField(pl.id)});entryIds.push(pl.id);loseIds.push(pl.id);});
+  winners.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].l:null;pl.hist.push({result:'W',award:null,pos,opp:opp||null,...champField(pl.id),...statField(pl.id)});entryIds.push(pl.id);winIds.push(pl.id);});
+  losers.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].w:null;pl.hist.push({result:'L',award:null,pos,opp:opp||null,...champField(pl.id),...statField(pl.id)});entryIds.push(pl.id);loseIds.push(pl.id);});
   // append to match log
   if(!state.matchLog)state.matchLog=[];
   state.matchLog.push({ts:Date.now(),win:winIds,lose:loseIds,best:null,worst:null});
@@ -2746,6 +2761,9 @@ function draftTeamList(cm,t){return (cm.assignments||[]).filter(a=>a.team===t).s
 let pendingChamps=null;
 function champOf(pid){if(pendingChamps&&pendingChamps[pid])return pendingChamps[pid];const d=remote.currentDraft,cm=remote.currentMatch;return (d&&cm&&d.matchId===cm.matchId&&d.picks&&d.picks[pid])||null;}
 function champField(pid){const c=champOf(pid);return c?{champ:c}:{};}
+// 라이엇에서 가져온 상세 지표 (경기당 12개 숫자): [킬,데스,어시,딜량,받은피해,골드,CS,시야,CC초,킬관여%,팀내딜%,경기초]
+let pendingStats=null;
+function statField(pid){return (pendingStats&&pendingStats[pid])?{st:pendingStats[pid]}:{};}
 function champBadge(pid,cm){const d=remote.currentDraft;if(!d||d.matchId!==cm.matchId||!d.picks||!d.picks[pid])return '';return chImg(d.picks[pid],"vs-champ");}
 function draftControls(cm){
   if(!cm.locked)return '';
@@ -2910,11 +2928,113 @@ function renderDraftView(cm,d){
   if(en)en.onclick=()=>{if(!confirm("밴픽을 끝내고 결과 화면으로 돌아갈까요? (지금까지 고른 챔피언은 기록돼요)"))return;pushRemote({"currentDraft.status":"done"});};
   const el=document.getElementById("draftSeconds");if(el&&d.deadlineAt)el.textContent=Math.max(0,Math.ceil((d.deadlineAt-correctedNow())/1000));
 }
+
+/* =====================================================================
+   선수 분석: 강점 · 약점 (라인·챔피언 유형별 평균과 비교, 표본이 적으면 참고용 표시)
+   ===================================================================== */
+const IN_MIN_GAMES=5;       // 라인별 이 판수 이상이어야 비교
+const IN_MIN_BASE=8;        // 비교 기준(평균) 표본 최소 판수
+const IN_HI=1.15, IN_LO=0.85;
+const IN_LANE_LABEL={TOP:'탑',JUG:'정글',MID:'미드',ADC:'원딜',SUP:'서폿'};
+const IN_METRICS={
+  dpm:{label:'분당 딜량',up:true},cspm:{label:'분당 CS',up:true},gpm:{label:'분당 골드',up:true},
+  kda:{label:'KDA',up:true},deaths:{label:'데스',up:false},dsh:{label:'팀 내 딜 비중',up:true},
+  kp:{label:'킬 관여율',up:true},vpm:{label:'분당 시야 점수',up:true},tpm:{label:'분당 받은 피해',up:true},ccpm:{label:'CC 기여',up:true}
+};
+const IN_FOCUS={
+  TOP:['dpm','cspm','gpm','kda','deaths'],MID:['dpm','cspm','gpm','kda','deaths','dsh'],ADC:['dpm','cspm','gpm','kda','deaths','dsh'],
+  JUG:['kp','vpm','dpm','kda','deaths'],SUP:['vpm','kp','kda','deaths'],
+  TANK:['tpm','ccpm','kp','kda','deaths']
+};
+function inMetrics(st){
+  const min=Math.max(1,(st[11]||0)/60);
+  return {dpm:st[3]/min,cspm:st[6]/min,gpm:st[5]/min,kda:(st[0]+st[2])/Math.max(1,st[1]),deaths:st[1],dsh:st[10],kp:st[9],vpm:st[7]/min,tpm:st[4]/min,ccpm:st[8]/min};
+}
+function inGroup(h){
+  const c=h.champ&&CH.byId[h.champ];
+  return (c&&c.tags&&c.tags[0]==='Tank')?'TANK':h.pos;
+}
+let _inBase=null,_inBaseKey='';
+function inBaselines(){
+  const key=players.map(p=>(p.hist||[]).length).join(',')+'|'+(CH.list.length);
+  if(_inBase&&_inBaseKey===key)return _inBase;
+  const acc={};
+  const add=(k,m,pid)=>{const a=acc[k]||(acc[k]={n:0,sum:{},pids:new Set()});a.n++;a.pids.add(pid);for(const f in m)a.sum[f]=(a.sum[f]||0)+m[f];};
+  players.forEach(pl=>(pl.hist||[]).forEach(h=>{
+    if(!h.st||!h.pos)return;const m=inMetrics(h.st);
+    add(h.pos,m,pl.id);const g=inGroup(h);if(g==='TANK')add('TANK:'+h.pos,m,pl.id);
+  }));
+  const out={};
+  for(const k in acc){const a=acc[k];if(a.n<IN_MIN_BASE||a.pids.size<3)continue;out[k]={n:a.n,mean:Object.fromEntries(Object.keys(a.sum).map(f=>[f,a.sum[f]/a.n]))};}
+  _inBase=out;_inBaseKey=key;return out;
+}
+function inPct(r){const v=Math.round((r-1)*100);return (v>=0?'+':'')+v+'%';}
+function playerInsights(pl){
+  const good=[],bad=[];const base=inBaselines();
+  const hist=pl.hist||[];const withSt=hist.filter(h=>h.st&&h.pos);
+  // 1) 상세 지표: 라인(탱커 챔피언은 따로) 평균 대비
+  const byKey={};
+  withSt.forEach(h=>{const g=inGroup(h);const k=g==='TANK'?'TANK:'+h.pos:h.pos;(byKey[k]||(byKey[k]=[])).push(inMetrics(h.st));});
+  Object.entries(byKey).forEach(([k,arr])=>{
+    if(arr.length<IN_MIN_GAMES)return;
+    const lane=k.replace('TANK:','');const b=base[k]||base[lane];if(!b)return;
+    const focus=IN_FOCUS[k.startsWith('TANK')?'TANK':lane];const tank=k.startsWith('TANK');
+    const mean=f=>arr.reduce((x,m)=>x+m[f],0)/arr.length;
+    const res=[];
+    focus.forEach(f=>{
+      const mine=mean(f),ref=b.mean[f];if(!ref)return;
+      let ratio=IN_METRICS[f].up?mine/ref:ref/Math.max(0.3,mine);
+      res.push({f,ratio,mine,ref});
+    });
+    const tagTxt=IN_LANE_LABEL[lane]+(tank?' 탱커 챔피언':'')+' '+arr.length+'판';
+    res.filter(r=>r.ratio>=IN_HI).sort((a,b)=>b.ratio-a.ratio).slice(0,2).forEach(r=>{
+      good.push(r.f==='deaths'?`데스가 적어요 · 평균 ${r.mine.toFixed(1)}회 (비교군 ${r.ref.toFixed(1)}회) <span class="in-src">${tagTxt}</span>`
+        :`${IN_METRICS[r.f].label} 비교군 대비 ${inPct(r.ratio)} <span class="in-src">${tagTxt}</span>`);
+    });
+    res.filter(r=>r.ratio<=IN_LO).sort((a,b)=>a.ratio-b.ratio).slice(0,2).forEach(r=>{
+      bad.push(r.f==='deaths'?`데스가 많아요 · 평균 ${r.mine.toFixed(1)}회 (비교군 ${r.ref.toFixed(1)}회) <span class="in-src">${tagTxt}</span>`
+        :`${IN_METRICS[r.f].label} 비교군 대비 ${inPct(r.ratio)} <span class="in-src">${tagTxt}</span>`);
+    });
+  });
+  // 2) 승률 기반 (상세 지표 없이도 가능)
+  const lane={};hist.forEach(h=>{if(!h.pos)return;const x=lane[h.pos]||(lane[h.pos]={g:0,w:0});x.g++;if(h.result==='W')x.w++;});
+  Object.entries(lane).forEach(([pos,x])=>{
+    if(x.g<IN_MIN_GAMES)return;const wr=x.w/x.g;const tier=pl.tiers[pos];
+    if(wr>=0.6)good.push(`${IN_LANE_LABEL[pos]} 승률 ${Math.round(wr*100)}% <span class="in-src">${x.g}판</span>${tier!=null&&tier>=4?' · 티어에 비해 성적이 좋아요':''}`);
+    else if(wr<=0.4)bad.push(`${IN_LANE_LABEL[pos]} 승률 ${Math.round(wr*100)}% <span class="in-src">${x.g}판</span>${tier!=null&&tier<=2?' · 티어에 비해 성적이 낮아요':''}`);
+  });
+  const t=totals(pl);
+  if(t.g>=10){
+    const rates=players.map(p=>{const q=totals(p);return q.g>=10?{b:q.best/q.g,w:q.worst/q.g}:null;}).filter(Boolean);
+    if(rates.length>=4){
+      const mb=rates.reduce((x,r)=>x+r.b,0)/rates.length,mw=rates.reduce((x,r)=>x+r.w,0)/rates.length;
+      if(t.best>=3&&t.best/t.g>=mb*1.3)good.push(`BEST를 자주 받아요 <span class="in-src">${t.g}판 중 ${t.best}회</span>`);
+      if(t.worst>=3&&t.worst/t.g>=mw*1.3)bad.push(`WORST를 자주 받아요 <span class="in-src">${t.g}판 중 ${t.worst}회</span>`);
+    }
+  }
+  // 3) 챔피언
+  const ch={};hist.forEach(h=>{if(!h.champ)return;const x=ch[h.champ]||(ch[h.champ]={g:0,w:0});x.g++;if(h.result==='W')x.w++;});
+  const chList=Object.entries(ch).sort((a,b)=>b[1].g-a[1].g);const chTotal=chList.reduce((x,[,v])=>x+v.g,0);
+  if(chTotal>=6&&chList[0][1].g/chTotal>=0.7)bad.push(`챔피언 폭이 좁아요 · ${chName(chList[0][0])} 위주 <span class="in-src">${chList[0][1].g}/${chTotal}판</span>`);
+  chList.filter(([,v])=>v.g>=4&&v.w/v.g>=0.65).slice(0,1).forEach(([id,v])=>good.push(`${chName(id)} 승률 ${Math.round(v.w/v.g*100)}% <span class="in-src">${v.g}판</span>`));
+  chList.filter(([,v])=>v.g>=4&&v.w/v.g<=0.35).slice(0,1).forEach(([id,v])=>bad.push(`${chName(id)} 승률 ${Math.round(v.w/v.g*100)}% <span class="in-src">${v.g}판</span>`));
+  return {good,bad,stGames:withSt.length,games:t.g};
+}
+function insightSection(pl){
+  const r=playerInsights(pl);
+  const note=r.stGames===0?'라이엇 상세 지표가 아직 없어요. 롤 결과 자동 가져오기로 경기를 기록하면 라인별 비교가 시작돼요.'
+    :(r.stGames<10?`상세 지표 ${r.stGames}판 기준이에요. 판수가 적어서 참고용이에요.`:`상세 지표 ${r.stGames}판 기준이에요. 비교군은 우리 내전의 같은 라인 평균이에요.`);
+  const list=a=>a.length?'<ul>'+a.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'<div class="in-none">뚜렷한 항목이 아직 없어요</div>';
+  return `<div class="prof-section-h">강점 · 약점</div>
+    <div class="insight"><div class="in-col good"><h5>강점</h5>${list(r.good)}</div><div class="in-col bad"><h5>약점</h5>${list(r.bad)}</div></div>
+    <div class="in-note">${note}</div>`;
+}
+
 function champSection(pl){
   const m={};
   (pl.hist||[]).forEach(h=>{if(!h.champ)return;const x=m[h.champ]||(m[h.champ]={g:0,w:0});x.g++;if(h.result==="W")x.w++;});
   const rows=Object.entries(m).sort((a,b)=>b[1].g-a[1].g).slice(0,8);
-  if(!rows.length)return '<div class="prof-section-h">챔피언별 전적</div><div class="prof-line mini">밴픽으로 챔피언을 고르고 경기를 기록하면 여기에 쌓여요</div>';
+  if(!rows.length)return '<div class="prof-section-h">챔피언별 전적</div><div class="prof-line mini">롤 결과 자동 가져오기로 경기를 기록하면 여기에 쌓여요</div>';
   return '<div class="prof-section-h">챔피언별 전적</div>'+rows.map(([id,x])=>`<div class="prof-line" style="display:flex;align-items:center;gap:8px">${chImg(id,"dr-pimg")}<b>${escapeHtml(chName(id))}</b><span class="mini">${x.g}판 ${x.w}승 ${x.g-x.w}패 (${Math.round(x.w/x.g*100)}%)</span></div>`).join("");
 }
 
@@ -2922,6 +3042,7 @@ function champSection(pl){
    라이엇 연동: 라이엇 ID 등록 + 경기 결과 자동 가져오기 (Cloudflare Worker 경유)
    ===================================================================== */
 const RIOT_PROXY="https://lol-proxy.domybest408.workers.dev";
+loadChamps().then(()=>{try{_inBase=null;}catch(e){}});
 const RIOT_POS={TOP:"TOP",JUNGLE:"JUG",MIDDLE:"MID",BOTTOM:"ADC",UTILITY:"SUP"};
 async function riotApi(path){
   const r=await fetch(RIOT_PROXY+path);
@@ -3014,11 +3135,17 @@ async function riotImportResult(btn){
     }
     if(!best){alert("이번 경기에 해당하는 롤 경기를 아직 못 찾았어요.\n게임이 끝나고 1~2분 뒤에 다시 눌러보세요.\n(라이엇 ID가 맞게 등록됐는지도 확인해보세요)");return;}
     // 승리 팀 판정: 앱 팀 단위로 일관되는지 확인
-    const win=[{w:0,l:0},{w:0,l:0}];const champs={};let matched=0;
+    const win=[{w:0,l:0},{w:0,l:0}];const champs={};const stats={};let matched=0;
     assigns.forEach(a=>{
       const pl=players.find(p=>p.id===a.id);if(!pl||!pl.puuid)return;
       const part=best.participants.find(p=>p.puuid===pl.puuid);if(!part)return;
       matched++;champs[pl.id]=part.champion;
+      if(typeof part.dmg==='number'){
+        const mates=best.participants.filter(q=>q.team===part.team);
+        const tK=mates.reduce((x,q)=>x+(q.k||0),0),tD=mates.reduce((x,q)=>x+(q.dmg||0),0);
+        stats[pl.id]=[part.k||0,part.d||0,part.a||0,part.dmg||0,part.taken||0,part.gold||0,part.cs||0,part.vis||0,Math.round(part.cc||0),
+          tK?Math.round(100*((part.k||0)+(part.a||0))/tK):0,tD?Math.round(100*(part.dmg||0)/tD):0,best.gameDuration||0];
+      }
       if(part.win)win[a.team].w++;else win[a.team].l++;
     });
     let winTeam=null;
@@ -3034,11 +3161,11 @@ async function riotImportResult(btn){
     if(!confirm((winTeam===0?"🔵 블루":"🔴 레드")+" 팀 승리 · "+when+" · "+min+"분\n선수 "+matched+"/10명 확인됨\n\n이 경기로 기록할까요?"))return;
     const winners=assigns.filter(a=>a.team===winTeam).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
     const losers=assigns.filter(a=>a.team!==winTeam).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
-    pendingChamps=champs;
+    pendingChamps=champs;pendingStats=stats;
     try{
       pushRemote({riotImported:[...(remote.riotImported||[]),best.matchId].slice(-200)});
       recordMatch(winners,losers,true);
-    }finally{pendingChamps=null;}
+    }finally{pendingChamps=null;pendingStats=null;}
   }catch(e){
     alert("가져오지 못했어요: "+(e&&e.message?e.message:e)+(e&&(e.status===401||e.status===403)?"\n(라이엇 키가 만료됐을 수 있어요. 운영자에게 알려주세요)":""));
   }finally{
