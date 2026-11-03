@@ -653,7 +653,7 @@ const sessionRef = doc(db, "sessions", "main"); // single shared room for the wh
 // 개발자 이름("권순현")은 비밀번호를 맞춰야만 쓸 수 있음 (다른 사람이 이 이름으로 리롤권·투표·개발자 패널을 쓰는 것 방지).
 // 주의: 정적 사이트라 코드에 든 해시는 누구나 볼 수 있어서 "친구끼리 장난 방지" 수준의 잠금이지 진짜 보안은 아님.
 const DEV_NAME="권순현";
-const DEV_PW_HASH="c5fd467bc3c509851a8031df49cf6830641fbbf334cffa00dc6b89efa9907110";
+const DEV_PW_HASH="782642c3d77ee6167e35b1ecd4986e3c177f43617876726a369d4cd826570de5";
 function sha256(str){
   const msg=unescape(encodeURIComponent(str));
   const K=[],H=[];let pc=0;const isP={};
