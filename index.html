@@ -774,7 +774,37 @@ h2,h3,h4{letter-spacing:-.01em}
   .slot-tier.tierlabel-8{color:var(--t8);background:color-mix(in srgb,var(--t8) 14%,transparent);border:1px solid color-mix(in srgb,var(--t8) 40%,transparent)}
   .r-tag.rtier-1{background:linear-gradient(135deg,color-mix(in srgb,var(--t1) 20%,var(--panel)),color-mix(in srgb,var(--t1) 8%,var(--panel)))}
   .sk-t-king{background-image:linear-gradient(100deg,#B8860B 30%,#FFD76A 50%,#B8860B 70%);background-size:250% 100%;animation:mvSheen 4s ease-in-out infinite;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;font-family:"Barlow Condensed",sans-serif;font-size:.86em;letter-spacing:.16em}
+
+  /* ===== FEARLESS SERIES ===== */
+  .series-start{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 14px}
+  .series-start span{font-size:.78rem;color:var(--ink-dim)}
+  .sr-card{margin-bottom:20px}
+  .sr-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .sr-eyebrow{font-family:"Barlow Condensed",sans-serif;font-weight:600;letter-spacing:.2em;font-size:.8rem;color:var(--ink-dim)}
+  .sr-head h3{font-size:1.25rem;font-weight:800;margin-top:4px}
+  .sr-score{display:flex;align-items:center;gap:10px;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:3rem;line-height:1}
+  .sr-score i{font-style:normal;color:var(--ink-dim);font-size:2rem}
+  .sr-score .t0,.sr-win.t0{color:var(--blue-ink)} .sr-score .t1,.sr-win.t1{color:var(--red-ink)}
+  .sr-games{display:flex;flex-direction:column;gap:8px;margin:16px 0 4px}
+  .sr-game{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2)}
+  .sr-n{font-weight:800;font-size:.85rem;min-width:30px}
+  .sr-team{display:flex;gap:3px;padding:3px;border-radius:10px}
+  .sr-team.t0{box-shadow:inset 0 0 0 1.5px var(--blue)} .sr-team.t1{box-shadow:inset 0 0 0 1.5px var(--red)}
+  .sr-img{width:28px;height:28px;border-radius:7px;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--panel);font-size:.7rem;color:var(--ink-dim)}
+  .sr-vs{font-size:.7rem;color:var(--ink-dim)}
+  .sr-win{margin-left:auto;font-weight:800;font-size:.85rem}
+  .sr-lockhead{margin:16px 0 8px;font-size:.85rem;font-weight:700}
+  .sr-lockhead small{font-weight:500;color:var(--ink-dim)}
+  .sr-locks{display:flex;flex-wrap:wrap;gap:6px}
+  .sr-lock{position:relative;display:inline-block;padding:2px;border-radius:10px}
+  .sr-lock.t0{box-shadow:0 0 0 2px var(--blue)} .sr-lock.t1{box-shadow:0 0 0 2px var(--red)}
+  .sr-lock .sr-img{width:40px;height:40px;border-radius:8px;filter:grayscale(.7);opacity:.85;display:block}
+  .sr-lock em{position:absolute;right:-4px;bottom:-4px;font-style:normal;font-size:.62rem;font-weight:800;background:var(--ink);color:var(--bg);border-radius:999px;padding:0 6px;line-height:1.5}
+  .sr-viol{margin-top:8px;font-size:.8rem;font-weight:700;color:var(--loss-ink)}
+  .sr-ctrl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
+  .sr-note{font-size:.82rem;color:var(--ink-dim)}
 </style>
+
 
 
 
@@ -882,6 +912,7 @@ window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.rea
   <section id="viewDev" class="view"><div id="devPanel" style="display:none"></div></section>
 
   <section id="viewMatch" class="view"><div class="empty-match" id="emptyMatch">아직 진행 중인 매치가 없어요.<br>대기실에서 선수를 고르고 팀을 만들어 보세요.</div>
+  <div id="seriesPanel"></div>
   <div id="result"></div></section>
   </main>
 </div>
@@ -1042,7 +1073,7 @@ function changeMyName(){
 }
 
 /* ---------- shared remote state (Firestore) ---------- */
-let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [], currentDraft: null, riotImported: [], auditLog: [] };
+let remote = { series: null, players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [], currentDraft: null, riotImported: [], auditLog: [] };
 let remoteLoaded = false;
 let suppressNextSnapshot = false;
 // correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
@@ -1129,6 +1160,7 @@ onSnapshot(sessionRef, (snap)=>{
   remote.matchLog = data.matchLog || [];
   try{ if(remote.players.length>=3) localStorage.setItem('lol_lastgood',JSON.stringify({ts:Date.now(),players:remote.players,matchLog:remote.matchLog})); }catch(e){}
   if(remote.players.length===0&&!window.__recoveryAsked){ window.__recoveryAsked=true; setTimeout(offerRecovery,600); }
+  remote.series = data.series || null;
   remote.currentMatch = data.currentMatch || null;
   remote.vote = data.vote || null;
   remote.currentAuction = data.currentAuction || null;
@@ -2198,6 +2230,7 @@ let sharedTickInterval=null;
 function tsMillis(v){ if(!v)return null; if(typeof v.toMillis==='function')return v.toMillis(); if(typeof v==='number')return v; return null; }
 function renderSharedMatchArea(){
   const box=document.getElementById("result");if(!box)return;
+  renderSeriesPanel();
   if(remote.vote && remote.vote.stage==='done'){ renderVoteResultBanner(); return; }
   if(remote.vote && remote.vote.active && remote.vote.stage==='promo'){ renderPromoVote(); return; }
   if(remote.vote && remote.vote.active){ renderSharedVote(); return; }
@@ -2254,6 +2287,7 @@ function renderSharedMatchArea(){
   const noReroll=basicUsedByMe;
   box.innerHTML=`<div class="card"><h2>이번 판 팀</h2>
     ${lockedBanner}
+    ${(cm.locked&&!remote.series&&!cm.seriesId)?'<div class="series-start"><button type="button" class="ghost" id="seriesStartBtn">피어리스 3판 2선으로 진행하기</button><span>같은 팀으로 최대 3판 · 먼저 2승 · 쓴 챔피언은 다음 판에 못 써요</span></div>':''}
     ${vsHtml(byTeam[0],byTeam[1],cm.sumA,cm.sumB)}
         ${cm.locked?'':`<div id="readyNote">${readyHtml}</div>`}
     ${draftControls(cm)}
@@ -2650,7 +2684,7 @@ function recordMatch(winners,losers,shared){
   // 로컬(수동/경매) 모드는 공유 투표 인프라가 없으니 기존처럼 즉시 자동 적용.
   const changes=shared?[]:applyPromotions(entryIds);
   save();
-  if(shared){ pushRemote({ currentMatch: null, currentDraft: null }); startSharedVote(winIds, loseIds); }
+  if(shared){ try{seriesRecordGame(winners);}catch(e){console.error('series',e);} pushRemote({ currentMatch: null, currentDraft: null }); startSharedVote(winIds, loseIds); }
   else{ openVote(entryIds); }
   renderRoster();
   if(changes.length)setTimeout(()=>alert("티어 변동!\n"+changes.join("\n")),300);
@@ -3683,6 +3717,74 @@ function isSummonersRift(m){
   return withPos>=8;
 }
 
+/* ===== 피어리스 3판 2선: 같은 팀으로 시리즈, 이미 쓴 챔피언은 양 팀 모두 다음 판에 사용 불가 ===== */
+function seriesPlayerName(id){const p=players.find(x=>x.id===id);return p?p.name:'?';}
+function seriesRecordGame(winners){
+  const cm=remote.currentMatch,sr=remote.series;
+  if(!cm||!cm.seriesId||!sr||sr.id!==cm.seriesId||sr.status!=='active')return;
+  const asg=cm.assignments||[];
+  const first=winners[0]&&asg.find(a=>a.id===winners[0].player.id);
+  if(!first)return;
+  const winTeam=first.team,n=(sr.games||[]).length+1;
+  const champs={};const used=[...(sr.used||[])];const viol=[...(sr.violations||[])];
+  const lockedBefore=new Set(used.map(u=>u.champ));
+  asg.forEach(a=>{const c=champOf(a.id);if(!c)return;champs[a.id]=c;
+    if(lockedBefore.has(c))viol.push({game:n,champ:c,by:a.id});
+    if(!used.some(u=>u.champ===c))used.push({champ:c,team:a.team,by:a.id,game:n});});
+  const wins=[...(sr.wins||[0,0])];wins[winTeam]++;
+  const games=[...(sr.games||[]),{n,ts:Date.now(),winTeam,champs}];
+  const done=wins[0]>=2||wins[1]>=2||games.length>=3;
+  const next={...sr,games,used,violations:viol,wins,status:done?'done':'active'};
+  pushRemote({series:next});
+  auditPush([{t:'match',msg:'피어리스 '+n+'판 종료 · '+(winTeam===0?'블루':'레드')+' 승 ('+wins[0]+':'+wins[1]+')'+(done?' · 시리즈 종료':'')+(viol.length>(sr.violations||[]).length?' · 이미 쓴 챔피언 사용 감지':'')}]);
+}
+function seriesStart(){
+  const cm=remote.currentMatch;if(!cm||!cm.locked||remote.series)return;
+  if(!confirm('이 팀으로 피어리스 3판 2선을 시작할까요?\n같은 팀으로 최대 3판, 먼저 2승하면 끝나요.\n이미 쓴 챔피언은 양 팀 모두 다음 판에 쓸 수 없어요.'))return;
+  const sr={id:uid(),bestOf:3,assignments:cm.assignments,sumA:cm.sumA,sumB:cm.sumB,diff:cm.diff,games:[],used:[],violations:[],wins:[0,0],status:'active',createdAt:Date.now(),startedBy:myName||''};
+  pushRemote({series:sr,'currentMatch.seriesId':sr.id,'currentMatch.seriesGame':1});
+  auditPush([{t:'match',msg:'피어리스 3판 2선 시작'}]);
+}
+function seriesNext(){
+  const sr=remote.series;if(!sr||sr.status!=='active'||remote.currentMatch)return;
+  if(remote.vote&&remote.vote.active)return;
+  const n=(sr.games||[]).length+1;if(n>3)return;
+  pushRemote({vote:null,currentMatch:{matchId:uid(),assignments:sr.assignments,sumA:sr.sumA,sumB:sr.sumB,diff:sr.diff,basicUsedBy:[],bonusUsedBy:[],rerollLog:[],pleadedBy:[],readyBy:[],locked:true,createdAt:Date.now(),basicAllowance:{},penalizedIds:[],deadlineAt:correctedNow()+MATCH_TIMER_MS,seriesId:sr.id,seriesGame:n}});
+  auditPush([{t:'match',msg:'피어리스 '+n+'번째 판 시작'}]);
+}
+function renderSeriesPanel(){
+  const box=document.getElementById('seriesPanel');if(!box)return;
+  const sr=remote.series;
+  if(!sr){box.innerHTML='';return;}
+  if(!CH.list.length)loadChamps();
+  const w=sr.wins||[0,0],games=sr.games||[],done=sr.status==='done';
+  const cm=remote.currentMatch,playing=cm&&cm.seriesId===sr.id;
+  const nm=id=>escapeHtml(seriesPlayerName(id));
+  const winner=done?(w[0]>w[1]?'블루':(w[1]>w[0]?'레드':'무승부')):'';
+  const gameRows=games.map(g=>{
+    const chips=[0,1].map(t=>'<span class="sr-team t'+t+'">'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>g.champs&&g.champs[a.id]?chImg(g.champs[a.id],'sr-img'):'<i class="sr-img sr-none">?</i>').join('')+'</span>').join('<b class="sr-vs">vs</b>');
+    return '<div class="sr-game"><span class="sr-n">'+g.n+'판</span>'+chips+'<span class="sr-win t'+g.winTeam+'">'+(g.winTeam===0?'블루':'레드')+' 승</span></div>';}).join('');
+  const lock=(sr.used||[]).map(u=>'<span class="sr-lock t'+u.team+'" title="'+escapeHtml(chName(u.champ))+' · '+u.game+'판 · '+nm(u.by)+'">'+chImg(u.champ,'sr-img')+'<em>'+u.game+'</em></span>').join('');
+  const viol=(sr.violations||[]).map(v=>'<div class="sr-viol">'+v.game+'판 · '+nm(v.by)+' — 이미 쓴 '+escapeHtml(chName(v.champ))+' 사용</div>').join('');
+  const canNext=!done&&!cm&&!(remote.vote&&remote.vote.active)&&games.length<3;
+  const ctrl=done?'<button class="primary" id="seriesCloseBtn">시리즈 정리하기</button>'
+    :(canNext?'<button class="primary" id="seriesNextBtn">'+(games.length+1)+'번째 판 시작</button>'
+    :'<span class="sr-note">'+(playing?(cm.seriesGame||games.length+1)+'번째 판 진행 중 · 끝나면 "롤 결과 자동 가져오기"로 기록하세요':'투표가 끝나면 다음 판을 시작할 수 있어요')+'</span>');
+  box.innerHTML='<div class="card sr-card"><div class="sr-head"><div><span class="sr-eyebrow">FEARLESS · BEST OF 3</span><h3>'+(done?'시리즈 종료 · '+winner+' 승리':'피어리스 3판 2선')+'</h3></div>'
+    +'<div class="sr-score"><span class="t0">'+w[0]+'</span><i>:</i><span class="t1">'+w[1]+'</span></div></div>'
+    +(gameRows?'<div class="sr-games">'+gameRows+'</div>':'')
+    +'<div class="sr-lockhead">잠긴 챔피언 <b>'+(sr.used||[]).length+'</b>개 <small>· 다음 판에 양 팀 모두 사용 불가</small></div>'
+    +(lock?'<div class="sr-locks">'+lock+'</div>':'<div class="sr-note">아직 쓴 챔피언이 없어요. 1판을 롤 결과 자동 가져오기로 기록하면 여기에 잠겨요.</div>')
+    +viol+'<div class="sr-ctrl">'+ctrl+(done?'':'<button class="icon-btn" id="seriesAbortBtn" style="text-decoration:underline;color:var(--ink-dim)">시리즈 중단</button>')+'</div></div>';
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('#seriesStartBtn,#seriesNextBtn,#seriesCloseBtn,#seriesAbortBtn');if(!b)return;
+  if(b.id==='seriesStartBtn')seriesStart();
+  else if(b.id==='seriesNextBtn')seriesNext();
+  else if(b.id==='seriesCloseBtn'){pushRemote({series:null});}
+  else if(b.id==='seriesAbortBtn'){if(confirm('시리즈를 중단할까요? (이미 기록된 경기는 그대로 남아요)')){pushRemote({series:null});auditPush([{t:'match',msg:'피어리스 시리즈 중단'}]);}}
+});
+
 async function riotImportResult(btn){
   const cm=remote.currentMatch;
   if(!cm||!cm.locked||!cm.assignments){alert("팀이 확정된 경기에서만 쓸 수 있어요.");return;}
@@ -3778,7 +3880,8 @@ async function riotImportResult(btn){
   var main=document.getElementById('appMain'),res=document.getElementById('result');
   if(!main||!res)return;
   var vm=document.getElementById('viewMatch');
-  function has(){return res.children.length>0}
+  var sbox=document.getElementById('seriesPanel');
+  function has(){return res.children.length>0||(sbox&&sbox.children.length>0)}
   function sync(){vm.classList.toggle('noresult',!has());var d=document.getElementById('navDot');if(d)d.classList.toggle('on',has()&&main.dataset.view!=='match')}
   function setView(v,noScroll){main.dataset.view=v;window.__setView=setView;
     document.querySelectorAll('.nav-btn[data-view]').forEach(function(b){b.classList.toggle('on',b.dataset.view===v)});
@@ -3788,6 +3891,7 @@ async function riotImportResult(btn){
   window.__setView=setView;
   var was=has();
   new MutationObserver(function(){var now=has();if(now&&!was)setView('match',true);else if(!now&&was&&main.dataset.view==='match')setView('lobby',true);was=now;sync()}).observe(res,{childList:true});
+  if(sbox)new MutationObserver(function(){sync()}).observe(sbox,{childList:true});
   ['makeBtn','manualBtn','auctionBtn'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('click',function(){setTimeout(function(){if(has())setView('match')},80)})});
   sync();
 })();
