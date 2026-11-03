@@ -783,6 +783,12 @@ h2,h3,h4{letter-spacing:-.01em}
 
 </head>
 <body>
+<script>
+(function(){var shown=0;function show(m){if(shown++>2)return;try{var d=document.createElement('div');d.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#7a1d14;color:#fff;font:12px/1.5 monospace;padding:8px 10px;border-radius:8px;word-break:break-all';d.textContent='오류: '+m;document.body.appendChild(d);}catch(e){}}
+window.addEventListener('error',function(e){show((e.message||'')+' @'+(e.lineno||''));});
+window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.reason&&e.reason.message||e.reason));});})();
+</script>
+
 <div class="app">
   <aside class="side" id="sideNav">
     <div class="side-brand"><span class="mark">5v5</span><span class="side-title">내전 밸런서</span></div>
