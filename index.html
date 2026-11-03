@@ -1083,7 +1083,24 @@ function processPingSample(raw){
 let pingRetries=0;
 const pingRetryTimer=setInterval(()=>{ if(bestPingRtt!==Infinity||++pingRetries>10){clearInterval(pingRetryTimer);return;} sendClockPing(); },3000);
 
+function offerRecovery(){
+  let cands=[];
+  try{ if(BOOT_LOCAL&&BOOT_LOCAL.players&&BOOT_LOCAL.players.length>=3)cands.push({label:'이 기기에 저장된 마지막 명단',players:BOOT_LOCAL.players,matchLog:BOOT_LOCAL.matchLog||[]}); }catch(e){}
+  try{ const g=JSON.parse(localStorage.getItem('lol_lastgood')||'null'); if(g&&g.players&&g.players.length>=3)cands.push({label:'이 기기의 마지막 정상 데이터('+new Date(g.ts).toLocaleString('ko-KR')+')',players:g.players,matchLog:g.matchLog||[]}); }catch(e){}
+  if(!cands.length)return;
+  cands.sort((a,b)=>(b.matchLog.length+b.players.length)-(a.matchLog.length+a.players.length));
+  const c=cands[0];
+  if(confirm('서버의 선수 명단이 비어 있어요.\n'+c.label+' — 선수 '+c.players.length+'명, 경기 기록 '+c.matchLog.length+'건으로 복구할까요?\n\n(취소하면 아무것도 바꾸지 않아요)')){
+    window.__allowEmptyPush=false;
+    updateDoc(sessionRef,{players:c.players,matchLog:c.matchLog}).then(()=>alert('복구했어요. 새로고침하면 반영돼요.')).catch(e=>alert('복구에 실패했어요: '+(e&&e.message||e)));
+  }
+}
 function pushRemote(partial){
+  // 안전장치: 서버에 선수가 있는데 빈 명단으로 덮어쓰려는 저장은 막음
+  if(partial&&Array.isArray(partial.players)&&partial.players.length===0&&(remote.players||[]).length>=3&&!window.__allowEmptyPush){
+    if(window.__showErr)window.__showErr('빈 명단으로 덮어쓰는 저장을 막았어요. 새로고침해서 다시 시도해주세요.');
+    return;
+  }
   // updateDoc correctly handles dot-notation nested field paths (e.g. "currentMatch.timerStartedAt")
   // without wiping sibling fields. setDoc({merge:true}) does NOT do this for nested keys, so
   // we use updateDoc for normal writes, falling back to setDoc only if the doc doesn't exist yet.
@@ -1110,6 +1127,8 @@ onSnapshot(sessionRef, (snap)=>{
   const data = snap.data({ serverTimestamps: 'estimate' });
   remote.players = data.players || [];
   remote.matchLog = data.matchLog || [];
+  try{ if(remote.players.length>=3) localStorage.setItem('lol_lastgood',JSON.stringify({ts:Date.now(),players:remote.players,matchLog:remote.matchLog})); }catch(e){}
+  if(remote.players.length===0&&!window.__recoveryAsked){ window.__recoveryAsked=true; setTimeout(offerRecovery,600); }
   remote.currentMatch = data.currentMatch || null;
   remote.vote = data.vote || null;
   remote.currentAuction = data.currentAuction || null;
@@ -1189,6 +1208,7 @@ const STORE_KEY="lol_balancer_v3";
 const RECENT=3;
 
 let state=load();
+const BOOT_LOCAL=(function(){try{return JSON.parse(JSON.stringify(state));}catch(e){return null;}})();
 let players=state.players;
 let editingId=null, draft={}, picked=new Set(), filter="ALL";
 let draftMemory={}; // remembers last tier per lane while editing, even after toggling off
