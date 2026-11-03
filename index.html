@@ -662,17 +662,37 @@ h2,h3,h4{letter-spacing:-.01em}
 
   /* ===== SKINS (은은한 꾸미기) ===== */
   .sk-n-u{text-decoration:underline!important;text-decoration-color:var(--blue)!important;text-decoration-thickness:2px!important;text-underline-offset:4px!important}
+  .sk-n-d{text-decoration:underline dashed!important;text-decoration-color:var(--red)!important;text-decoration-thickness:2px!important;text-underline-offset:5px!important}
   .sk-n-m{background:linear-gradient(transparent 58%,color-mix(in srgb,#F2B705 55%,transparent) 58%);padding:0 2px}
   .sk-n-g{text-shadow:0 0 14px color-mix(in srgb,var(--blue) 55%,transparent)}
-  .sk-n-c{background:linear-gradient(90deg,var(--blue),var(--red));-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
-  .sk-title{display:inline-block;font-size:.66rem;font-weight:700;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--panel-2);letter-spacing:.01em;vertical-align:middle;margin-left:6px;white-space:nowrap}
-  .sk-t-fire{border-color:var(--ink);color:var(--ink)}
-  .sk-t-dash{border-style:dashed}
-  .sk-t-gold{background:#F2B705;border-color:#F2B705;color:#12141A}
-  .modal.sk-b-paper{--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;background:linear-gradient(180deg,#FBF8EF,#F1EDE0);color:#12141A;--ink:#12141A;--ink-dim:#5A5F6E;--panel-2:#F7F5F0;--line:#DEDAD0}
-  .modal.sk-b-dusk{--gold:#F2F1ED;--gold-bright:#FFFFFF;--on-accent:#0D0F14;--win:#5fd08a;--loss:#ff7b7b;--win-ink:#7be3a6;--loss-ink:#ff9f9f;--blue:#6F8BFF;--red:#FF6B5E;--blue-ink:#9FB3FF;--red-ink:#FF9A90;--hair:rgba(255,255,255,.08);--ul:rgba(255,255,255,.3);--raise:rgba(255,255,255,.08);--bg:#0D0F14;--panel:rgba(255,255,255,.06);background:linear-gradient(160deg,#1B2140,#2B2350 60%,#3A2A55);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#B9BBD6;--panel-2:rgba(255,255,255,.07);--line:rgba(255,255,255,.14)}
-  .modal.sk-b-mint{--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;background:linear-gradient(160deg,#E7F4EE,#D6EBE3);color:#12141A;--ink:#12141A;--ink-dim:#4A5F58;--panel-2:rgba(255,255,255,.6);--line:#BBD8CC}
-  .modal.sk-b-ink{--gold:#F2F1ED;--gold-bright:#FFFFFF;--on-accent:#0D0F14;--win:#5fd08a;--loss:#ff7b7b;--win-ink:#7be3a6;--loss-ink:#ff9f9f;--blue:#6F8BFF;--red:#FF6B5E;--blue-ink:#9FB3FF;--red-ink:#FF9A90;--hair:rgba(255,255,255,.08);--ul:rgba(255,255,255,.3);--raise:rgba(255,255,255,.08);--bg:#0D0F14;--panel:rgba(255,255,255,.06);background:repeating-linear-gradient(135deg,#12141A 0 14px,#161922 14px 15px);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#A3A9B8;--panel-2:rgba(255,255,255,.06);--line:rgba(255,255,255,.14)}
+  .sk-n-r{text-shadow:0 0 14px color-mix(in srgb,var(--red) 55%,transparent)}
+  .sk-n-o{border:1.5px solid var(--blue);border-radius:999px;padding:0 10px;text-decoration:none!important}
+  .sk-n-k{background:var(--ink);color:var(--bg)!important;border-radius:6px;padding:0 9px;text-decoration:none!important}
+  .sk-n-s{font-family:Georgia,"Noto Serif KR",serif;font-style:italic;text-decoration:none!important}
+  .sk-n-c,.sk-n-gold,.sk-n-mb,.sk-n-aur{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
+  .sk-n-c{background-image:linear-gradient(90deg,var(--blue),var(--red))}
+  .sk-n-gold{background-image:linear-gradient(90deg,#A8720A,#E3AE1C,#A8720A)}
+  .sk-n-mb{background-image:linear-gradient(90deg,#14A38B,#3B6BFF)}
+  .sk-n-aur{background-image:linear-gradient(90deg,#14A38B,#6F8BFF,#B06BFF,#14A38B);background-size:200% 100%;animation:mvShine 6s linear infinite}
+  @keyframes mvShine{to{background-position:-200% 0}}
+  .sk-title{display:inline-block;font-size:.66rem;font-weight:700;padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--panel-2);letter-spacing:.02em;vertical-align:middle;margin-left:6px;white-space:nowrap}
+  .sk-t-ink{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .sk-t-line{background:transparent;color:var(--ink);border-color:var(--ink)}
+  .sk-t-blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .sk-t-red{background:var(--red);color:#fff;border-color:var(--red)}
+  .sk-t-grad{background:linear-gradient(90deg,#2446F0,#B02BD9);color:#fff;border-color:transparent}
+  .sk-t-gold{background:linear-gradient(90deg,#E0A800,#F6D365);border-color:#E0A800;color:#12141A}
+  .sk-b-paper{background:linear-gradient(180deg,#FBF8EF,#F1EDE0);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
+  .sk-b-mint{background:linear-gradient(160deg,#E7F4EE,#D3EADF);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
+  .sk-b-sky{background:linear-gradient(160deg,#E8F0FF,#CFE0FF);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
+  .sk-b-sunset{background:linear-gradient(160deg,#FFEBD9,#FFD2C2);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
+  .sk-b-lav{background:linear-gradient(160deg,#F0EAFC,#DCD2F4);--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
+  .sk-b-grid{background:linear-gradient(rgba(18,20,26,.06) 1px,transparent 1px) 0 0/22px 22px,linear-gradient(90deg,rgba(18,20,26,.06) 1px,transparent 1px) 0 0/22px 22px,#F7F5F0;--gold:#12141A;--gold-bright:#000000;--on-accent:#FFFFFF;--win:#1a8f4e;--loss:#c8473d;--win-ink:#14663a;--loss-ink:#a8352b;--blue:#2446F0;--red:#D92D20;--blue-ink:#2446F0;--red-ink:#B8352B;--hair:rgba(18,20,26,.08);--ul:rgba(18,20,26,.3);--raise:rgba(18,20,26,.05);--bg:#EFEDE7;--panel:#FFFFFF;color:#12141A;--ink:#12141A;--ink-dim:#4F5565;--panel-2:rgba(255,255,255,.62);--line:rgba(18,20,26,.13);}
+  .sk-b-dusk{background:linear-gradient(160deg,#1B2140,#2B2350 60%,#3A2A55);--gold:#F2F1ED;--gold-bright:#FFFFFF;--on-accent:#0D0F14;--win:#5fd08a;--loss:#ff7b7b;--win-ink:#7be3a6;--loss-ink:#ff9f9f;--blue:#6F8BFF;--red:#FF6B5E;--blue-ink:#9FB3FF;--red-ink:#FF9A90;--hair:rgba(255,255,255,.08);--ul:rgba(255,255,255,.3);--raise:rgba(255,255,255,.08);--bg:#0D0F14;--panel:rgba(255,255,255,.06);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#B4BACB;--panel-2:rgba(255,255,255,.07);--line:rgba(255,255,255,.14);}
+  .sk-b-ink{background:repeating-linear-gradient(135deg,#12141A 0 14px,#161922 14px 15px);--gold:#F2F1ED;--gold-bright:#FFFFFF;--on-accent:#0D0F14;--win:#5fd08a;--loss:#ff7b7b;--win-ink:#7be3a6;--loss-ink:#ff9f9f;--blue:#6F8BFF;--red:#FF6B5E;--blue-ink:#9FB3FF;--red-ink:#FF9A90;--hair:rgba(255,255,255,.08);--ul:rgba(255,255,255,.3);--raise:rgba(255,255,255,.08);--bg:#0D0F14;--panel:rgba(255,255,255,.06);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#B4BACB;--panel-2:rgba(255,255,255,.07);--line:rgba(255,255,255,.14);}
+  .sk-b-ocean{background:linear-gradient(160deg,#0B2230,#11465A);--gold:#F2F1ED;--gold-bright:#FFFFFF;--on-accent:#0D0F14;--win:#5fd08a;--loss:#ff7b7b;--win-ink:#7be3a6;--loss-ink:#ff9f9f;--blue:#6F8BFF;--red:#FF6B5E;--blue-ink:#9FB3FF;--red-ink:#FF9A90;--hair:rgba(255,255,255,.08);--ul:rgba(255,255,255,.3);--raise:rgba(255,255,255,.08);--bg:#0D0F14;--panel:rgba(255,255,255,.06);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#B4BACB;--panel-2:rgba(255,255,255,.07);--line:rgba(255,255,255,.14);}
+  .sk-b-forest{background:linear-gradient(160deg,#0F241C,#1D4A38);--gold:#F2F1ED;--gold-bright:#FFFFFF;--on-accent:#0D0F14;--win:#5fd08a;--loss:#ff7b7b;--win-ink:#7be3a6;--loss-ink:#ff9f9f;--blue:#6F8BFF;--red:#FF6B5E;--blue-ink:#9FB3FF;--red-ink:#FF9A90;--hair:rgba(255,255,255,.08);--ul:rgba(255,255,255,.3);--raise:rgba(255,255,255,.08);--bg:#0D0F14;--panel:rgba(255,255,255,.06);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#B4BACB;--panel-2:rgba(255,255,255,.07);--line:rgba(255,255,255,.14);}
+  .sk-b-aurora{background:radial-gradient(120% 90% at 0% 0%,rgba(80,200,170,.35),transparent 55%),radial-gradient(100% 80% at 100% 100%,rgba(140,110,230,.4),transparent 55%),#101826;--gold:#F2F1ED;--gold-bright:#FFFFFF;--on-accent:#0D0F14;--win:#5fd08a;--loss:#ff7b7b;--win-ink:#7be3a6;--loss-ink:#ff9f9f;--blue:#6F8BFF;--red:#FF6B5E;--blue-ink:#9FB3FF;--red-ink:#FF9A90;--hair:rgba(255,255,255,.08);--ul:rgba(255,255,255,.3);--raise:rgba(255,255,255,.08);--bg:#0D0F14;--panel:rgba(255,255,255,.06);color:#F2F1ED;--ink:#F2F1ED;--ink-dim:#B4BACB;--panel-2:rgba(255,255,255,.07);--line:rgba(255,255,255,.14);}
   .shop-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
   .shop-head h3{font-size:1.2rem;font-weight:800}
   .shop-coin{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.9rem;line-height:1}
@@ -2072,7 +2092,7 @@ function renderSharedMatchArea(){
   function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=king?'<span class="slot-tier king">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const dot=cm.locked?'':(readyList.includes(m.player.name)?'<span class="rdy on" title="준비완료">✅</span>':'<span class="rdy" title="준비중">⏳</span>');
-    return `<div class="vs-cell ${side}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${lk}${pf}</span>${tierCell}</div>`;}
+    return `<div class="vs-cell ${side}${skinBgCls(players.find(q=>q.id===m.player.id))}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${lk}${pf}</span>${tierCell}</div>`;}
   function vsHtml(A,B,sumA,sumB){
     if(A.length!==5||B.length!==5||A.some((m,i)=>m.slot.pos!==B[i].slot.pos)){
       return `<div class="teams">${teamHtml(A,"blue","블루 팀",sumA)}${teamHtml(B,"red","레드 팀",sumB)}</div>`;}
@@ -3417,20 +3437,38 @@ document.getElementById('navChamp').addEventListener('click',()=>{renderChampTie
 /* ===== 스킨 상점: 경기 활동으로 포인트가 쌓이고, 겉모습(이름 꾸밈·칭호·프로필 배경)만 살 수 있어요 ===== */
 const SKINS=[
   {id:'n_u',cat:'n',name:'블루 밑줄',price:150,cls:'sk-n-u'},
+  {id:'n_d',cat:'n',name:'레드 점선',price:150,cls:'sk-n-d'},
   {id:'n_m',cat:'n',name:'형광펜',price:250,cls:'sk-n-m'},
-  {id:'n_g',cat:'n',name:'은은한 글로우',price:350,cls:'sk-n-g'},
-  {id:'n_c',cat:'n',name:'블루→레드',price:500,cls:'sk-n-c'},
-  {id:'t_dawn',cat:'t',name:'새벽반',price:100,text:'새벽반'},
-  {id:'t_reroll',cat:'t',name:'리롤 장인',price:150,text:'리롤 장인',cls:'sk-t-dash'},
-  {id:'t_carry',cat:'t',name:'한 방 있는 놈',price:250,text:'한 방 있는 놈',cls:'sk-t-fire'},
-  {id:'t_trust',cat:'t',name:'믿고 쓰는',price:400,text:'믿고 쓰는',cls:'sk-t-gold'},
-  {id:'b_paper',cat:'b',name:'종이',price:200,cls:'sk-b-paper',sw:'linear-gradient(180deg,#FBF8EF,#F1EDE0)'},
-  {id:'b_mint',cat:'b',name:'민트',price:300,cls:'sk-b-mint',sw:'linear-gradient(160deg,#E7F4EE,#D6EBE3)'},
-  {id:'b_dusk',cat:'b',name:'새벽 하늘',price:300,cls:'sk-b-dusk',sw:'linear-gradient(160deg,#1B2140,#3A2A55)'},
-  {id:'b_ink',cat:'b',name:'잉크 결',price:500,cls:'sk-b-ink',sw:'repeating-linear-gradient(135deg,#12141A 0 8px,#1c2029 8px 9px)'}
+  {id:'n_o',cat:'n',name:'동그라미',price:250,cls:'sk-n-o'},
+  {id:'n_s',cat:'n',name:'클래식 이탤릭',price:250,cls:'sk-n-s'},
+  {id:'n_k',cat:'n',name:'잉크 라벨',price:300,cls:'sk-n-k'},
+  {id:'n_g',cat:'n',name:'블루 글로우',price:350,cls:'sk-n-g'},
+  {id:'n_r',cat:'n',name:'레드 글로우',price:350,cls:'sk-n-r'},
+  {id:'n_c',cat:'n',name:'블루→레드',price:450,cls:'sk-n-c'},
+  {id:'n_mb',cat:'n',name:'민트→블루',price:450,cls:'sk-n-mb'},
+  {id:'n_gold',cat:'n',name:'골드',price:600,cls:'sk-n-gold'},
+  {id:'n_aur',cat:'n',name:'오로라 (움직임)',price:800,cls:'sk-n-aur'},
+  {id:'t_ace',cat:'t',name:'에이스',price:100,text:'ACE',cls:'sk-t-line'},
+  {id:'t_lane',cat:'t',name:'라인의 지배자',price:150,text:'라인의 지배자',cls:'sk-t-ink'},
+  {id:'t_wall',cat:'t',name:'철벽 수문장',price:200,text:'철벽 수문장',cls:'sk-t-blue'},
+  {id:'t_fight',cat:'t',name:'한타 설계자',price:250,text:'한타 설계자',cls:'sk-t-red'},
+  {id:'t_carry',cat:'t',name:'캐리 머신',price:350,text:'캐리 머신',cls:'sk-t-grad'},
+  {id:'t_legend',cat:'t',name:'전설',price:500,text:'LEGEND',cls:'sk-t-gold'},
+  {id:'b_paper',cat:'b',name:'종이',price:200,cls:'sk-b-paper'},
+  {id:'b_grid',cat:'b',name:'모눈',price:200,cls:'sk-b-grid'},
+  {id:'b_mint',cat:'b',name:'민트',price:250,cls:'sk-b-mint'},
+  {id:'b_sky',cat:'b',name:'하늘',price:250,cls:'sk-b-sky'},
+  {id:'b_sunset',cat:'b',name:'노을',price:300,cls:'sk-b-sunset'},
+  {id:'b_lav',cat:'b',name:'라벤더',price:300,cls:'sk-b-lav'},
+  {id:'b_dusk',cat:'b',name:'새벽 하늘',price:350,cls:'sk-b-dusk'},
+  {id:'b_ink',cat:'b',name:'잉크 결',price:400,cls:'sk-b-ink'},
+  {id:'b_ocean',cat:'b',name:'심해',price:450,cls:'sk-b-ocean'},
+  {id:'b_forest',cat:'b',name:'숲',price:450,cls:'sk-b-forest'},
+  {id:'b_aurora',cat:'b',name:'오로라',price:600,cls:'sk-b-aurora'}
 ];
 const SKIN_CATS={n:'이름 꾸밈',t:'칭호',b:'프로필 배경'};
-function skinById(id){return SKINS.find(x=>x.id===id);}
+const SKIN_ALIAS={t_dawn:'t_ace',t_reroll:'t_lane',t_trust:'t_legend'};
+function skinById(id){id=SKIN_ALIAS[id]||id;return SKINS.find(x=>x.id===id);}
 function skinEarned(pl){let e=0;(pl.hist||[]).forEach(h=>{e+=5;if(h.result==='W')e+=5;if(h.award==='BEST')e+=5;if(h.st)e+=3;});return e;}
 function skinSpent(pl){return (pl.skins||[]).reduce((a,id)=>a+((skinById(id)||{}).price||0),0);}
 function skinBalance(pl){return skinEarned(pl)-skinSpent(pl);}
@@ -3449,7 +3487,7 @@ function renderShop(){
     `<div class="shop-item${!skinEq(me,c)?' eq':''}"><b>기본</b><span class="pv" style="color:var(--ink-dim)">없음</span><button data-eq="${c}:">${!skinEq(me,c)?'착용 중':'벗기'}</button></div>`+
     SKINS.filter(k=>k.cat===c).map(k=>{
       const own=(me.skins||[]).includes(k.id),on=skinEq(me,c)&&skinEq(me,c).id===k.id;
-      const pv=k.cat==='n'?`<span class="pv"><span class="${k.cls}">${escapeHtml(me.name)}</span></span>`:k.cat==='t'?`<span class="pv"><span class="sk-title ${k.cls||''}" style="margin:0">${escapeHtml(k.text)}</span></span>`:`<span class="shop-sw" style="background:${k.sw}"></span>`;
+      const pv=k.cat==='n'?`<span class="pv"><span class="${k.cls}">${escapeHtml(me.name)}</span></span>`:k.cat==='t'?`<span class="pv"><span class="sk-title ${k.cls||''}" style="margin:0">${escapeHtml(k.text)}</span></span>`:`<span class="shop-sw ${k.cls}"></span>`;
       const btn=own?`<button data-eq="${c}:${k.id}"${on?' disabled':''}>${on?'착용 중':'착용'}</button>`:`<button class="buy" data-buy="${k.id}"${bal<k.price?' disabled':''}>${k.price}P</button>`;
       return `<div class="shop-item${on?' eq':''}"><b>${escapeHtml(k.name)}</b>${pv}${btn}</div>`;}).join('')+`</div>`).join('');
   el.innerHTML=`<div class="shop-head"><div><h3>상점</h3><div style="font-size:.78rem;color:var(--ink-dim)">경기 +5 · 승리 +5 · BEST +5 · 롤 자동 가져오기 +3</div></div><div class="shop-coin">${bal}<small>내 포인트</small></div></div>
