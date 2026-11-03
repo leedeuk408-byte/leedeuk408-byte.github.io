@@ -393,6 +393,53 @@ document.documentElement.setAttribute('data-theme',t);})();
     .vs-cell,.vs-cell.red{flex-direction:row}
     .vs-cell .slot-tier{order:2}.vs-cell .rdy{order:3}
   }
+
+  /* ===== CHAMPION DRAFT ===== */
+  .vs-champ{width:34px;height:34px;border-radius:9px;flex-shrink:0;border:2px solid var(--line);object-fit:cover}
+  .dr-status{text-align:center;font-size:1rem;font-weight:700;margin:6px 0 16px}
+  .dr-turn{padding:3px 12px;border-radius:999px;font-size:.85rem;color:#fff}
+  .dr-turn.t0{background:var(--blue)} .dr-turn.t1{background:var(--red)}
+  .dr-count{font-size:.74rem;font-weight:600;color:var(--ink-dim);margin-left:6px}
+  .dr-board{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .dr-team{background:var(--panel-2);border:1px solid var(--line);border-radius:18px;padding:16px}
+  .dr-team.blue{border-top:4px solid var(--blue)} .dr-team.red{border-top:4px solid var(--red)}
+  .dr-thead{font-weight:700;margin-bottom:10px}
+  .dr-team.blue .dr-thead{color:var(--blue-ink)} .dr-team.red .dr-thead{color:var(--red-ink);text-align:right}
+  .dr-label{font-size:.66rem;font-weight:700;letter-spacing:.1em;color:var(--ink-dim);margin:8px 0 6px}
+  .dr-team.red .dr-label{text-align:right}
+  .dr-bans{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .dr-ban{aspect-ratio:1;background:var(--sunken);border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .dr-ban.cur{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+  .dr-ban-img{width:100%;height:100%;object-fit:cover;filter:grayscale(1) brightness(.7)}
+  .dr-skip{color:var(--ink-dim);font-weight:700}
+  .dr-pick{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:7px;min-height:56px}
+  button.dr-pick{cursor:pointer}
+  .dr-pick.cur{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+  .dr-team.red .dr-pick{flex-direction:row-reverse;text-align:right}
+  .dr-lane{font-size:.64rem;font-weight:700;color:var(--ink-dim);width:30px;flex-shrink:0}
+  .dr-pname{flex:1;min-width:0;font-weight:700;font-size:.88rem;overflow-wrap:anywhere}
+  .dr-champ{display:flex;align-items:center;gap:8px;font-size:.8rem}
+  .dr-team.red .dr-champ{flex-direction:row-reverse}
+  .dr-champ i{color:var(--ink-dim);font-style:normal}
+  .dr-pimg{width:38px;height:38px;border-radius:9px;object-fit:cover}
+  .dr-picker{margin-top:18px}
+  .dr-tools{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+  .dr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:8px;max-height:340px;overflow:auto;padding:4px}
+  .dr-ch{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--panel-2);border:2px solid transparent;border-radius:10px;padding:6px 2px;color:var(--ink);font:inherit;font-size:.66rem;cursor:pointer}
+  .dr-ch:hover:not(:disabled){border-color:var(--ul)}
+  .dr-ch.sel{border-color:var(--gold);background:var(--raise)}
+  .dr-ch:disabled{opacity:.28;cursor:not-allowed;filter:grayscale(1)}
+  .dr-chimg{width:52px;height:52px;border-radius:8px}
+  .dr-ch span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dr-actions{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  .dr-legal{margin-top:18px;font-size:.66rem;color:var(--ink-dim);text-align:center}
+  @media(max-width:700px){.dr-board{grid-template-columns:1fr}.dr-team.red .dr-thead,.dr-team.red .dr-label{text-align:left}}
+
+  .riot-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--hair)}
+  .riot-row .rn{width:96px;flex-shrink:0;font-weight:700;font-size:.9rem;overflow-wrap:anywhere}
+  .riot-row input{flex:1;min-width:0;min-height:40px;padding:8px 12px}
+  .riot-row .rs{width:120px;flex-shrink:0;font-size:.72rem;color:var(--ink-dim)}
+  @media(max-width:560px){.riot-row{flex-wrap:wrap}.riot-row .rs{width:auto}}
 </style>
 
 </head>
@@ -406,6 +453,7 @@ document.documentElement.setAttribute('data-theme',t);})();
       <div class="nav-sep"></div>
       <button type="button" class="nav-btn" data-open="statsBtn"><span class="nav-ic" aria-hidden="true"></span>전체 통계</button>
       <button type="button" class="nav-btn" data-open="hofBtn"><span class="nav-ic" aria-hidden="true"></span>명예의 전당</button>
+      <button type="button" class="nav-btn" data-open="riotIdBtn"><span class="nav-ic" aria-hidden="true"></span>라이엇 ID</button>
       <button type="button" class="nav-btn" data-open="historyBtn"><span class="nav-ic" aria-hidden="true"></span>경기 기록</button>
     </nav>
     <div class="theme-toggle" role="group" aria-label="화면 모드">
@@ -446,6 +494,7 @@ document.documentElement.setAttribute('data-theme',t);})();
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="ghost" id="statsBtn">📊 전체 통계</button>
         <button class="ghost" id="hofBtn">🏅 명예의 전당</button>
+        <button class="ghost" id="riotIdBtn">🎮 라이엇 ID</button>
         <button class="ghost" id="historyBtn">📜 경기 기록</button>
         <button class="ghost" id="undoBtn">↩️ 경기 취소</button>
         <button class="ghost" id="formBtn">📝 투표폼 코드</button>
@@ -546,6 +595,14 @@ document.documentElement.setAttribute('data-theme',t);})();
     </div>
   </div>
 
+  <div class="modal-bg" id="riotModal">
+    <div class="modal" style="max-width:560px">
+      <h3>🎮 라이엇 ID 등록</h3>
+      <div class="msub">닉네임#태그 형식으로 입력하고 저장하면 라이엇에서 계정을 확인해요. 등록된 선수는 경기 결과를 자동으로 가져올 수 있어요. 안 쓰는 선수는 비워두세요.</div>
+      <div id="riotBody"></div>
+      <div style="display:flex;gap:8px;margin-top:16px"><button class="ghost" id="riotCloseBtn" style="flex:1">닫기</button><button class="primary" id="riotSaveBtn" style="flex:2">확인하고 저장</button></div>
+    </div>
+  </div>
   <div class="modal-bg" id="laneModal">
     <div class="modal" style="max-width:520px">
       <h3>⚙️ 라인 설정</h3>
@@ -633,7 +690,7 @@ function changeMyName(){
 }
 
 /* ---------- shared remote state (Firestore) ---------- */
-let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [] };
+let remote = { players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [], currentDraft: null, riotImported: [] };
 let remoteLoaded = false;
 let suppressNextSnapshot = false;
 // correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
@@ -704,6 +761,8 @@ onSnapshot(sessionRef, (snap)=>{
   remote.currentMatch = data.currentMatch || null;
   remote.vote = data.vote || null;
   remote.currentAuction = data.currentAuction || null;
+  remote.currentDraft = data.currentDraft || null;
+  remote.riotImported = data.riotImported || [];
   remote.deletedPlayers = data.deletedPlayers || [];
   // 시계 보정: 내가 보낸 핑의 서버 확정값만 사용 (processPingSample 참고)
   processPingSample(snap.data({ serverTimestamps: 'none' }));
@@ -1198,6 +1257,7 @@ function openProfile(id){
     <div class="prof-section-h">🎯 라인별 전적</div>
     ${laneSection}
 
+    ${champSection(pl)}
     <div class="prof-section-h">⚔️ 라인 상대 전적</div>
     ${h2hSection}
 
@@ -1694,6 +1754,8 @@ function renderSharedMatchArea(){
   if(remote.currentAuction){ renderSharedAuction(); return; }
   const cm=remote.currentMatch;
   if(!cm){ box.innerHTML=""; return; }
+  if(remote.currentDraft){ loadChamps(); }
+  if(remote.currentDraft && remote.currentDraft.matchId===cm.matchId && remote.currentDraft.status==='live' && !cm.error){ renderDraftView(cm,remote.currentDraft); return; }
   if(cm.error){ box.innerHTML='<div class="card"><div class="warn">이 조합으론 5:5 배치를 만들 수 없어요. 라인 고정을 너무 많이 걸었거나 특정 라인 인원이 부족한지 확인하세요.</div></div>'; return; }
   const byTeam={0:[],1:[]};
   (cm.assignments||[]).forEach(a=>{const pl=players.find(p=>p.id===a.id);if(pl)byTeam[a.team].push({slot:{pos:a.pos},player:pl});});
@@ -1708,7 +1770,7 @@ function renderSharedMatchArea(){
   function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 🔒":"";const pf=m.player.preferLane===m.slot.pos?" 💚":(m.player.avoidLane===m.slot.pos?" 😣":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=king?'<span class="slot-tier king">KING 👑</span>':`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const dot=cm.locked?'':(readyList.includes(m.player.name)?'<span class="rdy on" title="준비완료">✅</span>':'<span class="rdy" title="준비중">⏳</span>');
-    return `<div class="vs-cell ${side}">${dot}<span class="vs-name">${escapeHtml(m.player.name)}${lk}${pf}</span>${tierCell}</div>`;}
+    return `<div class="vs-cell ${side}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name">${escapeHtml(m.player.name)}${lk}${pf}</span>${tierCell}</div>`;}
   function vsHtml(A,B,sumA,sumB){
     if(A.length!==5||B.length!==5||A.some((m,i)=>m.slot.pos!==B[i].slot.pos)){
       return `<div class="teams">${teamHtml(A,"blue","블루 팀",sumA)}${teamHtml(B,"red","레드 팀",sumB)}</div>`;}
@@ -1751,6 +1813,7 @@ function renderSharedMatchArea(){
     ${vsHtml(byTeam[0],byTeam[1],cm.sumA,cm.sumB)}
     <div class="balance-note">전력 차이 <b>${cm.diff}</b> ${cm.diff===0?"· 완벽한 밸런스!":"(낮을수록 균형)"}</div>
     ${cm.locked?'':`<div class="balance-note" id="readyNote">${readyHtml}</div>`}
+    ${draftControls(cm)}
     <div class="balance-note">${ticketNote}</div>
     ${pleadNote}
     ${devRerollNote}
@@ -1764,6 +1827,7 @@ function renderSharedMatchArea(){
     <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작 (오클릭 방지로 확인창이 떠요)</div>
     <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetMatchBtn" style="text-decoration:underline;color:var(--ink-dim)">⚠️ 이 경기 상태 초기화 (진행 중인 결과가 이상할 때)</button></div>
     </div>`;
+  bindDraftControls(cm);
   document.getElementById("blueWin").onclick=()=>recordSharedWin(0);
   document.getElementById("redWin").onclick=()=>recordSharedWin(1);
   document.getElementById("resetMatchBtn").onclick=()=>{
@@ -2125,8 +2189,8 @@ function recordMatch(winners,losers,shared){
   // push results; award filled in after vote. store lane (pos) + direct opponent id if known (auto mode)
   const entryIds=[];
   const winIds=[],loseIds=[];
-  winners.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].l:null;pl.hist.push({result:'W',award:null,pos,opp:opp||null});entryIds.push(pl.id);winIds.push(pl.id);});
-  losers.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].w:null;pl.hist.push({result:'L',award:null,pos,opp:opp||null});entryIds.push(pl.id);loseIds.push(pl.id);});
+  winners.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].l:null;pl.hist.push({result:'W',award:null,pos,opp:opp||null,...champField(pl.id)});entryIds.push(pl.id);winIds.push(pl.id);});
+  losers.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].w:null;pl.hist.push({result:'L',award:null,pos,opp:opp||null,...champField(pl.id)});entryIds.push(pl.id);loseIds.push(pl.id);});
   // append to match log
   if(!state.matchLog)state.matchLog=[];
   state.matchLog.push({ts:Date.now(),win:winIds,lose:loseIds,best:null,worst:null});
@@ -2135,7 +2199,7 @@ function recordMatch(winners,losers,shared){
   // 로컬(수동/경매) 모드는 공유 투표 인프라가 없으니 기존처럼 즉시 자동 적용.
   const changes=shared?[]:applyPromotions(entryIds);
   save();
-  if(shared){ pushRemote({ currentMatch: null }); startSharedVote(winIds, loseIds); }
+  if(shared){ pushRemote({ currentMatch: null, currentDraft: null }); startSharedVote(winIds, loseIds); }
   else{ openVote(entryIds); }
   renderRoster();
   if(changes.length)setTimeout(()=>alert("티어 변동!\n"+changes.join("\n")),300);
@@ -2550,6 +2614,343 @@ refreshNameDisplay();
 setInterval(refreshNameDisplay,1000); // cheap sync in case prompt happens later
 
 renderPosGrid();renderRoster();
+
+/* =====================================================================
+   챔피언 밴픽 (Riot Data Dragon 이미지/이름 사용 — 팬 프로젝트)
+   ===================================================================== */
+const DDRAGON="https://ddragon.leagueoflegends.com";
+const CH={ver:null,list:[],byId:{},loading:false,failed:false};
+const CH_TAGS=[["","전체"],["Fighter","전사"],["Tank","탱커"],["Assassin","암살자"],["Mage","마법사"],["Marksman","원딜"],["Support","서포터"]];
+async function loadChamps(){
+  if(CH.list.length||CH.loading)return;
+  CH.loading=true;
+  try{
+    const v=await (await fetch(DDRAGON+"/api/versions.json")).json();
+    const ver=v[0];
+    const d=await (await fetch(DDRAGON+"/cdn/"+ver+"/data/ko_KR/champion.json")).json();
+    CH.list=Object.values(d.data).map(c=>({id:c.id,name:c.name,tags:c.tags||[]})).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    CH.list.forEach(c=>{CH.byId[c.id]=c;});
+    CH.ver=ver;CH.failed=false;
+  }catch(e){CH.failed=true;console.error("챔피언 목록 로드 실패",e);}
+  CH.loading=false;
+  renderSharedMatchArea();
+}
+function chImgUrl(id){return DDRAGON+"/cdn/"+(CH.ver||"14.24.1")+"/img/champion/"+id+".png";}
+function chName(id){return CH.byId[id]?CH.byId[id].name:id;}
+function chImg(id,cls){return id?`<img class="${cls}" src="${chImgUrl(id)}" alt="${escapeHtml(chName(id))}" loading="lazy">`:'';}
+const CHO=["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+function choseong(str){return [...str].map(ch=>{const c=ch.charCodeAt(0);return (c>=0xAC00&&c<=0xD7A3)?CHO[Math.floor((c-0xAC00)/588)]:ch;}).join("");}
+function chMatch(c,q){if(!q)return true;const ql=q.toLowerCase().replace(/\s/g,"");const nm=c.name.replace(/\s/g,"");return nm.includes(q.replace(/\s/g,""))||c.id.toLowerCase().includes(ql)||choseong(nm).includes(ql);}
+
+const DRAFT_SEQ=[["ban",0],["ban",1],["ban",0],["ban",1],["ban",0],["ban",1],["pick",0],["pick",1],["pick",1],["pick",0],["pick",0],["pick",1],["ban",1],["ban",0],["ban",1],["ban",0],["pick",1],["pick",0],["pick",0],["pick",1]];
+const BAN_MS=30000,PICK_MS=45000;
+const dstate={sel:null,slot:null,q:"",tag:"",busy:false,timeoutStep:-1};
+function draftStepMs(i){return DRAFT_SEQ[i][0]==="ban"?BAN_MS:PICK_MS;}
+function draftUsed(d){const u=new Set();(d.ban0||[]).forEach(x=>x&&u.add(x));(d.ban1||[]).forEach(x=>x&&u.add(x));Object.values(d.picks||{}).forEach(x=>x&&u.add(x));return u;}
+function draftTeamList(cm,t){return (cm.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]);}
+let pendingChamps=null;
+function champOf(pid){if(pendingChamps&&pendingChamps[pid])return pendingChamps[pid];const d=remote.currentDraft,cm=remote.currentMatch;return (d&&cm&&d.matchId===cm.matchId&&d.picks&&d.picks[pid])||null;}
+function champField(pid){const c=champOf(pid);return c?{champ:c}:{};}
+function champBadge(pid,cm){const d=remote.currentDraft;if(!d||d.matchId!==cm.matchId||!d.picks||!d.picks[pid])return '';return chImg(d.picks[pid],"vs-champ");}
+function draftControls(cm){
+  if(!cm.locked)return '';
+  const d=remote.currentDraft;
+  let h='<div style="text-align:center;margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="primary" id="riotImportBtn">🔄 롤 결과 자동 가져오기</button>';
+  if(!(d&&d.matchId===cm.matchId))h+='<button class="ghost" id="startDraftBtn">🎮 챔피언 밴픽 시작</button>';
+  h+='</div><div class="hint" style="text-align:center">게임이 끝난 뒤 눌러주세요. 라이엇 ID가 등록된 선수 기준으로 경기를 찾아서 승패·챔피언을 전적에 기록해요.</div>';
+  return h;
+}
+function bindDraftControls(cm){
+  const ri=document.getElementById("riotImportBtn");if(ri)ri.onclick=()=>riotImportResult(ri);
+  const b=document.getElementById("startDraftBtn");
+  if(b)b.onclick=()=>{
+    if(!cm.locked){alert("팀이 확정된 뒤에 시작할 수 있어요.");return;}
+    dstate.sel=null;dstate.slot=null;
+    pushRemote({currentDraft:{matchId:cm.matchId,status:"live",step:0,ban0:[],ban1:[],picks:{},deadlineAt:correctedNow()+BAN_MS+3000,startedBy:myName||""}});
+    loadChamps();
+  };
+}
+function draftMyTeam(cm){
+  const me=myName?players.find(p=>p.name===myName):null;
+  if(!me)return null;
+  const a=(cm.assignments||[]).find(x=>x.id===me.id);
+  return a?a.team:null;
+}
+function draftCanAct(cm,d){
+  if(!d||d.status!=="live"||d.step>=DRAFT_SEQ.length)return false;
+  const team=DRAFT_SEQ[d.step][1];
+  if(myName===DEV_NAME&&devUnlocked())return true;
+  return draftMyTeam(cm)===team;
+}
+function draftCommit(champId,slotId){
+  const d0=remote.currentDraft;if(!d0)return;
+  const expected=d0.step;
+  runTransaction(db,async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const d=(snap.data()||{}).currentDraft;
+    if(!d||d.status!=="live"||d.step!==expected)return;
+    const type=DRAFT_SEQ[d.step][0],team=DRAFT_SEQ[d.step][1];
+    const used=draftUsed(d);
+    if(champId&&used.has(champId))throw new Error("이미 밴/픽된 챔피언이에요.");
+    const upd={};
+    if(type==="ban"){upd["currentDraft.ban"+team]=[...(d["ban"+team]||[]),champId||""];}
+    else{
+      if(!champId||!slotId)throw new Error("챔피언과 선수를 선택해주세요.");
+      if(d.picks&&d.picks[slotId])throw new Error("이미 챔피언이 정해진 선수예요.");
+      upd["currentDraft.picks."+slotId]=champId;
+    }
+    const next=d.step+1;
+    upd["currentDraft.step"]=next;
+    if(next>=DRAFT_SEQ.length)upd["currentDraft.status"]="done";
+    else upd["currentDraft.deadlineAt"]=correctedNow()+draftStepMs(next)+1000;
+    tx.update(sessionRef,upd);
+  }).then(()=>{dstate.sel=null;dstate.slot=null;}).catch(err=>alert(err&&err.message?err.message:"밴픽 저장에 실패했어요."));
+}
+function draftTimeout(step){
+  if(dstate.timeoutStep===step)return;
+  dstate.timeoutStep=step;
+  const cm0=remote.currentMatch;if(!cm0)return;
+  runTransaction(db,async(tx)=>{
+    const snap=await tx.get(sessionRef);
+    const data=snap.data()||{};const d=data.currentDraft,cm=data.currentMatch;
+    if(!d||!cm||d.status!=="live"||d.step!==step||correctedNow()<d.deadlineAt)return;
+    const type=DRAFT_SEQ[d.step][0],team=DRAFT_SEQ[d.step][1];
+    const upd={};
+    if(type==="ban"){upd["currentDraft.ban"+team]=[...(d["ban"+team]||[]),""];}
+    else{
+      if(!CH.list.length)return;
+      const used=draftUsed(d);
+      const free=CH.list.filter(c=>!used.has(c.id));
+      const slot=draftTeamList(cm,team).find(a=>!(d.picks&&d.picks[a.id]));
+      if(!free.length||!slot)return;
+      upd["currentDraft.picks."+slot.id]=free[Math.floor(Math.random()*free.length)].id;
+    }
+    const next=d.step+1;upd["currentDraft.step"]=next;
+    if(next>=DRAFT_SEQ.length)upd["currentDraft.status"]="done";
+    else upd["currentDraft.deadlineAt"]=correctedNow()+draftStepMs(next)+1000;
+    tx.update(sessionRef,upd);
+  }).catch(e=>console.error("밴픽 시간초과 처리 실패",e));
+}
+setInterval(()=>{
+  const d=remote.currentDraft;
+  if(!d||d.status!=="live")return;
+  const remain=Math.max(0,Math.ceil((d.deadlineAt-correctedNow())/1000));
+  const el=document.getElementById("draftSeconds");if(el)el.textContent=remain;
+  if(correctedNow()>=d.deadlineAt+500)draftTimeout(d.step);
+},1000);
+
+function renderDraftView(cm,d){
+  const box=document.getElementById("result");if(!box)return;
+  const used=draftUsed(d);
+  const step=d.step;
+  const cur=step<DRAFT_SEQ.length?DRAFT_SEQ[step]:null;
+  const curType=cur?cur[0]:null,curTeam=cur?cur[1]:null;
+  const can=draftCanAct(cm,d);
+  const teamName=t=>t===0?"블루 팀":"레드 팀";
+  // pick target slot for current pick step
+  let targetSlot=null;
+  if(curType==="pick"){
+    const list=draftTeamList(cm,curTeam).filter(a=>!(d.picks&&d.picks[a.id]));
+    targetSlot=list.find(a=>a.id===dstate.slot)?dstate.slot:(list[0]?list[0].id:null);
+  }
+  function banRow(t){
+    const arr=d["ban"+t]||[];
+    let h="";
+    for(let i=0;i<5;i++){
+      const isCur=curType==="ban"&&curTeam===t&&arr.length===i;
+      const v=arr[i];
+      h+=`<div class="dr-ban${isCur?' cur':''}">${v?chImg(v,"dr-ban-img"):(v===""?'<span class="dr-skip">—</span>':'')}</div>`;
+    }
+    return `<div class="dr-bans">${h}</div>`;
+  }
+  function pickRows(t){
+    return draftTeamList(cm,t).map(a=>{
+      const pl=players.find(p=>p.id===a.id);const nm=pl?pl.name:"?";
+      const c=d.picks&&d.picks[a.id];
+      const label=POSITIONS.find(p=>p.key===a.pos).label;
+      const isTarget=curType==="pick"&&curTeam===t&&targetSlot===a.id;
+      const clickable=curType==="pick"&&curTeam===t&&!c&&can;
+      const inner=`<span class="dr-lane">${label}</span><span class="dr-pname">${escapeHtml(nm)}</span><span class="dr-champ">${c?chImg(c,"dr-pimg")+'<b>'+escapeHtml(chName(c))+'</b>':'<i>미선택</i>'}</span>`;
+      return clickable?`<button type="button" class="dr-pick t${t}${isTarget?' cur':''}" data-slot="${a.id}">${inner}</button>`:`<div class="dr-pick t${t}${isTarget?' cur':''}">${inner}</div>`;
+    }).join("");
+  }
+  const tagBtns=CH_TAGS.map(([k,l])=>`<button type="button" class="filter-tab${dstate.tag===k?' active':''}" data-tag="${k}">${l}</button>`).join("");
+  let grid;
+  if(CH.failed)grid='<div class="warn">챔피언 목록을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.</div>';
+  else if(!CH.list.length)grid='<div class="empty">챔피언 목록을 불러오는 중…</div>';
+  else{
+    const list=CH.list.filter(c=>(!dstate.tag||c.tags.includes(dstate.tag))&&chMatch(c,dstate.q));
+    grid='<div class="dr-grid">'+(list.map(c=>{
+      const u=used.has(c.id);
+      return `<button type="button" class="dr-ch${dstate.sel===c.id?' sel':''}" data-ch="${c.id}" ${(u||!can)?'disabled':''} title="${escapeHtml(c.name)}">${chImg(c.id,"dr-chimg")}<span>${escapeHtml(c.name)}</span></button>`;
+    }).join("")||'<div class="empty" style="grid-column:1/-1">검색 결과가 없어요</div>')+'</div>';
+  }
+  let status;
+  if(!cur)status="밴픽 완료";
+  else status=`<span class="dr-turn t${curTeam}">${teamName(curTeam)}</span> ${curType==="ban"?"밴":"픽"} 차례 <span class="dr-count">STEP ${step+1}/${DRAFT_SEQ.length}</span> · ⏱️ <b id="draftSeconds">--</b>초`;
+  let actions="";
+  if(cur){
+    if(!can)actions=`<div class="hint" style="text-align:center">${teamName(curTeam)} 선수가 고르고 있어요. 지켜보는 중…</div>`;
+    else if(curType==="ban")actions=`<div class="dr-actions"><button class="primary" id="drConfirm" ${dstate.sel?'':'disabled style="opacity:.4"'}>🚫 ${dstate.sel?escapeHtml(chName(dstate.sel))+" ":""}밴 확정</button><button class="ghost" id="drSkip">밴 건너뛰기</button></div>`;
+    else actions=`<div class="dr-actions"><button class="primary" id="drConfirm" ${(dstate.sel&&targetSlot)?'':'disabled style="opacity:.4"'}>✅ ${dstate.sel?escapeHtml(chName(dstate.sel))+" ":""}픽 확정</button></div><div class="hint" style="text-align:center">위 선수 칸을 눌러 누가 쓸 챔피언인지 고를 수 있어요 (기본: 위에서부터 순서대로)</div>`;
+  }
+  const hadFocus=document.activeElement&&document.activeElement.id==="drSearch";
+  const caret=hadFocus?document.activeElement.selectionStart:0;
+  box.innerHTML=`<div class="card dr-card"><div class="flex-between"><h2 style="margin:0">챔피언 밴픽</h2><button class="icon-btn" id="drEnd" style="text-decoration:underline">밴픽 종료하고 결과로</button></div>
+    <div class="dr-status">${status}</div>
+    <div class="dr-board">
+      <div class="dr-team blue"><div class="dr-thead">블루 팀</div><div class="dr-label">밴</div>${banRow(0)}<div class="dr-label">픽</div>${pickRows(0)}</div>
+      <div class="dr-team red"><div class="dr-thead">레드 팀</div><div class="dr-label">밴</div>${banRow(1)}<div class="dr-label">픽</div>${pickRows(1)}</div>
+    </div>
+    ${cur?`<div class="dr-picker"><div class="dr-tools"><input type="text" id="drSearch" placeholder="🔍 챔피언 검색 (한글 · 초성 · 영문)" value="${escapeHtml(dstate.q)}" autocomplete="off"><div class="filter-bar" style="margin:0">${tagBtns}</div></div>${grid}${actions}</div>`:'<div class="hint" style="text-align:center;margin-top:14px">밴픽이 끝났어요. 결과로 돌아가서 승패를 기록하세요.</div>'}
+    <div class="dr-legal">이 앱은 Riot Games와 관련 없는 팬 프로젝트예요. League of Legends 및 챔피언 이미지는 Riot Games의 자산이에요.</div></div>`;
+  box.querySelectorAll(".dr-ch").forEach(b=>b.onclick=()=>{dstate.sel=b.dataset.ch;renderSharedMatchArea();});
+  box.querySelectorAll(".dr-pick[data-slot]").forEach(b=>b.onclick=()=>{dstate.slot=b.dataset.slot;renderSharedMatchArea();});
+  box.querySelectorAll("[data-tag]").forEach(b=>b.onclick=()=>{dstate.tag=b.dataset.tag;renderSharedMatchArea();});
+  const se=document.getElementById("drSearch");
+  if(se){se.oninput=()=>{dstate.q=se.value;renderSharedMatchArea();};if(hadFocus){se.focus();try{se.setSelectionRange(caret,caret);}catch(e){}}}
+  const cf=document.getElementById("drConfirm");
+  if(cf)cf.onclick=()=>{if(curType==="ban"){if(!dstate.sel)return;draftCommit(dstate.sel,null);}else{if(!dstate.sel||!targetSlot)return;draftCommit(dstate.sel,targetSlot);}};
+  const sk=document.getElementById("drSkip");if(sk)sk.onclick=()=>draftCommit("",null);
+  const en=document.getElementById("drEnd");
+  if(en)en.onclick=()=>{if(!confirm("밴픽을 끝내고 결과 화면으로 돌아갈까요? (지금까지 고른 챔피언은 기록돼요)"))return;pushRemote({"currentDraft.status":"done"});};
+  const el=document.getElementById("draftSeconds");if(el&&d.deadlineAt)el.textContent=Math.max(0,Math.ceil((d.deadlineAt-correctedNow())/1000));
+}
+function champSection(pl){
+  const m={};
+  (pl.hist||[]).forEach(h=>{if(!h.champ)return;const x=m[h.champ]||(m[h.champ]={g:0,w:0});x.g++;if(h.result==="W")x.w++;});
+  const rows=Object.entries(m).sort((a,b)=>b[1].g-a[1].g).slice(0,8);
+  if(!rows.length)return '<div class="prof-section-h">🛡️ 챔피언별 전적</div><div class="prof-line mini">밴픽으로 챔피언을 고르고 경기를 기록하면 여기에 쌓여요</div>';
+  return '<div class="prof-section-h">🛡️ 챔피언별 전적</div>'+rows.map(([id,x])=>`<div class="prof-line" style="display:flex;align-items:center;gap:8px">${chImg(id,"dr-pimg")}<b>${escapeHtml(chName(id))}</b><span class="mini">${x.g}판 ${x.w}승 ${x.g-x.w}패 (${Math.round(x.w/x.g*100)}%)</span></div>`).join("");
+}
+
+/* =====================================================================
+   라이엇 연동: 라이엇 ID 등록 + 경기 결과 자동 가져오기 (Cloudflare Worker 경유)
+   ===================================================================== */
+const RIOT_PROXY="https://lol-proxy.domybest408.workers.dev";
+const RIOT_POS={TOP:"TOP",JUNGLE:"JUG",MIDDLE:"MID",BOTTOM:"ADC",UTILITY:"SUP"};
+async function riotApi(path){
+  const r=await fetch(RIOT_PROXY+path);
+  const t=await r.text();let j=null;try{j=JSON.parse(t);}catch(e){}
+  if(!r.ok){
+    const msg=(j&&j.status&&j.status.message)||(j&&j.error)||("오류 "+r.status);
+    const err=new Error(msg);err.status=r.status;throw err;
+  }
+  return j;
+}
+const sleep=ms=>new Promise(res=>setTimeout(res,ms));
+function parseRiotId(v){
+  const t=(v||"").trim();const i=t.lastIndexOf("#");
+  if(i<=0||i===t.length-1)return null;
+  return {name:t.slice(0,i).trim(),tag:t.slice(i+1).trim()};
+}
+function openRiotModal(){
+  const sorted=[...players].sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+  document.getElementById("riotBody").innerHTML=sorted.map(pl=>`<div class="riot-row"><span class="rn">${escapeHtml(pl.name)}</span><input type="text" data-id="${pl.id}" placeholder="닉네임#태그" value="${escapeHtml(pl.riotId||"")}" autocomplete="off"><span class="rs" id="rs_${pl.id}">${pl.puuid?"✅":""}</span></div>`).join("")||'<div class="empty">명단이 비어 있어요</div>';
+  document.getElementById("riotModal").classList.add("on");
+}
+document.getElementById("riotIdBtn").onclick=openRiotModal;
+document.getElementById("riotCloseBtn").onclick=()=>document.getElementById("riotModal").classList.remove("on");
+document.getElementById("riotSaveBtn").onclick=async()=>{
+  const btn=document.getElementById("riotSaveBtn");
+  const rows=[...document.querySelectorAll("#riotBody input[data-id]")];
+  const updates={};let bad=0;
+  btn.disabled=true;btn.textContent="확인 중…";
+  for(const inp of rows){
+    const id=inp.dataset.id;const pl=players.find(p=>p.id===id);if(!pl)continue;
+    const v=inp.value.trim();const st=document.getElementById("rs_"+id);
+    if(!v){ if(pl.riotId||pl.puuid){updates[id]={riotId:null,puuid:null};} if(st)st.textContent="";continue; }
+    if(v===pl.riotId&&pl.puuid){ if(st)st.textContent="✅"; continue; }
+    const p=parseRiotId(v);
+    if(!p){ if(st)st.textContent="❌ 형식(이름#태그)";bad++;continue; }
+    try{
+      if(st)st.textContent="…";
+      const acc=await riotApi("/account?name="+encodeURIComponent(p.name)+"&tag="+encodeURIComponent(p.tag));
+      updates[id]={riotId:(acc.gameName||p.name)+"#"+(acc.tagLine||p.tag),puuid:acc.puuid};
+      if(st)st.textContent="✅";
+    }catch(e){ if(st)st.textContent="❌ "+(e.status===404?"찾을 수 없어요":e.message);bad++; }
+    await sleep(80);
+  }
+  try{
+    if(Object.keys(updates).length){
+      await runTransaction(db,async(tx)=>{
+        const snap=await tx.get(sessionRef);const data=snap.data()||{};
+        const fp=(data.players||[]).map(x=>{const u=updates[x.id];if(!u)return x;const n={...x};if(u.puuid){n.riotId=u.riotId;n.puuid=u.puuid;}else{delete n.riotId;delete n.puuid;}return n;});
+        tx.update(sessionRef,{players:fp});
+      });
+    }
+    btn.textContent=bad?("저장됨 (확인 실패 "+bad+"건)"):"✅ 저장됐어요";
+  }catch(e){ alert(e&&e.message?e.message:"저장에 실패했어요."); btn.textContent="확인하고 저장"; }
+  btn.disabled=false;
+  setTimeout(()=>{btn.textContent="확인하고 저장";},2500);
+};
+
+async function riotImportResult(btn){
+  const cm=remote.currentMatch;
+  if(!cm||!cm.locked||!cm.assignments){alert("팀이 확정된 경기에서만 쓸 수 있어요.");return;}
+  const assigns=cm.assignments;
+  const reg=assigns.map(a=>({a,pl:players.find(p=>p.id===a.id)})).filter(x=>x.pl&&x.pl.puuid);
+  if(reg.length<4){alert("라이엇 ID가 등록된 선수가 "+reg.length+"명뿐이에요. (최소 4명)\n'🎮 라이엇 ID'에서 먼저 등록해주세요.");return;}
+  const origText=btn?btn.textContent:"";
+  if(btn){btn.disabled=true;btn.textContent="롤에서 찾는 중…";}
+  try{
+    const byTeam=[reg.filter(x=>x.a.team===0),reg.filter(x=>x.a.team===1)];
+    const probes=[];
+    [0,1].forEach(t=>{byTeam[t].slice(0,2).forEach(x=>probes.push(x.pl.puuid));});
+    const done=new Set(remote.riotImported||[]);
+    const regPuuids=new Set(reg.map(x=>x.pl.puuid));
+    const since=(cm.createdAt||0)-10*60*1000;
+    let best=null;
+    for(const kind of ["tourney","custom"]){
+      const ids=new Set();
+      for(const pu of probes){
+        try{const list=await riotApi("/matches?puuid="+encodeURIComponent(pu)+"&kind="+kind+"&count=5");(list||[]).forEach(i=>ids.add(i));}catch(e){if(e.status===403||e.status===401)throw e;}
+        await sleep(60);
+      }
+      const fresh=[...ids].filter(i=>!done.has(i));
+      for(const id of fresh.slice(0,8)){
+        let m;try{m=await riotApi("/match?id="+id);}catch(e){continue;}
+        if(m.gameCreation<since)continue;
+        const score=m.participants.filter(p=>regPuuids.has(p.puuid)).length;
+        if(score<Math.max(4,Math.ceil(reg.length*0.8)))continue;
+        if(!best||m.gameCreation>best.gameCreation)best=m;
+        await sleep(60);
+      }
+      if(best)break;
+    }
+    if(!best){alert("이번 경기에 해당하는 롤 경기를 아직 못 찾았어요.\n게임이 끝나고 1~2분 뒤에 다시 눌러보세요.\n(라이엇 ID가 맞게 등록됐는지도 확인해보세요)");return;}
+    // 승리 팀 판정: 앱 팀 단위로 일관되는지 확인
+    const win=[{w:0,l:0},{w:0,l:0}];const champs={};let matched=0;
+    assigns.forEach(a=>{
+      const pl=players.find(p=>p.id===a.id);if(!pl||!pl.puuid)return;
+      const part=best.participants.find(p=>p.puuid===pl.puuid);if(!part)return;
+      matched++;champs[pl.id]=part.champion;
+      if(part.win)win[a.team].w++;else win[a.team].l++;
+    });
+    let winTeam=null;
+    if(win[0].w>0&&win[0].l===0&&win[1].l>0&&win[1].w===0)winTeam=0;
+    else if(win[1].w>0&&win[1].l===0&&win[0].l>0&&win[0].w===0)winTeam=1;
+    else if(win[0].w>0&&win[0].l===0&&win[1].w===0&&win[1].l===0)winTeam=0;
+    else if(win[1].w>0&&win[1].l===0&&win[0].w===0&&win[0].l===0)winTeam=1;
+    else if(win[0].l>0&&win[0].w===0&&win[1].w===0&&win[1].l===0)winTeam=1;
+    else if(win[1].l>0&&win[1].w===0&&win[0].w===0&&win[0].l===0)winTeam=0;
+    if(winTeam===null){alert("롤에서 찾은 경기의 팀 구성이 앱의 팀과 달라요. 자동으로 기록하지 않았어요.\n(수동으로 승리 버튼을 눌러주세요)");return;}
+    const when=new Date(best.gameCreation).toLocaleString("ko-KR");
+    const min=Math.round((best.gameDuration||0)/60);
+    if(!confirm((winTeam===0?"🔵 블루":"🔴 레드")+" 팀 승리 · "+when+" · "+min+"분\n선수 "+matched+"/10명 확인됨\n\n이 경기로 기록할까요?"))return;
+    const winners=assigns.filter(a=>a.team===winTeam).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
+    const losers=assigns.filter(a=>a.team!==winTeam).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
+    pendingChamps=champs;
+    try{
+      pushRemote({riotImported:[...(remote.riotImported||[]),best.matchId].slice(-200)});
+      recordMatch(winners,losers,true);
+    }finally{pendingChamps=null;}
+  }catch(e){
+    alert("가져오지 못했어요: "+(e&&e.message?e.message:e)+(e&&(e.status===401||e.status===403)?"\n(라이엇 키가 만료됐을 수 있어요. 운영자에게 알려주세요)":""));
+  }finally{
+    if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=origText;}
+  }
+}
 </script>
 <script>
 (function(){
