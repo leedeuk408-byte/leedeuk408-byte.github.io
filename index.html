@@ -445,13 +445,61 @@ document.documentElement.setAttribute('data-theme',t);})();
 .tag.king{background:linear-gradient(160deg,#f5e6b0,#d4a94a);color:#2a1e05;border:0}
 .card,.stat-box,.panel,.box{border-radius:16px}
 :root{--rad:16px}
-.main .card,.main section,.vs-row,.vs-score,.stat-box{border-radius:var(--rad);box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px -12px rgba(0,0,0,.28);border:1px solid var(--line,rgba(128,128,128,.16))}
+.main .card,.vs-score,.stat-box{border-radius:var(--rad);box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px -12px rgba(0,0,0,.28);border:1px solid var(--line,rgba(128,128,128,.16))}
 button.primary,button.ghost,.icon-btn{border-radius:12px;letter-spacing:.01em;transition:transform .12s ease,box-shadow .12s ease,background .12s ease}
 button.primary:hover,button.ghost:hover{transform:translateY(-1px)}
 button.primary:active,button.ghost:active{transform:none}
 .r-tag,.slot-tier,.tag{border-radius:999px}
 h2,h3,h4{letter-spacing:-.01em}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---- team result polish ---- */
+.vs-score{background:linear-gradient(180deg,var(--panel-2),transparent);}
+.vs-side.blue b{color:var(--blue-ink)} .vs-side.red b{color:var(--red-ink)}
+.vs-bar-track{height:12px;gap:3px}
+.vs-bar-note b{background:var(--sunken);padding:2px 9px;border-radius:999px}
+.vs-row{padding:0}
+.vs-cell{box-shadow:0 1px 0 rgba(255,255,255,.02) inset;transition:border-color .15s}
+.vs-cell.red{border-right-width:1px;border-right:1px solid var(--line);border-left:0;box-shadow:inset -4px 0 0 var(--red)}
+.vs-cell.blue{border-left-width:1px;border-left:1px solid var(--line);box-shadow:inset 4px 0 0 var(--blue)}
+.vs-lane{background:var(--sunken);border-radius:999px;padding:5px 0;font-size:.74rem}
+.vs-cell .rdy{font-size:.7rem}
+.rd-panel{margin:18px 0 6px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2)}
+.rd-top{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;font-weight:600}
+.rd-top b{color:var(--gold-bright);font-size:1.05rem}
+.rd-timer{font-variant-numeric:tabular-nums;color:var(--ink-dim);font-weight:600;background:var(--sunken);padding:3px 10px;border-radius:999px;font-size:.78rem}
+.rd-track{height:8px;border-radius:999px;background:var(--sunken);margin:10px 0 8px;overflow:hidden}
+.rd-track i{display:block;height:100%;background:var(--win);border-radius:999px;transition:width .3s}
+.rd-sub{font-size:.74rem;color:var(--ink-dim)}
+.tk-note{text-align:center;font-size:.8rem;color:var(--ink-dim);margin:12px 0 4px}
+.rec-h{text-align:center;font-size:.8rem;color:var(--ink-dim);margin-top:22px;padding-top:18px;border-top:1px solid var(--hair)}
+.win-btns{margin-top:10px}
+.win-btn.blue{background:rgba(91,140,255,.12);border-color:rgba(91,140,255,.45);color:var(--blue-ink)}
+.win-btn.red{background:rgba(217,123,115,.12);border-color:rgba(217,123,115,.45);color:var(--red-ink)}
+.win-btn.blue:hover{background:rgba(91,140,255,.22)} .win-btn.red:hover{background:rgba(217,123,115,.22)}
+.dev-note{margin-top:10px;font-size:.78rem;color:var(--ink-dim);border:1px dashed var(--lock);border-radius:12px;padding:8px 12px}
+.dev-note summary{cursor:pointer;font-weight:600}
+.dev-note div{margin-top:6px;line-height:1.7}
+/* ---- developer panel ---- */
+.dev-card{border-color:var(--lock)}
+.dev-h{font-weight:800;font-size:.95rem;margin:4px 0 6px}
+.dev-help{font-size:.78rem;color:var(--ink-dim);line-height:1.65;margin-bottom:12px}
+.dev-help b{color:var(--ink)}
+.dev-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dev-stepper{display:inline-flex;align-items:center;gap:6px}
+.dev-stepper button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-size:1.1rem;cursor:pointer}
+.dev-stepper input{width:54px;height:34px;text-align:center;border-radius:10px;font-weight:700}
+.dev-stepper span{color:var(--ink-dim);font-size:.85rem}
+.dev-now{margin-top:12px;font-size:.88rem} .dev-now b{color:var(--gold-bright)}
+.dev-result{margin-top:8px;min-height:1.2em;font-size:.84rem;font-weight:600}
+.dev-result.ok{color:var(--win-ink,var(--win))} .dev-result.err{color:var(--loss-ink,var(--loss))}
+.dev-scroll{max-height:240px;overflow:auto;margin-top:10px;border:1px solid var(--hair);border-radius:12px}
+.dev-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.dev-table th{text-align:left;color:var(--ink-dim);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+.dev-table td{padding:7px 8px;border-bottom:1px solid var(--hair)}
+.dev-table td:not(:first-child),.dev-table th:not(:first-child){text-align:center}
+.dev-table td b{color:var(--gold-bright)}
+.dev-sep{border-top:1px dashed var(--lock);margin:18px 0 12px}
 </style>
 
 </head>
@@ -1788,7 +1836,7 @@ function renderSharedMatchArea(){
   let devRerollNote='';
   if(myName===DEV_NAME && devUnlocked()){
     const tally=(arr)=>{const m={};(arr||[]).forEach(n=>{m[n]=(m[n]||0)+1;});const e=Object.entries(m);return e.length?e.map(([n,c])=>escapeHtml(n)+(c>1?' ×'+c:'')).join(', '):'없음';};
-    devRerollNote=`<div class="balance-note" style="border:1px dashed var(--lock);border-radius:8px;padding:8px;margin-top:8px;text-align:left"> <b>개발자 전용</b> · 이번 판 리롤 사용자<br>기본 리롤권: ${tally(cm.basicUsedBy)}<br>임시 리롤권: ${tally(cm.bonusUsedBy)}</div>`;
+    devRerollNote=`<details class="dev-note"><summary>개발자 전용 · 이번 판 리롤 사용자</summary><div>기본 리롤권: ${tally(cm.basicUsedBy)}<br>임시 리롤권: ${tally(cm.bonusUsedBy)}</div></details>`;
   }
   const pleadList=cm.pleadedBy||[];
   // 누가 눌렀는지는 비공개 — 몇 명이 요청했는지 숫자만 공개 (심리전 요소 유지)
@@ -1798,15 +1846,14 @@ function renderSharedMatchArea(){
   const iAmReady=readyList.includes(myName);
   let readyHtml;
   const lockedBanner = cm.locked ? `<div class="locked-banner">고정 팀 확정! <span class="locked-sub">전원 준비완료 · 다음 판은 새로 랭크게임을 눌러야 해요</span></div>` : '';
-  if(!cm.locked){ readyHtml = `✅ 준비완료 <b>${readyList.length}</b>/10명 — 전원 준비되면 자동으로 팀이 확정돼요 · ⏱️ <span id="matchSeconds">--:--</span> 뒤 자동 확정 <span style="color:var(--ink-dim)">(30초 이하에서 리롤하면 +5초)</span>`; }
+  if(!cm.locked){ readyHtml = `<div class="rd-panel"><div class="rd-top"><span>준비 현황 <b>${readyList.length}</b>/10명</span><span class="rd-timer"><span id="matchSeconds">--:--</span> 뒤 자동 확정</span></div><div class="rd-track"><i style="width:${Math.min(100,readyList.length*10)}%"></i></div><div class="rd-sub">전원 준비되면 팀이 바로 확정돼요 · 30초 이하에서 리롤하면 +5초</div></div>`; }
   const noReroll=basicUsedByMe;
-  box.innerHTML=`<div class="card"><h2>결과</h2>
+  box.innerHTML=`<div class="card"><h2>이번 판 팀</h2>
     ${lockedBanner}
     ${vsHtml(byTeam[0],byTeam[1],cm.sumA,cm.sumB)}
-    <div class="balance-note">전력 차이 <b>${cm.diff}</b> ${cm.diff===0?"· 완벽한 밸런스!":"(낮을수록 균형)"}</div>
-    ${cm.locked?'':`<div class="balance-note" id="readyNote">${readyHtml}</div>`}
+        ${cm.locked?'':`<div id="readyNote">${readyHtml}</div>`}
     ${draftControls(cm)}
-    <div class="balance-note">${ticketNote}</div>
+    <div class="tk-note">${ticketNote}</div>
     ${pleadNote}
     ${devRerollNote}
     ${(!cm.locked && iAmInMatch)?`<div style="text-align:center;margin-top:8px"><button class="${iAmReady?'ghost':'primary'}" id="readyBtnShared">${iAmReady?'✅ 준비 취소':'✅ 준비완료'}</button></div>`:''}
@@ -1815,8 +1862,9 @@ function renderSharedMatchArea(){
         <button class="ghost" id="bonusRerollBtn" ${bonusRemainByMe<=0?'disabled style="opacity:0.4;cursor:not-allowed"':''}>임시 리롤권 (${bonusRemainByMe})</button>
         ${noReroll?'<button class="ghost" id="pleadBtn">돌려주세요!</button>':''}
       </div>`:''}
-    <div class="win-btns"><button class="win-btn blue" id="blueWin">🔵 블루 승리</button><button class="win-btn red" id="redWin">🔴 레드 승리</button></div>
-    <div class="hint" style="text-align:center">승리 기록 → 승패 반영 + BEST/WORST 익명 투표 시작 (오클릭 방지로 확인창이 떠요)</div>
+    <div class="rec-h">경기가 끝났다면 이긴 팀을 눌러 기록하세요</div>
+    <div class="win-btns"><button class="win-btn blue" id="blueWin">블루 팀 승리</button><button class="win-btn red" id="redWin">레드 팀 승리</button></div>
+    <div class="hint" style="text-align:center">승패가 전적에 반영되고 BEST/WORST 익명 투표가 시작돼요 (확인창이 한 번 떠요)</div>
     <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetMatchBtn" style="text-decoration:underline;color:var(--ink-dim)">⚠️ 이 경기 상태 초기화 (진행 중인 결과가 이상할 때)</button></div>
     </div>`;
   bindDraftControls(cm);
@@ -1844,7 +1892,7 @@ function renderSharedMatchArea(){
     ensureMyName();
     if(!myName){alert("이름을 먼저 설정해주세요.");return;}
     if(bonusRemainByMe<=0){alert(myName+"님은 사용 가능한 임시 리롤권이 없어요.");return;}
-    if(!confirm("임시 리롤권을 1장 사용할까요? (BEST 3개로 모은 보너스, 쓰면 다시 모아야 해요)"))return;
+    if(!confirm("임시 리롤권을 1장 사용할까요? (쓰면 보유 장수가 1장 줄어요)"))return;
     bonusBtn.disabled=true; // prevent double-click while the transaction is in flight
     useBonusRerollAtomically();
   };
@@ -2449,23 +2497,33 @@ function renderDevPanel(){
   let sel=document.getElementById("devPlayerSel");
   const prev=sel?sel.value:"";
   if(!sel){
-    box.innerHTML=`<div class="card" style="border-color:var(--lock)"><h2>개발자: 임시 리롤권 지급</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    box.innerHTML=`<div class="card dev-card"><h2>개발자 도구</h2>
+      <div class="dev-h">임시 리롤권 지급</div>
+      <div class="dev-help">선수와 장수를 고른 뒤 <b>지급하기</b>를 누르면 그 선수에게 바로 들어가요. 선수는 팀 결과 화면의 <b>임시 리롤권</b> 버튼으로 한 장씩 쓰고, 쓸 때마다 보유 장수가 줄어요. (BEST 2개마다 1장은 자동으로 생겨요)</div>
+      <div class="dev-form">
         <select id="devPlayerSel"></select>
-        <b id="devPlayerCount" style="color:var(--gold-bright)"></b>
-        <button class="ghost" id="devGrantBtn">＋1장 지급</button>
-        <button class="ghost" id="devRevokeBtn">－1장 회수</button>
+        <div class="dev-stepper"><button type="button" id="devMinusBtn" aria-label="장수 줄이기">−</button><input id="devQty" type="number" min="1" max="10" value="1" inputmode="numeric"><button type="button" id="devPlusBtn" aria-label="장수 늘리기">+</button><span>장</span></div>
+        <button class="primary" id="devGrantBtn">지급하기</button>
+        <button class="ghost" id="devRevokeBtn">회수하기</button>
       </div>
-      <div style="margin-top:14px;border-top:1px dashed var(--lock);padding-top:10px">
-        <b> 삭제된 선수 복구</b>
-        <div id="devRestoreList" style="margin-top:6px"></div>
-        <button class="ghost" id="devScanLocalBtn" style="margin-top:6px">이 기기에 남은 예전 백업에서 찾기</button>
-      </div></div>`;
+      <div id="devPlayerCount" class="dev-now"></div>
+      <div id="devResult" class="dev-result" aria-live="polite"></div>
+      <div class="dev-help" style="margin:12px 0 0">임시 리롤권을 가진 선수 (보유 장수 순)</div><div id="devTicketTable"></div>
+      <div class="dev-sep"></div>
+      <div class="dev-h">삭제된 선수 복구</div>
+      <div id="devRestoreList"></div>
+      <button class="ghost" id="devScanLocalBtn">이 기기에 남은 예전 백업에서 찾기</button>
+      </div>`;
     sel=document.getElementById("devPlayerSel");
     document.getElementById("devScanLocalBtn").onclick=devScanLocalBackup;
     sel.onchange=updateDevCount;
-    document.getElementById("devGrantBtn").onclick=()=>devAdjustBonus(1);
-    document.getElementById("devRevokeBtn").onclick=()=>devAdjustBonus(-1);
+    const qtyEl=document.getElementById("devQty");
+    const getQty=()=>Math.min(10,Math.max(1,parseInt(qtyEl.value,10)||1));
+    document.getElementById("devMinusBtn").onclick=()=>{qtyEl.value=Math.max(1,getQty()-1);};
+    document.getElementById("devPlusBtn").onclick=()=>{qtyEl.value=Math.min(10,getQty()+1);};
+    qtyEl.onchange=()=>{qtyEl.value=getQty();};
+    document.getElementById("devGrantBtn").onclick=()=>devAdjustBonus(getQty());
+    document.getElementById("devRevokeBtn").onclick=()=>devAdjustBonus(-getQty());
   }
   renderDevRestore();
   sel.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
@@ -2577,11 +2635,23 @@ function devRestorePlayer(pl){
 function updateDevCount(){
   const sel=document.getElementById("devPlayerSel"),el=document.getElementById("devPlayerCount");if(!sel||!el)return;
   const pl=players.find(p=>p.id===sel.value);
-  el.textContent=pl?("현재 임시 "+bonusRerollAvailable(pl)+"장 보유"):"";
+  el.innerHTML=pl?(escapeHtml(pl.name)+"님 현재 임시 리롤권 <b>"+bonusRerollAvailable(pl)+"장</b> 보유"):"";
+  const tb=document.getElementById("devTicketTable");if(!tb)return;
+  const rows=players.map(p=>{
+    const auto=Math.floor(totals(p).best/BEST_PER_TICKET),given=p.bonusGranted||0,used=p.spentBonusTickets||0,have=bonusRerollAvailable(p);
+    return {p,auto,given,used,have};
+  }).filter(r=>r.have>0||r.given!==0).sort((x,y)=>y.have-x.have||(x.p.name<y.p.name?-1:1));
+  tb.innerHTML=rows.length?('<div class="dev-scroll"><table class="dev-table"><thead><tr><th>선수</th><th>보유</th><th>BEST로 얻음</th><th>개발자 지급</th><th>사용함</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${escapeHtml(r.p.name)}</td><td><b>${r.have}</b></td><td>${r.auto}</td><td>${r.given>0?'+'+r.given:r.given}</td><td>${r.used}</td></tr>`).join("")+'</tbody></table></div>'):'<div class="dev-help">아직 임시 리롤권을 가진 선수가 없어요.</div>';
 }
 function devAdjustBonus(delta){
   const sel=document.getElementById("devPlayerSel");if(!sel||myName!==DEV_NAME||!devUnlocked())return;
-  const id=sel.value;
+  const id=sel.value;const out=document.getElementById("devResult");
+  const nameOfSel=(players.find(p=>p.id===id)||{}).name||"선수";
+  const n=Math.abs(delta);
+  if(!id){if(out)out.textContent="선수를 먼저 골라주세요.";return;}
+  if(!confirm(nameOfSel+"님에게 임시 리롤권을 "+n+"장 "+(delta>0?"지급":"회수")+"할까요?"))return;
+  let before=0,after=0;
   runTransaction(db, async(tx)=>{
     const snap=await tx.get(sessionRef);
     const data=snap.data()||{};
@@ -2591,10 +2661,15 @@ function devAdjustBonus(delta){
     const pl=fp[idx];
     const earned=Math.floor((pl.hist||[]).filter(h=>h.award==='BEST').length/BEST_PER_TICKET)+(pl.bonusGranted||0);
     const have=earned-(pl.spentBonusTickets||0);
-    if(delta<0&&have<=0)throw new Error("회수할 임시 리롤권이 없어요.");
+    if(delta<0&&have<n)throw new Error(have<=0?"회수할 임시 리롤권이 없어요.":"보유한 "+have+"장까지만 회수할 수 있어요.");
+    before=Math.max(0,have);after=Math.max(0,have+delta);
     fp[idx]={...pl, bonusGranted:(pl.bonusGranted||0)+delta};
     tx.update(sessionRef,{players:fp});
-  }).catch(err=>alert(err&&err.message?err.message:"지급에 실패했어요."));
+  }).then(()=>{
+    if(out){out.className="dev-result ok";out.textContent="✅ "+nameOfSel+"님에게 "+n+"장 "+(delta>0?"지급":"회수")+"했어요. (보유 "+before+"장 → "+after+"장)";}
+  }).catch(err=>{
+    if(out){out.className="dev-result err";out.textContent="⚠️ "+(err&&err.message?err.message:"처리하지 못했어요.");}
+  });
 }
 document.getElementById("changeNameBtn").onclick=changeMyName;
 document.getElementById("resetMatchBtnTop").onclick=()=>{
