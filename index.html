@@ -661,16 +661,16 @@ h2,h3,h4{letter-spacing:-.01em}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
   /* ===== SKINS (은은한 꾸미기) ===== */
-  .sk-n-u{text-decoration:underline!important;text-decoration-color:var(--blue)!important;text-decoration-thickness:2px!important;text-underline-offset:4px!important}
-  .sk-n-d{text-decoration:underline dashed!important;text-decoration-color:var(--red)!important;text-decoration-thickness:2px!important;text-underline-offset:5px!important}
-  .sk-n-m{background:linear-gradient(transparent 58%,color-mix(in srgb,#F2B705 55%,transparent) 58%);padding:0 2px}
   .sk-n-g{text-shadow:0 0 14px color-mix(in srgb,var(--blue) 55%,transparent)}
   .sk-n-r{text-shadow:0 0 14px color-mix(in srgb,var(--red) 55%,transparent)}
-  .sk-n-o{border:1.5px solid var(--blue);border-radius:999px;padding:0 10px;text-decoration:none!important}
-  .sk-n-k{background:var(--ink);color:var(--bg)!important;border-radius:6px;padding:0 9px;text-decoration:none!important}
-  .sk-n-c,.sk-n-gold,.sk-n-mb,.sk-n-aur{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
+  .sk-n-c,.sk-n-gold,.sk-n-mb,.sk-n-aur,.sk-n-sun,.sk-n-lav,.sk-n-ember,.sk-n-em,.sk-n-silver{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important}
   .sk-n-c{background-image:linear-gradient(90deg,var(--blue),var(--red))}
   .sk-n-gold{background-image:linear-gradient(90deg,#A8720A,#E3AE1C,#A8720A)}
+  .sk-n-sun{background-image:linear-gradient(90deg,#F2701A,#E0359B)}
+  .sk-n-lav{background-image:linear-gradient(90deg,#7C4DEB,#EC4899)}
+  .sk-n-ember{background-image:linear-gradient(90deg,#D92D20,#F59E0B)}
+  .sk-n-em{background-image:linear-gradient(90deg,#0E9F6E,#65B80F)}
+  .sk-n-silver{background-image:linear-gradient(90deg,#6F788A,#B9C1CF,#6F788A)}
   .sk-n-mb{background-image:linear-gradient(90deg,#14A38B,#3B6BFF)}
   .sk-n-aur{background-image:linear-gradient(90deg,#14A38B,#6F8BFF,#B06BFF,#14A38B);background-size:200% 100%;animation:mvShine 6s linear infinite}
   @keyframes mvShine{to{background-position:-200% 0}}
@@ -3436,15 +3436,15 @@ document.getElementById('navChamp').addEventListener('click',()=>{renderChampTie
 
 /* ===== 스킨 상점: 경기 활동으로 포인트가 쌓이고, 겉모습(이름 꾸밈·칭호·프로필 배경)만 살 수 있어요 ===== */
 const SKINS=[
-  {id:'n_u',cat:'n',name:'블루 밑줄',price:150,cls:'sk-n-u'},
-  {id:'n_d',cat:'n',name:'레드 점선',price:150,cls:'sk-n-d'},
-  {id:'n_m',cat:'n',name:'형광펜',price:250,cls:'sk-n-m'},
-  {id:'n_o',cat:'n',name:'동그라미',price:250,cls:'sk-n-o'},
-  {id:'n_k',cat:'n',name:'잉크 라벨',price:300,cls:'sk-n-k'},
   {id:'n_g',cat:'n',name:'블루 글로우',price:350,cls:'sk-n-g'},
   {id:'n_r',cat:'n',name:'레드 글로우',price:350,cls:'sk-n-r'},
   {id:'n_c',cat:'n',name:'블루→레드',price:450,cls:'sk-n-c'},
   {id:'n_mb',cat:'n',name:'민트→블루',price:450,cls:'sk-n-mb'},
+  {id:'n_sun',cat:'n',name:'선셋',price:450,cls:'sk-n-sun'},
+  {id:'n_lav',cat:'n',name:'라벤더→핑크',price:450,cls:'sk-n-lav'},
+  {id:'n_ember',cat:'n',name:'불꽃',price:450,cls:'sk-n-ember'},
+  {id:'n_em',cat:'n',name:'에메랄드',price:450,cls:'sk-n-em'},
+  {id:'n_silver',cat:'n',name:'실버',price:500,cls:'sk-n-silver'},
   {id:'n_gold',cat:'n',name:'골드',price:600,cls:'sk-n-gold'},
   {id:'n_aur',cat:'n',name:'오로라 (움직임)',price:800,cls:'sk-n-aur'},
   {id:'t_ace',cat:'t',name:'에이스',price:100,text:'ACE',cls:'sk-t-line'},
