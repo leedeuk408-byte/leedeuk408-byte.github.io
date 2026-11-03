@@ -2939,6 +2939,7 @@ function renderDevPanel(){
           <button class="primary" id="devPtGrant">지급하기</button>
           <button class="ghost" id="devPtRevoke">회수하기</button>
           <button class="ghost" id="devPtAll">전체 지급</button>
+          <button class="ghost" id="devPtReset" style="color:var(--loss-ink)">전체 100P로 초기화</button>
         </div>
         <div id="devPtNow" class="dev-now"></div>
         <div id="devPtResult" class="dev-result" aria-live="polite"></div>
@@ -2967,6 +2968,7 @@ function renderDevPanel(){
     document.getElementById("devPtGrant").onclick=()=>devAdjustPoints(ptQty(),false);
     document.getElementById("devPtRevoke").onclick=()=>devAdjustPoints(-ptQty(),false);
     document.getElementById("devPtAll").onclick=()=>devAdjustPoints(ptQty(),true);
+    document.getElementById("devPtReset").onclick=devResetPoints;
   }
   { const ps=document.getElementById("devPtSel"),pv=ps.value;ps.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");if(pv&&players.some(p=>p.id===pv))ps.value=pv;devPtNow(); }
   renderDevRestore();
@@ -3114,6 +3116,24 @@ function updateDevCount(){
   const tbHtml=rows.length?('<div class="dev-scroll"><table class="dev-table"><thead><tr><th>선수</th><th>보유</th><th>BEST로 얻음</th><th>개발자 지급</th><th>사용함</th></tr></thead><tbody>'+
     rows.map(r=>`<tr><td>${escapeHtml(r.p.name)}</td><td><b>${r.have}</b></td><td>${r.auto}</td><td>${r.given>0?'+'+r.given:r.given}</td><td>${r.used}</td></tr>`).join("")+'</tbody></table></div>'):'<div class="dev-help">아직 임시 리롤권을 가진 선수가 없어요.</div>';
   if(tb._h!==tbHtml){tb._h=tbHtml;tb.innerHTML=tbHtml;}
+}
+function devResetPoints(){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  const out=document.getElementById("devPtResult");
+  if(!confirm("모든 선수의 포인트를 회수하고 전원 100P로 맞출까요?\n(이미 산 스킨은 그대로 유지돼요. 이후 경기부터 다시 쌓여요.)"))return;
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);const data=snap.data()||{};
+    const fp=(data.players||[]).map(p=>{
+      const earned=(p.hist||[]).reduce((e,h)=>e+10+((h.result==='W')?10:5)+(h.award==='BEST'?5:0),0);
+      const spent=(p.skins||[]).reduce((a,id)=>a+((skinById(id)||{}).price||0),0);
+      return {...p,bonusPts:0,ptOffset:earned-spent};
+    });
+    tx.update(sessionRef,{players:fp});
+  }).then(()=>{
+    auditPush([{t:'dev',msg:'스킨 포인트 전체 초기화 → 모든 선수 100P'}]);
+    if(out){out.textContent="전원 100P로 초기화 완료";out.style.color="var(--win-ink)";}
+    setTimeout(devPtNow,400);
+  }).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
 }
 function devPtNow(){const ps=document.getElementById("devPtSel"),el=document.getElementById("devPtNow");if(!ps||!el)return;const pl=players.find(p=>p.id===ps.value);el.innerHTML=pl?(escapeHtml(pl.name)+"님 현재 <b>"+skinBalance(pl)+"P</b> (직접 받은 포인트 "+(pl.bonusPts||0)+"P)"):"";}
 function devAdjustPoints(delta,all){
@@ -3608,7 +3628,7 @@ function skinById(id){id=SKIN_ALIAS[id]||id;return SKINS.find(x=>x.id===id);}
 
 function skinEarned(pl){let e=0;(pl.hist||[]).forEach(h=>{e+=10;e+=(h.result==='W')?10:5;if(h.award==='BEST')e+=5;});return e;}
 function skinSpent(pl){return (pl.skins||[]).reduce((a,id)=>a+((skinById(id)||{}).price||0),0);}
-function skinBalance(pl){return SKIN_BASE+(pl.bonusPts||0)+skinEarned(pl)-skinSpent(pl);}
+function skinBalance(pl){return SKIN_BASE+(pl.bonusPts||0)+skinEarned(pl)-skinSpent(pl)-(pl.ptOffset||0);}
 function skinEq(pl,cat){const id=pl&&pl.eq&&pl.eq[cat];return id&&(pl.skins||[]).includes(id)?skinById(id):null;}
 function skinNameCls(pl){const k=skinEq(pl,'n');return k?' '+k.cls:'';}
 function kingTitleHtml(label){return `<span class="sk-title sk-t-king">${escapeHtml(label)} KING</span>`;}
