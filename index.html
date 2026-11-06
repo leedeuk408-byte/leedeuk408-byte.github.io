@@ -1046,7 +1046,7 @@ window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.rea
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, runTransaction, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5LgCf1NfUYA2oi34L-ujLvlseSk3awNQ",
@@ -1156,6 +1156,7 @@ let pingRetries=0;
 const pingRetryTimer=setInterval(()=>{ if(bestPingRtt!==Infinity||++pingRetries>10){clearInterval(pingRetryTimer);return;} sendClockPing(); },3000);
 
 function offerRecovery(){
+  if(!devUnlocked()){ if(window.__showErr)window.__showErr('서버 선수 명단이 비어 있어요. 직접 복구하지 말고 운영자에게 알려주세요.'); return; }
   let cands=[];
   try{ if(BOOT_LOCAL&&BOOT_LOCAL.players&&BOOT_LOCAL.players.length>=3)cands.push({label:'이 기기에 저장된 마지막 명단',players:BOOT_LOCAL.players,matchLog:BOOT_LOCAL.matchLog||[]}); }catch(e){}
   try{ const g=JSON.parse(localStorage.getItem('lol_lastgood')||'null'); if(g&&g.players&&g.players.length>=3)cands.push({label:'이 기기의 마지막 정상 데이터('+new Date(g.ts).toLocaleString('ko-KR')+')',players:g.players,matchLog:g.matchLog||[]}); }catch(e){}
@@ -1168,6 +1169,11 @@ function offerRecovery(){
   }
 }
 function pushRemote(partial){
+  // 안전장치 2: 서버 데이터를 아직 읽기 전이면(= 기기에 남은 옛 복사본 상태) 명단을 서버에 쓰지 않음
+  if(partial&&partial.players!==undefined&&!remoteLoaded&&!window.__bootstrapPush){
+    if(window.__showErr)window.__showErr('서버 데이터를 아직 못 읽어서 저장을 막았어요. 새로고침 후 다시 시도해주세요.');
+    return;
+  }
   // 안전장치: 서버에 선수가 있는데 빈 명단으로 덮어쓰려는 저장은 막음
   if(partial&&Array.isArray(partial.players)&&partial.players.length===0&&(remote.players||[]).length>=3&&!window.__allowEmptyPush){
     if(window.__showErr)window.__showErr('빈 명단으로 덮어쓰는 저장을 막았어요. 새로고침해서 다시 시도해주세요.');
@@ -1192,7 +1198,7 @@ function pushRemote(partial){
 onSnapshot(sessionRef, (snap)=>{
   if(!snap.exists()){
     // first time: initialize the shared doc with whatever we have locally (migration from old localStorage-only version)
-    pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null });
+    window.__bootstrapPush=true;try{pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null });}finally{window.__bootstrapPush=false;}
     setTimeout(sendClockPing, 500);
     return;
   }
@@ -1229,6 +1235,7 @@ onSnapshot(sessionRef, (snap)=>{
   players.forEach(ensure);
   if(hadOutOfRangeTier) pushRemote({ players: state.players });
   remoteLoaded = true;
+  setTimeout(serverBackupMaybe,2500);
   renderRoster();
   if(typeof renderDevPanel==='function')renderDevPanel();
   if(typeof maybeResolveVote==='function')maybeResolveVote();
@@ -3049,12 +3056,18 @@ function renderDevPanel(){
         <div class="dev-chips" id="devAuditChips"></div>
         <div id="devAudit"></div>
       </div>
+      <div class="card dev-card"><h2>데이터 복구</h2>
+        <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업으로 되돌려요.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button></div>
+      </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
         <div id="devRestoreList"></div>
         <button class="ghost" id="devScanLocalBtn">이 기기에 남은 예전 백업에서 찾기</button>
       </div>`;
     sel=document.getElementById("devPlayerSel");
     document.getElementById("devScanLocalBtn").onclick=devScanLocalBackup;
+    document.getElementById("devReplayBtn").onclick=devReapplyAudit;
+    document.getElementById("devBkBtn").onclick=devRestoreServerBackup;
     sel.onchange=updateDevCount;
     const qtyEl=document.getElementById("devQty");
     const getQty=()=>Math.min(10,Math.max(1,parseInt(qtyEl.value,10)||1));
@@ -3217,6 +3230,60 @@ function updateDevCount(){
     rows.map(r=>`<tr><td>${escapeHtml(r.p.name)}</td><td><b>${r.have}</b></td><td>${r.auto}</td><td>${r.given>0?'+'+r.given:r.given}</td><td>${r.used}</td></tr>`).join("")+'</tbody></table></div>'):'<div class="dev-help">아직 임시 리롤권을 가진 선수가 없어요.</div>';
   if(tb._h!==tbHtml){tb._h=tbHtml;tb.innerHTML=tbHtml;}
 }
+
+/* ===== 서버 자동 백업(하루 1번, 그날 처음 접속한 기기가 저장) + 개발자 복구 도구 ===== */
+let serverBackupTried=false;
+function kstDay(off){return new Date(Date.now()+9*3600e3-(off||0)*86400e3).toISOString().slice(0,10).replace(/-/g,'');}
+async function serverBackupMaybe(){
+  if(serverBackupTried||!remoteLoaded||(remote.players||[]).length<3)return;
+  serverBackupTried=true;
+  try{
+    const ref=doc(db,'sessions','bk_'+kstDay(0));
+    await runTransaction(db,async(tx)=>{const sn=await tx.get(ref);if(sn.exists())return;tx.set(ref,{ts:Date.now(),players:remote.players,matchLog:remote.matchLog||[]});});
+  }catch(e){console.warn('자동 백업 실패(서버 규칙에서 막혀 있을 수 있어요)',e&&e.message);}
+}
+const AUDIT_L={'탑':'TOP','정글':'JUG','미드':'MID','원딜':'ADC','서폿':'SUP'};
+function auditReplay(plist,log){
+  const ps=JSON.parse(JSON.stringify(plist));
+  (log||[]).filter(e=>e.t==='edit').forEach(e=>{
+    let m=String(e.msg).match(/^(.*) (탑|정글|미드|원딜|서폿) 티어 (\d+) → (\d+)$/);
+    if(m){const pl=ps.find(x=>x.name===m[1]);const k=AUDIT_L[m[2]];if(pl&&pl.tiers&&pl.tiers[k]===+m[3])pl.tiers[k]=+m[4];return;}
+    m=String(e.msg).match(/^(.*) (탑|정글|미드|원딜|서폿) 라인 추가 \((\d+)티어\)$/);
+    if(m){const pl=ps.find(x=>x.name===m[1]);const k=AUDIT_L[m[2]];if(pl&&pl.tiers&&pl.tiers[k]==null)pl.tiers[k]=+m[3];}
+  });
+  return ps;
+}
+function auditNetChanges(before,after){
+  const out=[];const N={TOP:'탑',JUG:'정글',MID:'미드',ADC:'원딜',SUP:'서폿'};
+  after.forEach(a=>{const b=before.find(x=>x.id===a.id);if(!b)return;Object.keys(N).forEach(k=>{const x=(b.tiers||{})[k],y=(a.tiers||{})[k];if(x!==y)out.push(a.name+' '+N[k]+' '+(x==null?'없음':x)+' → '+(y==null?'없음':y));});});
+  return out;
+}
+function devReapplyAudit(){
+  const after=auditReplay(players,remote.auditLog||[]);
+  const ch=auditNetChanges(players,after);
+  if(!ch.length){alert('활동 기록에서 다시 적용할 티어 변경이 없어요.\n(기록이 없거나, 이미 같은 값이에요)');return;}
+  if(!confirm('활동 기록의 티어 변경 '+ch.length+'건을 다시 적용할까요?\n\n'+ch.slice(0,25).join('\n')+(ch.length>25?'\n… 외 '+(ch.length-25)+'건':'')))return;
+  runTransaction(db,async(tx)=>{
+    const sn=await tx.get(sessionRef);const data=sn.data()||{};
+    const base=data.players||[];if(base.length<3)throw new Error('서버 명단이 비어 있어요.');
+    const next=auditReplay(base,data.auditLog||[]);const n=auditNetChanges(base,next).length;
+    tx.update(sessionRef,{players:next,auditLog:auditAppend(data,[{t:'edit',msg:'활동 기록에서 티어 변경 '+n+'건 다시 적용'}])});
+  }).then(()=>alert('다시 적용했어요.')).catch(e=>alert('실패했어요: '+(e&&e.message||e)));
+}
+async function devRestoreServerBackup(){
+  const found=[];
+  for(let i=0;i<30;i++){
+    const d=kstDay(i);
+    try{const sn=await getDoc(doc(db,'sessions','bk_'+d));if(sn.exists()){const v=sn.data();found.push({d,players:v.players||[],matchLog:v.matchLog||[]});}}catch(e){if(i===0){alert('백업을 읽지 못했어요: '+(e&&e.message||e));return;}}
+  }
+  if(!found.length){alert('서버에 저장된 자동 백업이 아직 없어요. (오늘부터 하루에 한 번씩 쌓여요)');return;}
+  const msg='복구할 백업 번호를 입력하세요:\n'+found.map((f,i)=>(i+1)+') '+f.d.slice(4,6)+'/'+f.d.slice(6)+' — 선수 '+f.players.length+'명, 경기 기록 '+f.matchLog.length+'건').join('\n');
+  const a=parseInt(prompt(msg,'1'),10);const f=found[a-1];if(!f)return;
+  if(!confirm(f.d+' 백업으로 명단과 경기 기록을 되돌릴까요?\n지금 데이터는 덮어써져요.'))return;
+  window.__bootstrapPush=true;
+  updateDoc(sessionRef,{players:f.players,matchLog:f.matchLog}).then(()=>alert('복구했어요. 새로고침하면 반영돼요.')).catch(e=>alert('실패했어요: '+(e&&e.message||e))).finally(()=>{window.__bootstrapPush=false;});
+}
+
 function devResetPoints(){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const out=document.getElementById("devPtResult");
