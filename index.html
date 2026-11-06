@@ -3085,7 +3085,7 @@ function renderDevPanel(){
         <div id="devAudit"></div>
       </div>
       <div class="card dev-card"><h2>데이터 복구</h2>
-        <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업(최근 7일)으로 되돌려요.</div>
+        <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업(최근 7개)으로 되돌려요.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button></div>
       </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
@@ -3274,8 +3274,15 @@ async function serverBackupMaybe(){
     const ref=doc(db,'sessions','bk_'+kstDay(0));
     let created=false;
     await runTransaction(db,async(tx)=>{created=false;const sn=await tx.get(ref);if(sn.exists())return;tx.set(ref,{ts:Date.now(),players:remote.players,matchLog:remote.matchLog||[]});created=true;});
-    // 최근 7일치만 보관: 새 백업을 만든 기기가 8일 이상 지난 것을 지움
-    if(created){for(let i=BACKUP_KEEP;i<BACKUP_KEEP+10;i++){try{await deleteDoc(doc(db,'sessions','bk_'+kstDay(i)));}catch(e){}}}
+    // 백업이 7개를 넘으면 가장 오래된 것부터 하나씩만 지움 (날짜가 아니라 '개수' 기준이라, 며칠 쉬어도 최근 7개는 항상 남아요)
+    if(created){
+      const have=[];
+      for(let i=0;i<60;i++){const d=kstDay(i);try{const sn=await getDoc(doc(db,'sessions','bk_'+d));if(sn.exists())have.push(d);}catch(e){return;}}
+      // have: 최신 → 오래된 순. 새 백업(오늘)은 항상 맨 앞이라 절대 지워지지 않음
+      if(have.length>BACKUP_KEEP&&have[0]===kstDay(0)){
+        for(const d of have.slice(BACKUP_KEEP)){try{await deleteDoc(doc(db,'sessions','bk_'+d));}catch(e){}}
+      }
+    }
   }catch(e){console.warn('자동 백업 실패(서버 규칙에서 막혀 있을 수 있어요)',e&&e.message);}
 }
 const AUDIT_L={'탑':'TOP','정글':'JUG','미드':'MID','원딜':'ADC','서폿':'SUP'};
@@ -3308,7 +3315,7 @@ function devReapplyAudit(){
 }
 async function devRestoreServerBackup(){
   const found=[];
-  for(let i=0;i<BACKUP_KEEP;i++){
+  for(let i=0;i<60;i++){
     const d=kstDay(i);
     try{const sn=await getDoc(doc(db,'sessions','bk_'+d));if(sn.exists()){const v=sn.data();found.push({d,players:v.players||[],matchLog:v.matchLog||[]});}}catch(e){if(i===0){alert('백업을 읽지 못했어요: '+(e&&e.message||e));return;}}
   }
