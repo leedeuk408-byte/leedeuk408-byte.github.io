@@ -1179,6 +1179,30 @@ function pushRemote(partial){
     if(window.__showErr)window.__showErr('빈 명단으로 덮어쓰는 저장을 막았어요. 새로고침해서 다시 시도해주세요.');
     return;
   }
+  // 안전장치 3: 명단을 쓸 때는 서버의 '지금' 명단과 비교해서, 선수가 통째로 사라지는 저장은 거절 (낡은 기기/빈 기기가 지워버리는 사고 방지)
+  if(partial&&partial.players!==undefined&&!window.__bootstrapPush){
+    const allowDel=window.__deleteIds||[],replaceOk=!!window.__allowReplace;
+    runTransaction(db,async(tx)=>{
+      const sn=await tx.get(sessionRef);const d=sn.data()||{};const sp=d.players||[];
+      if(sp.length>=3&&!replaceOk){
+        const ids=new Set((partial.players||[]).map(x=>x.id));
+        const lost=sp.filter(x=>!ids.has(x.id)&&!allowDel.includes(x.id));
+        if(lost.length)throw new Error('GUARD:'+lost.length);
+        const sm=(d.matchLog||[]).length;
+        if(Array.isArray(partial.matchLog)&&sm>=5&&partial.matchLog.length<sm*0.5)throw new Error('GUARD:matchLog');
+      }
+      tx.update(sessionRef,partial);
+    }).catch(err=>{
+      if(err&&String(err.message).startsWith('GUARD')){
+        if(window.__showErr)window.__showErr('서버 명단을 지우거나 크게 줄이는 저장이 들어와서 막았어요. 이 기기의 데이터가 낡았을 수 있으니 새로고침해주세요.');
+        return;
+      }
+      if(err&&err.code==='not-found'){setDoc(sessionRef,partial,{merge:true}).catch(e2=>alert("서버 저장에 실패했어요.\n("+e2.message+")"));return;}
+      console.error("Firestore 저장 실패:",err);
+      alert("서버 저장에 실패했어요. 인터넷 연결이나 Firebase 설정을 확인해주세요.\n("+(err&&err.message)+")");
+    });
+    return;
+  }
   // updateDoc correctly handles dot-notation nested field paths (e.g. "currentMatch.timerStartedAt")
   // without wiping sibling fields. setDoc({merge:true}) does NOT do this for nested keys, so
   // we use updateDoc for normal writes, falling back to setDoc only if the doc doesn't exist yet.
@@ -1665,7 +1689,7 @@ function renderRoster(){
     const act=document.createElement("div");act.className="r-actions";
     const edit=document.createElement("button");edit.className="icon-btn";edit.textContent="수정";edit.onclick=()=>startEdit(pl.id);
     const del=document.createElement("button");del.className="icon-btn del";del.textContent="삭제";
-    del.onclick=()=>{if(confirm(pl.name+" 삭제할까요? (전적도 함께 삭제)")){players=state.players=players.filter(x=>x.id!==pl.id);picked.delete(pl.id);delete locks[pl.id];
+    del.onclick=()=>{if(confirm(pl.name+" 삭제할까요? (전적도 함께 삭제)")){window.__deleteIds=[pl.id];setTimeout(()=>{window.__deleteIds=[];},4000);players=state.players=players.filter(x=>x.id!==pl.id);picked.delete(pl.id);delete locks[pl.id];
       // 삭제해도 개발자가 복구할 수 있게 공유 문서에 보관 (삭제된 선수 목록)
       const archived=[...(remote.deletedPlayers||[]).filter(d=>d.id!==pl.id),{...pl,deletedAt:Date.now()}];
       try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}
@@ -2942,7 +2966,7 @@ document.getElementById("importFile").addEventListener("change",function(){
       if(!s.matchLog)s.matchLog=[];
       state=s;players=state.players;players.forEach(ensure);
       picked.clear();locks={};undoStack=[];
-      auditShadow=null;save();renderRoster();
+      auditShadow=null;window.__allowReplace=true;setTimeout(()=>{window.__allowReplace=false;},4000);save();renderRoster();
       auditPush([{t:'manage',msg:'백업 불러오기 ('+players.length+'명으로 덮어씀)'}]);
       alert("불러오기 완료! ("+players.length+"명)");
     }catch(err){alert("파일을 읽을 수 없어요. 올바른 백업 파일인지 확인해주세요.");}
