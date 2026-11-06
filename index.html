@@ -2792,6 +2792,17 @@ function renderVoteResultBanner(){
 /* ---------- record + vote ---------- */
 let voteState={best:null,worst:null,ids:[]};
 function recordMatch(winners,losers,shared){
+  // 피어리스: 시리즈가 끝날 때 한 번만 승/패로 기록 (중간 판은 시리즈 점수만 기록)
+  let __ser=null;
+  if(shared){try{__ser=seriesRecordGame(winners);}catch(e){console.error('series',e);}}
+  if(__ser){
+    if(!__ser.done){
+      pendingChamps=null;pendingStats=null;pendingBans=null;
+      pushRemote({currentMatch:null,currentDraft:null,vote:null});
+      return;
+    }
+    winners=__ser.winners;losers=__ser.losers;
+  }
   // snapshot full state for undo (deep copy of players + matchlog length)
   undoStack.push(JSON.stringify({players:state.players,matchLog:state.matchLog||[]}));
   if(undoStack.length>10)undoStack.shift();
@@ -2814,7 +2825,7 @@ function recordMatch(winners,losers,shared){
   // 로컬(수동/경매) 모드는 공유 투표 인프라가 없으니 기존처럼 즉시 자동 적용.
   const changes=shared?[]:applyPromotions(entryIds);
   save();
-  if(shared){ try{seriesRecordGame(winners);}catch(e){console.error('series',e);} pushRemote({ currentMatch: null, currentDraft: null }); startSharedVote(winIds, loseIds); }
+  if(shared){ pushRemote({ currentMatch: null, currentDraft: null }); startSharedVote(winIds, loseIds); }
   else{ openVote(entryIds); }
   renderRoster();
   if(changes.length)setTimeout(()=>alert("티어 변동!\n"+changes.join("\n")),300);
@@ -4048,12 +4059,16 @@ function seriesRecordGame(winners){
   const next={...sr,games,used,violations:viol,wins,flip,status:done?'done':'active'};
   pushRemote({series:next});
   auditPush([{t:'match',msg:'피어리스 '+n+'판 종료 · '+(winTeam===0?'블루':'레드')+' 진영 승 ['+(winGrp===0?'블루':'레드')+' 시작팀] ('+wins[0]+':'+wins[1]+')'+(done?' · 시리즈 종료':'')+(viol.length>(sr.violations||[]).length?' · 이미 쓴 챔피언 사용 감지':'')}]);
+  if(!sr.v2)return null; // 이전 방식으로 시작한 시리즈는 판마다 기록
+  const serGrp=wins[0]>wins[1]?0:(wins[1]>wins[0]?1:winGrp);
+  const mk=a=>({slot:{pos:a.pos},player:{id:a.id}});
+  return {done,wins,winners:done?asg.filter(a=>(a.team^flip)===serGrp).map(mk):null,losers:done?asg.filter(a=>(a.team^flip)!==serGrp).map(mk):null};
 }
 function seriesStart(bo){
   bo=bo===5?5:3;
   const cm=remote.currentMatch;if(!cm||!cm.locked||remote.series)return;
   if(!confirm('이 팀으로 피어리스 '+bo+'판 '+Math.ceil(bo/2)+'선을 시작할까요?\n같은 팀으로 최대 '+bo+'판, 먼저 '+Math.ceil(bo/2)+'승하면 끝나요.\n이미 쓴 챔피언은 양 팀 모두 다음 판에 쓸 수 없어요.'))return;
-  const sr={id:uid(),bestOf:bo,assignments:cm.assignments,sumA:cm.sumA,sumB:cm.sumB,diff:cm.diff,games:[],used:[],violations:[],wins:[0,0],status:'active',createdAt:Date.now(),startedBy:myName||''};
+  const sr={id:uid(),v2:true,bestOf:bo,assignments:cm.assignments,sumA:cm.sumA,sumB:cm.sumB,diff:cm.diff,games:[],used:[],violations:[],wins:[0,0],status:'active',createdAt:Date.now(),startedBy:myName||''};
   pushRemote({series:sr,'currentMatch.seriesId':sr.id,'currentMatch.seriesGame':1});
   auditPush([{t:'match',msg:'피어리스 '+bo+'판 '+Math.ceil(bo/2)+'선 시작'}]);
 }
@@ -4091,6 +4106,7 @@ function renderSeriesPanel(){
   })():'';
   box.innerHTML='<div class="card sr-card"><div class="sr-head"><div><span class="sr-eyebrow">FEARLESS · BEST OF '+(sr.bestOf||3)+'</span><h3>'+(done?'시리즈 종료 · '+winner+' 승리':'피어리스 '+(sr.bestOf||3)+'판 '+Math.ceil((sr.bestOf||3)/2)+'선')+'</h3></div>'
     +'<div class="sr-score"><span class="t0">'+w[0]+'</span><i>:</i><span class="t1">'+w[1]+'</span></div></div>'
+    +(sr.v2&&!done?'<div class="sr-note" style="margin:-4px 0 8px">전적·포인트·BEST/WORST 투표는 <b>시리즈가 끝날 때 한 번만</b> 반영돼요 (이긴 팀 1승 · 진 팀 1패)</div>':'')
     +(games.length?'<div class="sr-note" style="margin:-4px 0 8px;text-align:right">점수는 처음 진영 기준 (블루 시작팀 : 레드 시작팀)</div>':'')
     +(gameRows?'<div class="sr-games">'+gameRows+'</div>':'')
     +'<div class="sr-lockhead">잠긴 챔피언 <b>'+(sr.used||[]).length+'</b>개 <small>· 다음 판에 양 팀 모두 사용 불가</small></div>'
