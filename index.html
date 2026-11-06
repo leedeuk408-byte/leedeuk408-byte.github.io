@@ -333,6 +333,12 @@ document.documentElement.setAttribute('data-theme',t);})();
   .main{padding:34px 40px 90px;max-width:960px;width:100%;box-sizing:border-box;min-width:0}
   .view{display:none}
   .main[data-view="lobby"] #viewLobby,.main[data-view="match"] #viewMatch,.main[data-view="dev"] #viewDev,.main[data-view="champ"] #viewChamp{display:block}
+  .main[data-view="prof"] #viewProf{display:block}
+  .pf-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.pf-chip{border:1px solid var(--line,#ddd);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:.82rem;cursor:pointer}.pf-chip.on{background:var(--ink);color:var(--bg,#fff)}.pf-chip small{opacity:.6;margin-left:4px}
+  .pf-grid{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:20px;align-items:start}@media(max-width:760px){.pf-grid{grid-template-columns:1fr}}
+  .pf-sw{display:grid;gap:8px}.pf-bar{display:grid;grid-template-columns:64px 1fr 44px;gap:8px;align-items:center;font-size:.85rem}.pf-bar i{display:block;height:8px;border-radius:99px;background:var(--line,#e5e5e5);position:relative;overflow:hidden}.pf-bar i b{position:absolute;left:0;top:0;bottom:0;border-radius:99px}.pf-bar .hi{background:#2e9d5b}.pf-bar .lo{background:#d4533b}.pf-bar .mid{background:#8a8f98}
+  .pf-tag{display:inline-block;border-radius:8px;padding:3px 9px;font-size:.78rem;margin:2px 4px 2px 0}.pf-tag.s{background:rgba(46,157,91,.15);color:#2e9d5b}.pf-tag.w{background:rgba(212,83,59,.15);color:#d4533b}
+  .pf-raw{width:100%;border-collapse:collapse;font-size:.82rem}.pf-raw td,.pf-raw th{padding:5px 6px;border-bottom:1px solid var(--line,#eee);text-align:right}.pf-raw th:first-child,.pf-raw td:first-child{text-align:left}
   .empty-match{display:none;text-align:center;color:var(--ink-dim);padding:70px 20px;font-size:0.95rem;line-height:1.8;background:var(--panel);border:1px dashed var(--line);border-radius:20px}
   .view.noresult .empty-match{display:block}
   /* VS board */
@@ -874,6 +880,7 @@ window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.rea
       <button type="button" class="nav-btn" data-view="match" id="navMatch"><span class="nav-ic" aria-hidden="true"></span>팀 결과<i class="nav-dot" id="navDot"></i></button>
       <div class="nav-sep"></div>
       <button type="button" class="nav-btn" data-view="champ" id="navChamp"><span class="nav-ic" aria-hidden="true"></span>챔피언 티어</button>
+      <button type="button" class="nav-btn" data-view="prof" id="navProf"><span class="nav-ic" aria-hidden="true"></span>분석</button>
       <button type="button" class="nav-btn" id="navShop">상점</button>
       <button type="button" class="nav-btn" data-open="statsBtn"><span class="nav-ic" aria-hidden="true"></span>전체 통계</button>
       <button type="button" class="nav-btn" data-open="hofBtn"><span class="nav-ic" aria-hidden="true"></span>명예의 전당</button>
@@ -957,6 +964,7 @@ window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.rea
 
   </section>
   <section id="viewChamp" class="view"><div id="champPanel"></div></section>
+  <section id="viewProf" class="view"><div id="profPanel"></div></section>
   <section id="viewDev" class="view"><div id="devPanel" style="display:none"></div></section>
 
   <section id="viewMatch" class="view"><div class="empty-match" id="emptyMatch">아직 진행 중인 매치가 없어요.<br>대기실에서 선수를 고르고 팀을 만들어 보세요.</div>
@@ -3954,6 +3962,74 @@ function renderChampTier(){
 }
 window.renderChampTier=renderChampTier;
 document.getElementById('navChamp').addEventListener('click',()=>{renderChampTier();if(!CH.list.length)loadChamps().then(renderChampTier);});
+/* ===== 선수 분석: 롤 API로 가져온 상세 기록으로 강점·약점 (같은 라인 평균 대비) ===== */
+const PF={pid:null};
+const PF_AXES=[
+  {k:'dmg',label:'딜량',f:(x)=>x.dpm},
+  {k:'tank',label:'탱킹',f:(x)=>x.tpm},
+  {k:'vis',label:'시야',f:(x)=>x.vpm},
+  {k:'cc',label:'CC',f:(x)=>x.ccpm},
+  {k:'kp',label:'킬관여',f:(x)=>x.kp},
+  {k:'gold',label:'성장',f:(x)=>x.gpm},
+  {k:'surv',label:'생존',f:(x)=>x.dpmDeath,inv:true}
+];
+function pfGame(h){
+  const st=h.st;if(!st||!st[11])return null;const mins=st[11]/60;
+  return {pos:h.pos,res:h.result,champ:h.champ,k:st[0],d:st[1],a:st[2],dpm:st[3]/mins,tpm:st[4]/mins,gpm:st[5]/mins,cspm:st[6]/mins,vpm:st[7]/mins,ccpm:st[8]/mins,kp:st[9],share:st[10],dpmDeath:st[1]/mins,mins};
+}
+function pfAll(){const out=[];players.forEach(p=>(p.hist||[]).forEach(h=>{const g=pfGame(h);if(g){g.pid=p.id;out.push(g);}}));return out;}
+function pfAnalyze(pid){
+  const all=pfAll();const mine=all.filter(g=>g.pid===pid);if(!mine.length)return null;
+  const base={};
+  const baseFor=pos=>{const lane=all.filter(g=>g.pos===pos);return lane.length>=4?lane:all;};
+  const idx={};PF_AXES.forEach(ax=>{
+    let sum=0,n=0;
+    mine.forEach(g=>{const pool=baseFor(g.pos);const b=pool.reduce((s,x)=>s+ax.f(x),0)/pool.length;const v=ax.f(g);
+      if(b>0){const r=ax.inv?(v>0?b/v:2):v/b;sum+=Math.min(2,r)*100;n++;}});
+    idx[ax.k]=n?sum/n:100;
+  });
+  const avg=f=>mine.reduce((s,g)=>s+f(g),0)/mine.length;
+  const kda=(avg(g=>g.k)+avg(g=>g.a))/Math.max(avg(g=>g.d),0.01);
+  const lanes={};mine.forEach(g=>{lanes[g.pos]=(lanes[g.pos]||0)+1;});
+  const champs={};mine.forEach(g=>{if(!g.champ)return;const c=champs[g.champ]||(champs[g.champ]={n:0,w:0});c.n++;if(g.res==='W')c.w++;});
+  return {n:mine.length,w:mine.filter(g=>g.res==='W').length,idx,kda,k:avg(g=>g.k),d:avg(g=>g.d),a:avg(g=>g.a),dpm:avg(g=>g.dpm),gpm:avg(g=>g.gpm),cspm:avg(g=>g.cspm),vpm:avg(g=>g.vpm),ccpm:avg(g=>g.ccpm),kp:avg(g=>g.kp),lanes,champs,total:all.length};
+}
+function pfRadar(idx){
+  const R=110,C=130,N=PF_AXES.length;
+  const pt=(i,v)=>{const ang=-Math.PI/2+i*2*Math.PI/N;const r=R*Math.min(1,v/200);return [C+r*Math.cos(ang),C+r*Math.sin(ang)];};
+  const ring=v=>PF_AXES.map((_,i)=>pt(i,v).join(',')).join(' ');
+  const poly=PF_AXES.map((ax,i)=>pt(i,idx[ax.k]).join(',')).join(' ');
+  const labels=PF_AXES.map((ax,i)=>{const ang=-Math.PI/2+i*2*Math.PI/N;const x=C+(R+18)*Math.cos(ang),y=C+(R+18)*Math.sin(ang)+4;return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="11" fill="currentColor">${ax.label}</text>`;}).join('');
+  return `<svg viewBox="-24 -8 308 276" width="100%" style="max-width:320px;color:var(--ink)"><polygon points="${ring(200)}" fill="none" stroke="currentColor" opacity=".15"/><polygon points="${ring(100)}" fill="none" stroke="currentColor" opacity=".35" stroke-dasharray="3 3"/><polygon points="${poly}" fill="#4a7cff" fill-opacity=".3" stroke="#4a7cff" stroke-width="2"/>${labels}</svg>`;
+}
+function renderProf(){
+  const el=document.getElementById('profPanel');if(!el)return;
+  const all=pfAll();const cnt={};all.forEach(g=>{cnt[g.pid]=(cnt[g.pid]||0)+1;});
+  const list=players.filter(p=>cnt[p.id]).sort((a,b)=>cnt[b.id]-cnt[a.id]);
+  if(!PF.pid||!cnt[PF.pid]){const me=myName&&players.find(p=>p.name===myName&&cnt[p.id]);PF.pid=(me||list[0]||{}).id||null;}
+  const hero=`<section class="ct-hero"><div><span class="ct-eyebrow">PLAYER LAB</span><h1>선수 분석</h1><p>롤 자동 가져오기로 쌓인 상세 기록(딜량·받은 피해·시야·CC·킬관여·성장·생존)을 같은 라인 평균과 비교해요. 100이 평균, 높을수록 강점이에요.</p></div><div class="ct-stats"><div><b>${Math.round(all.length/10)}</b><small>분석한 경기</small></div><div><b>${list.length}</b><small>분석 가능 선수</small></div></div></section>`;
+  if(!list.length){el.innerHTML=hero+'<section class="card"><div class="empty" style="padding:40px 10px;text-align:center;color:var(--ink-dim)">아직 상세 기록이 없어요.<br>"롤 결과 자동 가져오기"로 기록하면 여기에 쌓여요.</div></section>';return;}
+  const r=pfAnalyze(PF.pid);const pl=players.find(p=>p.id===PF.pid);
+  const chips=list.map(p=>`<button type="button" class="pf-chip${p.id===PF.pid?' on':''}" data-pid="${p.id}">${escapeHtml(p.name)}<small>${cnt[p.id]}판</small></button>`).join('');
+  const sorted=PF_AXES.map(ax=>({ax,v:r.idx[ax.k]})).sort((a,b)=>b.v-a.v);
+  const strong=sorted.filter(x=>x.v>=110).slice(0,3),weak=sorted.filter(x=>x.v<=90).slice(-3).reverse();
+  const bars=PF_AXES.map(ax=>{const v=r.idx[ax.k];const cls=v>=110?'hi':v<=90?'lo':'mid';return `<div class="pf-bar"><span>${ax.label}</span><i><b class="${cls}" style="width:${Math.min(100,v/2)}%"></b></i><b>${Math.round(v)}</b></div>`;}).join('');
+  const LB=k=>(POSITIONS.find(q=>q.key===k)||{}).label||k;
+  const laneTxt=Object.entries(r.lanes).sort((a,b)=>b[1]-a[1]).map(x=>LB(x[0])+' '+x[1]+'판').join(' · ');
+  const champRows=Object.entries(r.champs).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([c,v])=>`<tr><td>${chImg(c,'ct-img')} ${escapeHtml(chName(c))}</td><td>${v.n}판</td><td>${Math.round(100*v.w/v.n)}%</td></tr>`).join('');
+  el.innerHTML=hero+`<section class="card"><div class="pf-chips">${chips}</div>
+    <div class="pf-grid"><div style="text-align:center"><h2 style="margin:0 0 4px">${escapeHtml(pl.name)}</h2><div style="color:var(--ink-dim);font-size:.85rem;margin-bottom:6px">${r.n}판 ${r.w}승 ${r.n-r.w}패 · ${laneTxt}</div>${pfRadar(r.idx)}</div>
+    <div><div style="margin-bottom:10px">${strong.length?strong.map(x=>`<span class="pf-tag s">▲ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):'<span class="pf-tag" style="background:rgba(0,0,0,.06)">뚜렷한 강점 없음</span>'}${weak.length?weak.map(x=>`<span class="pf-tag w">▼ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):''}</div>
+      <div class="pf-sw">${bars}</div>
+      <table class="pf-raw" style="margin-top:14px"><tr><th>평균</th><th>K/D/A</th><th>KDA</th><th>분당 딜</th><th>분당 골드</th><th>분당 CS</th><th>분당 시야</th><th>분당 CC</th><th>킬관여</th></tr><tr><td>${r.n}판</td><td>${r.k.toFixed(1)}/${r.d.toFixed(1)}/${r.a.toFixed(1)}</td><td>${r.kda.toFixed(2)}</td><td>${Math.round(r.dpm)}</td><td>${Math.round(r.gpm)}</td><td>${r.cspm.toFixed(1)}</td><td>${r.vpm.toFixed(2)}</td><td>${r.ccpm.toFixed(1)}</td><td>${Math.round(r.kp)}%</td></tr></table>
+      ${champRows?`<table class="pf-raw" style="margin-top:12px"><tr><th>챔피언</th><th>판</th><th>승률</th></tr>${champRows}</table>`:''}
+    </div></div>
+    <div class="hint" style="margin-top:12px">${r.n<5?'⚠️ 표본이 '+r.n+'판뿐이라 참고용이에요. ':''}같은 라인 평균과 비교한 값이에요(라인 표본이 4개 미만이면 전체 평균과 비교). 생존은 분당 데스가 적을수록 높아요.</div></section>`;
+  el.querySelectorAll('.pf-chip').forEach(b=>b.onclick=()=>{PF.pid=b.dataset.pid;renderProf();});
+}
+window.renderProf=renderProf;
+document.getElementById('navProf').addEventListener('click',()=>{renderProf();if(!CH.list.length)loadChamps().then(renderProf);});
+
 
 /* ===== 스킨 상점: 경기 활동으로 포인트가 쌓이고, 겉모습(이름 꾸밈·칭호·프로필 배경)만 살 수 있어요 ===== */
 
