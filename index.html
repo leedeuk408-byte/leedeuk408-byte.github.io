@@ -2395,6 +2395,7 @@ function renderSharedMatchArea(){
   const noReroll=basicUsedByMe;
   box.innerHTML=`<div class="card"><h2>이번 판 팀</h2>
     ${lockedBanner}
+    ${cm.locked?'<div style="text-align:center;margin:-4px 0 10px"><button type="button" class="ghost" id="swapSidesBtn">🔁 블루 ↔ 레드 진영 바꾸기</button></div>':''}
     ${(cm.locked&&!remote.series&&!cm.seriesId)?'<div class="series-start"><button type="button" class="ghost" id="seriesStartBtn" data-bo="3">피어리스 3판 2선</button> <button type="button" class="ghost" id="seriesStart5Btn" data-bo="5">피어리스 5판 3선</button><span>같은 팀으로 시리즈 · 이미 쓴 챔피언은 양 팀 모두 다음 판에 사용 불가</span></div>':''}
     ${vsHtml(byTeam[0],byTeam[1],cm.sumA,cm.sumB)}
         ${cm.locked?'':`<div id="readyNote">${readyHtml}</div>`}
@@ -4108,6 +4109,16 @@ document.addEventListener('change',e=>{
   me.pos=want;
   pushRemote({series:{...sr,assignments:asg}});
   auditPush([{t:'match',msg:'피어리스 라인 변경 · '+seriesPlayerName(me.id)+' '+((POSITIONS.find(q=>q.key===old)||{}).label||old)+' → '+((POSITIONS.find(q=>q.key===want)||{}).label||want)+(other?' (↔ '+seriesPlayerName(other.id)+')':'')}]);
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('#swapSidesBtn');if(!b)return;
+  const cm=remote.currentMatch;if(!cm||!cm.locked)return;
+  if(!confirm('블루 팀과 레드 팀의 진영을 서로 바꿀까요?\n팀원·라인은 그대로, 진영만 바뀌어요.'))return;
+  const asg=(cm.assignments||[]).map(a=>({...a,team:a.team^1}));
+  const upd={'currentMatch.assignments':asg,'currentMatch.sumA':cm.sumB,'currentMatch.sumB':cm.sumA};
+  if(cm.seriesId)upd['currentMatch.seriesFlip']=cm.seriesFlip?0:1;
+  pushRemote(upd);
+  auditPush([{t:'match',msg:'진영 교체 (블루↔레드)'+(cm.seriesId?' · 피어리스 '+(cm.seriesGame||1)+'판':'')}]);
 });
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('#seriesStartBtn,#seriesStart5Btn,#seriesNextBtn,#seriesSwapBtn,#seriesCloseBtn,#seriesAbortBtn');if(!b)return;
