@@ -3963,7 +3963,7 @@ function renderChampTier(){
 window.renderChampTier=renderChampTier;
 document.getElementById('navChamp').addEventListener('click',()=>{renderChampTier();if(!CH.list.length)loadChamps().then(renderChampTier);});
 /* ===== 선수 분석: 롤 API로 가져온 상세 기록으로 강점·약점 (같은 라인 평균 대비) ===== */
-const PF={pid:null};
+const PF={pid:null,lane:'ALL'};
 const PF_AXES=[
   {k:'dmg',label:'딜량',f:(x)=>x.dpm},
   {k:'tank',label:'탱킹',f:(x)=>x.tpm},
@@ -3978,10 +3978,10 @@ function pfGame(h){
   return {pos:h.pos,res:h.result,champ:h.champ,k:st[0],d:st[1],a:st[2],dpm:st[3]/mins,tpm:st[4]/mins,gpm:st[5]/mins,cspm:st[6]/mins,vpm:st[7]/mins,ccpm:st[8]/mins,kp:st[9],share:st[10],dpmDeath:st[1]/mins,mins};
 }
 function pfAll(){const out=[];players.forEach(p=>(p.hist||[]).forEach(h=>{const g=pfGame(h);if(g){g.pid=p.id;out.push(g);}}));return out;}
-function pfAnalyze(pid){
-  const all=pfAll();const mine=all.filter(g=>g.pid===pid);if(!mine.length)return null;
+function pfAnalyze(pid,lane){
+  const all=pfAll();const mine=all.filter(g=>g.pid===pid&&(!lane||lane==='ALL'||g.pos===lane));if(!mine.length)return null;
   const base={};
-  const baseFor=pos=>{const lane=all.filter(g=>g.pos===pos);return lane.length>=4?lane:all;};
+  let fb=false;const baseFor=pos=>{const ln=all.filter(g=>g.pos===pos);if(ln.length>=4)return ln;fb=true;return all;};
   const idx={};PF_AXES.forEach(ax=>{
     let sum=0,n=0;
     mine.forEach(g=>{const pool=baseFor(g.pos);const b=pool.reduce((s,x)=>s+ax.f(x),0)/pool.length;const v=ax.f(g);
@@ -3992,7 +3992,7 @@ function pfAnalyze(pid){
   const kda=(avg(g=>g.k)+avg(g=>g.a))/Math.max(avg(g=>g.d),0.01);
   const lanes={};mine.forEach(g=>{lanes[g.pos]=(lanes[g.pos]||0)+1;});
   const champs={};mine.forEach(g=>{if(!g.champ)return;const c=champs[g.champ]||(champs[g.champ]={n:0,w:0});c.n++;if(g.res==='W')c.w++;});
-  return {n:mine.length,w:mine.filter(g=>g.res==='W').length,idx,kda,k:avg(g=>g.k),d:avg(g=>g.d),a:avg(g=>g.a),dpm:avg(g=>g.dpm),gpm:avg(g=>g.gpm),cspm:avg(g=>g.cspm),vpm:avg(g=>g.vpm),ccpm:avg(g=>g.ccpm),kp:avg(g=>g.kp),lanes,champs,total:all.length};
+  return {fb,n:mine.length,w:mine.filter(g=>g.res==='W').length,idx,kda,k:avg(g=>g.k),d:avg(g=>g.d),a:avg(g=>g.a),dpm:avg(g=>g.dpm),gpm:avg(g=>g.gpm),cspm:avg(g=>g.cspm),vpm:avg(g=>g.vpm),ccpm:avg(g=>g.ccpm),kp:avg(g=>g.kp),lanes,champs,total:all.length};
 }
 function pfRadar(idx){
   const R=110,C=130,N=PF_AXES.length;
@@ -4009,7 +4009,11 @@ function renderProf(){
   if(!PF.pid||!cnt[PF.pid]){const me=myName&&players.find(p=>p.name===myName&&cnt[p.id]);PF.pid=(me||list[0]||{}).id||null;}
   const hero=`<section class="ct-hero"><div><span class="ct-eyebrow">PLAYER LAB</span><h1>선수 분석</h1><p>롤 자동 가져오기로 쌓인 상세 기록(딜량·받은 피해·시야·CC·킬관여·성장·생존)을 같은 라인 평균과 비교해요. 100이 평균, 높을수록 강점이에요.</p></div><div class="ct-stats"><div><b>${Math.round(all.length/10)}</b><small>분석한 경기</small></div><div><b>${list.length}</b><small>분석 가능 선수</small></div></div></section>`;
   if(!list.length){el.innerHTML=hero+'<section class="card"><div class="empty" style="padding:40px 10px;text-align:center;color:var(--ink-dim)">아직 상세 기록이 없어요.<br>"롤 결과 자동 가져오기"로 기록하면 여기에 쌓여요.</div></section>';return;}
-  const r=pfAnalyze(PF.pid);const pl=players.find(p=>p.id===PF.pid);
+  const rAll=pfAnalyze(PF.pid,'ALL');
+  if(PF.lane!=='ALL'&&!rAll.lanes[PF.lane])PF.lane='ALL';
+  const r=pfAnalyze(PF.pid,PF.lane);const pl=players.find(p=>p.id===PF.pid);
+  const LBL=k=>(POSITIONS.find(q=>q.key===k)||{}).label||k;
+  const laneChips='<div class="pf-chips" style="margin-top:-4px"><button type="button" class="pf-chip'+(PF.lane==='ALL'?' on':'')+'" data-lane="ALL">전체 라인<small>'+rAll.n+'판</small></button>'+POSITIONS.filter(q=>rAll.lanes[q.key]).map(q=>'<button type="button" class="pf-chip'+(PF.lane===q.key?' on':'')+'" data-lane="'+q.key+'">'+q.label+'<small>'+rAll.lanes[q.key]+'판</small></button>').join('')+'</div>';
   const chips=list.map(p=>`<button type="button" class="pf-chip${p.id===PF.pid?' on':''}" data-pid="${p.id}">${escapeHtml(p.name)}<small>${cnt[p.id]}판</small></button>`).join('');
   const sorted=PF_AXES.map(ax=>({ax,v:r.idx[ax.k]})).sort((a,b)=>b.v-a.v);
   const strong=sorted.filter(x=>x.v>=110).slice(0,3),weak=sorted.filter(x=>x.v<=90).slice(-3).reverse();
@@ -4018,14 +4022,15 @@ function renderProf(){
   const laneTxt=Object.entries(r.lanes).sort((a,b)=>b[1]-a[1]).map(x=>LB(x[0])+' '+x[1]+'판').join(' · ');
   const champRows=Object.entries(r.champs).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([c,v])=>`<tr><td>${chImg(c,'ct-img')} ${escapeHtml(chName(c))}</td><td>${v.n}판</td><td>${Math.round(100*v.w/v.n)}%</td></tr>`).join('');
   el.innerHTML=hero+`<section class="card"><div class="pf-chips">${chips}</div>
-    <div class="pf-grid"><div style="text-align:center"><h2 style="margin:0 0 4px">${escapeHtml(pl.name)}</h2><div style="color:var(--ink-dim);font-size:.85rem;margin-bottom:6px">${r.n}판 ${r.w}승 ${r.n-r.w}패 · ${laneTxt}</div>${pfRadar(r.idx)}</div>
+    ${laneChips}<div class="pf-grid"><div style="text-align:center"><h2 style="margin:0 0 4px">${escapeHtml(pl.name)}</h2><div style="color:var(--ink-dim);font-size:.85rem;margin-bottom:6px">${r.n}판 ${r.w}승 ${r.n-r.w}패 · ${laneTxt}</div>${pfRadar(r.idx)}</div>
     <div><div style="margin-bottom:10px">${strong.length?strong.map(x=>`<span class="pf-tag s">▲ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):'<span class="pf-tag" style="background:rgba(0,0,0,.06)">뚜렷한 강점 없음</span>'}${weak.length?weak.map(x=>`<span class="pf-tag w">▼ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):''}</div>
       <div class="pf-sw">${bars}</div>
       <table class="pf-raw" style="margin-top:14px"><tr><th>평균</th><th>K/D/A</th><th>KDA</th><th>분당 딜</th><th>분당 골드</th><th>분당 CS</th><th>분당 시야</th><th>분당 CC</th><th>킬관여</th></tr><tr><td>${r.n}판</td><td>${r.k.toFixed(1)}/${r.d.toFixed(1)}/${r.a.toFixed(1)}</td><td>${r.kda.toFixed(2)}</td><td>${Math.round(r.dpm)}</td><td>${Math.round(r.gpm)}</td><td>${r.cspm.toFixed(1)}</td><td>${r.vpm.toFixed(2)}</td><td>${r.ccpm.toFixed(1)}</td><td>${Math.round(r.kp)}%</td></tr></table>
       ${champRows?`<table class="pf-raw" style="margin-top:12px"><tr><th>챔피언</th><th>판</th><th>승률</th></tr>${champRows}</table>`:''}
     </div></div>
-    <div class="hint" style="margin-top:12px">${r.n<5?'⚠️ 표본이 '+r.n+'판뿐이라 참고용이에요. ':''}같은 라인 평균과 비교한 값이에요(라인 표본이 4개 미만이면 전체 평균과 비교). 생존은 분당 데스가 적을수록 높아요.</div></section>`;
-  el.querySelectorAll('.pf-chip').forEach(b=>b.onclick=()=>{PF.pid=b.dataset.pid;renderProf();});
+    <div class="hint" style="margin-top:12px">${r.n<5?'⚠️ 표본이 '+r.n+'판뿐이라 참고용이에요. ':''}${PF.lane!=='ALL'?LBL(PF.lane)+' 라인 기록만 봐요. ':''}${r.fb?'⚠️ 같은 라인 비교 표본이 4판 미만인 라인은 전체 평균과 비교했어요. ':''}같은 라인 평균과 비교한 값이에요. 생존은 분당 데스가 적을수록 높아요.</div></section>`;
+  el.querySelectorAll('.pf-chip[data-pid]').forEach(b=>b.onclick=()=>{PF.pid=b.dataset.pid;PF.lane='ALL';renderProf();});
+  el.querySelectorAll('.pf-chip[data-lane]').forEach(b=>b.onclick=()=>{PF.lane=b.dataset.lane;renderProf();});
 }
 window.renderProf=renderProf;
 document.getElementById('navProf').addEventListener('click',()=>{renderProf();if(!CH.list.length)loadChamps().then(renderProf);});
