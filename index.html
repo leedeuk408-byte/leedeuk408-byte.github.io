@@ -2797,8 +2797,14 @@ function recordMatch(winners,losers,shared){
   if(shared){try{__ser=seriesRecordGame(winners);}catch(e){console.error('series',e);}}
   if(__ser){
     if(!__ser.done){
+      { // 중간 판: 전적/연승/BEST·WORST는 시리즈 끝에, 참가+승패 포인트는 판마다 바로 지급
+        const wset=new Set(winners.map(m=>m.player.id));const cmx=remote.currentMatch;
+        ((cmx&&cmx.assignments)||[]).forEach(x=>{const pl=players.find(p=>p.id===x.id);if(!pl)return;pl.serPts=(pl.serPts||0)+30+(wset.has(x.id)?15:10);});
+        save();
+      }
       pendingChamps=null;pendingStats=null;pendingBans=null;
       pushRemote({currentMatch:null,currentDraft:null,vote:null});
+      renderRoster();
       return;
     }
     winners=__ser.winners;losers=__ser.losers;
@@ -3965,7 +3971,7 @@ function ptCalc(pl){
     e+=30+(W?15:10)+(W&&ws>=2?10:0)+(!W&&ls>=2?5:0)+(h.award==='BEST'?10:0)+(h.award==='WORST'?-5:0);
     if(!W&&ls%5===0)gift++; // 5연패마다 진영 선택권 1장
   });
-  return {e,gift};
+  return {e:e+(pl.serPts||0),gift};
 }
 function skinEarned(pl){return ptCalc(pl).e;}
 function itemSpent(pl){return ITEMS.reduce((a,it)=>a+(((pl.buys||{})[it.id])||0)*it.price,0);}
