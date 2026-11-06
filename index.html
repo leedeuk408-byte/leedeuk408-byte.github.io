@@ -2315,12 +2315,13 @@ function renderAuctionResultShared(auc){
   document.getElementById("aBlueWin").onclick=()=>recordSharedAuctionWin(auc,0);
   document.getElementById("aRedWin").onclick=()=>recordSharedAuctionWin(auc,1);
 }
-function recordSharedAuctionWin(auc,winTeamIdx){
+async function recordSharedAuctionWin(auc,winTeamIdx){
   const teamLabel=winTeamIdx===0?"🔵 블루":"🔴 레드";
   if(!confirm(teamLabel+" 팀 승리로 기록할까요? 실수로 누른 거면 취소를 누르세요."))return;
   const winKey=winTeamIdx===0?'blue':'red', loseKey=winTeamIdx===0?'red':'blue';
   const winners=(auc.teams[winKey]||[]).map(id=>({slot:{pos:null},player:{id}}));
   const losers=(auc.teams[loseKey]||[]).map(id=>({slot:{pos:null},player:{id}}));
+  const okA=await claimRecord('auction',aucClaimKey(auc));if(okA===null)return;if(!okA){claimDeniedMsg();return;}
   pushRemote({ currentAuction:null });
   recordMatch(winners,losers,true);
 }
@@ -2493,13 +2494,34 @@ if(!sharedTickInterval){
     }
   },1000);
 }
-function recordSharedWin(winTeamIdx){
+
+// 같은 경기를 여러 명이 동시에 눌러 여러 번 기록되는 것을 막는 '먼저 누른 사람만' 확인 (서버에서 한 번만 통과)
+function aucClaimKey(a){return a?('auc:'+(a.id||a.startedAt||JSON.stringify(a.teams||{}))):null;}
+async function claimRecord(kind,key){
+  if(!key)return true;
+  try{
+    return await runTransaction(db,async(tx)=>{
+      const sn=await tx.get(sessionRef);const d=sn.data()||{};
+      if(kind==='match'){if(!d.currentMatch||d.currentMatch.matchId!==key)return false;}
+      else{if(!d.currentAuction||aucClaimKey(d.currentAuction)!==key)return false;}
+      const claims={...(d.recordClaims||{})};const now=correctedNow();
+      if(claims[key]&&now-claims[key]<45000)return false; // 방금 다른 사람이 기록 중
+      claims[key]=now;
+      const ks=Object.keys(claims).sort((a,b)=>claims[b]-claims[a]).slice(0,30);const trimmed={};ks.forEach(k=>trimmed[k]=claims[k]);
+      tx.update(sessionRef,{recordClaims:trimmed});
+      return true;
+    });
+  }catch(e){alert("기록 확인에 실패했어요. 인터넷을 확인하고 다시 눌러주세요.\n("+(e&&e.message?e.message:e)+")");return null;}
+}
+function claimDeniedMsg(){alert("이미 다른 사람이 이 경기를 기록했거나 기록하는 중이에요.\n(중복 기록을 막았어요. 잠시 후 화면이 바뀌어요)");}
+async function recordSharedWin(winTeamIdx){
   const cm=remote.currentMatch;if(!cm||!cm.assignments)return;
   const teamLabel=winTeamIdx===0?"🔵 블루":"🔴 레드";
   if(!confirm(teamLabel+" 팀 승리로 기록할까요? 실수로 누른 거면 취소를 누르세요."))return;
   const loseTeamIdx=winTeamIdx===0?1:0;
   const winners=cm.assignments.filter(a=>a.team===winTeamIdx).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
   const losers=cm.assignments.filter(a=>a.team===loseTeamIdx).map(a=>({slot:{pos:a.pos},player:{id:a.id}}));
+  const ok=await claimRecord('match',cm.matchId);if(ok===null)return;if(!ok){claimDeniedMsg();return;}
   recordMatch(winners,losers,true);
 }
 
@@ -3086,7 +3108,7 @@ function renderDevPanel(){
       </div>
       <div class="card dev-card"><h2>데이터 복구</h2>
         <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업(최근 7개)으로 되돌려요.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button><button class="ghost" id="devDedupeBtn">중복 경기 정리</button></div>
       </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
         <div id="devRestoreList"></div>
@@ -3097,6 +3119,7 @@ function renderDevPanel(){
     document.getElementById("devReplayBtn").onclick=devReapplyAudit;
     document.getElementById("devBkBtn").onclick=devRestoreServerBackup;
     document.getElementById("devLocalBtn").onclick=offerRecovery;
+    document.getElementById("devDedupeBtn").onclick=devDedupeMatches;
     sel.onchange=updateDevCount;
     const qtyEl=document.getElementById("devQty");
     const getQty=()=>Math.min(10,Math.max(1,parseInt(qtyEl.value,10)||1));
@@ -3348,6 +3371,58 @@ function devRefund(ids){
     setTimeout(devPtNow,400);
   }).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
 }
+
+// ===== 중복 기록 정리: 같은 경기가 여러 번 잡힌 것을 찾아서 하나만 남김 =====
+function dupKey(e){return [...(e.win||[])].sort().join(',')+'|'+[...(e.lose||[])].sort().join(',');}
+function dupSame(x,y){
+  const f=h=>JSON.stringify([h.result,h.pos||null,h.opp||null,h.champ||null,h.stats||h.st||null,h.kda||null]);
+  return f(x)===f(y);
+}
+function dupClean(plist,log){
+  const P=JSON.parse(JSON.stringify(plist));const L=JSON.parse(JSON.stringify(log||[]));
+  const dupIdx=[];
+  for(let i=1;i<L.length;i++){
+    if(dupKey(L[i])===dupKey(L[i-1])&&Math.abs((L[i].ts||0)-(L[i-1].ts||0))<=10*60*1000)dupIdx.push(i);
+  }
+  const report=[];
+  for(let n=dupIdx.length-1;n>=0;n--){
+    const i=dupIdx[n];const e=L[i],orig=L[i-1];let removed=0;
+    [...(e.win||[]),...(e.lose||[])].forEach(pid=>{
+      const pl=P.find(x=>x.id===pid);if(!pl||!pl.hist)return;
+      for(let k=pl.hist.length-1;k>=1;k--){
+        if(dupSame(pl.hist[k],pl.hist[k-1])){
+          const a=pl.hist[k-1],b=pl.hist[k];
+          if(!a.award&&b.award)a.award=b.award; // 뒤쪽에만 BEST/WORST가 붙었으면 앞으로 옮김
+          pl.hist.splice(k,1);removed++;
+          if(pl.ptBase!=null&&k<pl.ptBase)pl.ptBase--;
+          break;
+        }
+      }
+    });
+    if(!orig.best&&e.best)orig.best=e.best;if(!orig.worst&&e.worst)orig.worst=e.worst;
+    report.push({ts:e.ts,removed,n:(e.win||[]).length+(e.lose||[]).length});
+    L.splice(i,1);
+  }
+  return {players:P,matchLog:L,report:report.reverse()};
+}
+function devDedupeMatches(){
+  const r=dupClean(players,state.matchLog||[]);
+  if(!r.report.length){alert("중복으로 잡힌 경기를 못 찾았어요.\n(같은 선수 구성으로 10분 안에 연달아 기록된 경기만 찾아요)");return;}
+  const lines=r.report.map(x=>new Date(x.ts).toLocaleString("ko-KR")+" · 선수 기록 "+x.removed+"건 제거");
+  if(!confirm("중복으로 보이는 경기 "+r.report.length+"건을 찾았어요. 하나만 남기고 정리할까요?\n\n"+lines.join("\n")+"\n\n※ 이미 중복 때문에 티어가 오르내렸다면 티어는 직접 바로잡아야 해요.\n※ 정리 전 상태는 서버 백업(bk_pre_dedupe)에 저장해요."))return;
+  const pre={ts:Date.now(),players:JSON.parse(JSON.stringify(players)),matchLog:JSON.parse(JSON.stringify(state.matchLog||[]))};
+  runTransaction(db,async(tx)=>{
+    const sn=await tx.get(sessionRef);const d=sn.data()||{};
+    if((d.players||[]).length<3)throw new Error("서버 명단이 비어 있어요.");
+    const rr=dupClean(d.players||[],d.matchLog||[]);
+    tx.update(sessionRef,{players:rr.players,matchLog:rr.matchLog,auditLog:auditAppend(d,[{t:'dev',msg:'중복 경기 '+rr.report.length+'건 정리'}])});
+    return rr.report.length;
+  }).then(n=>{
+    try{setDoc(doc(db,'sessions','bk_pre_dedupe'),pre).catch(()=>{});}catch(e){}
+    alert("중복 경기 "+n+"건을 정리했어요.");
+  }).catch(e=>alert("실패했어요: "+(e&&e.message||e)));
+}
+
 function devResetPoints(){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const out=document.getElementById("devPtResult");
@@ -4191,6 +4266,7 @@ async function riotImportResult(btn){
     const bl=[];(best.bans||[]).forEach(b=>(b.bans||[]).forEach(k=>{const c=CH.byKey[String(k&&typeof k==="object"?k.championId:k)];if(c)bl.push(c.id);}));
     try{const pb=((remote.currentMatch&&remote.currentMatch.items)||[]).filter(x=>x.type==='ban'&&bl.includes(x.target));
       if(pb.length){const msg='밴 금지권 위반: '+pb.map(x=>chName(x.target)).join(', ')+' 이(가) 밴됐어요';auditPush([{t:'item',msg}]);setTimeout(()=>alert(msg),400);}}catch(e){}
+    const okR=await claimRecord('match',remote.currentMatch&&remote.currentMatch.matchId);if(okR===null)return;if(!okR){claimDeniedMsg();return;}
     pendingChamps=champs;pendingStats=stats;pendingBans=bl.length?bl:null;
     try{
       pushRemote({riotImported:[...(remote.riotImported||[]),best.matchId].slice(-200)});
