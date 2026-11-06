@@ -3973,16 +3973,21 @@ const PF_AXES=[
   {k:'gold',label:'성장',f:(x)=>x.gpm},
   {k:'surv',label:'생존',f:(x)=>x.dpmDeath,inv:true}
 ];
+const PF_EXTRA=[
+  {k:'share',label:'딜 비중',f:x=>x.share},
+  {k:'eff',label:'딜 효율',f:x=>x.eff},
+  {k:'cs',label:'CS',f:x=>x.cspm}
+];
 function pfGame(h){
   const st=h.st;if(!st||!st[11])return null;const mins=st[11]/60;
-  return {pos:h.pos,res:h.result,champ:h.champ,k:st[0],d:st[1],a:st[2],dpm:st[3]/mins,tpm:st[4]/mins,gpm:st[5]/mins,cspm:st[6]/mins,vpm:st[7]/mins,ccpm:st[8]/mins,kp:st[9],share:st[10],dpmDeath:st[1]/mins,mins};
+  return {pos:h.pos,res:h.result,champ:h.champ,k:st[0],d:st[1],a:st[2],dpm:st[3]/mins,tpm:st[4]/mins,gpm:st[5]/mins,cspm:st[6]/mins,vpm:st[7]/mins,ccpm:st[8]/mins,kp:st[9],share:st[10],dpmDeath:st[1]/mins,mins,dur:st[11],dmg:st[3],gold:st[5],cs:st[6],vis:st[7],eff:st[5]?st[3]/st[5]:0,opp:h.opp||null,ban:null};
 }
 function pfAll(){const out=[];players.forEach(p=>(p.hist||[]).forEach(h=>{const g=pfGame(h);if(g){g.pid=p.id;out.push(g);}}));return out;}
 function pfAnalyze(pid,lane){
   const all=pfAll();const mine=all.filter(g=>g.pid===pid&&(!lane||lane==='ALL'||g.pos===lane));if(!mine.length)return null;
   const base={};
   let fb=false;const baseFor=pos=>{const ln=all.filter(g=>g.pos===pos);if(ln.length>=4)return ln;fb=true;return all;};
-  const idx={};PF_AXES.forEach(ax=>{
+  const idx={};PF_AXES.concat(PF_EXTRA).forEach(ax=>{
     let sum=0,n=0;
     mine.forEach(g=>{const pool=baseFor(g.pos);const b=pool.reduce((s,x)=>s+ax.f(x),0)/pool.length;const v=ax.f(g);
       if(b>0){const r=ax.inv?(v>0?b/v:2):v/b;sum+=Math.min(2,r)*100;n++;}});
@@ -3990,9 +3995,17 @@ function pfAnalyze(pid,lane){
   });
   const avg=f=>mine.reduce((s,g)=>s+f(g),0)/mine.length;
   const kda=(avg(g=>g.k)+avg(g=>g.a))/Math.max(avg(g=>g.d),0.01);
+  const split=arr=>{if(!arr.length)return null;const a=f=>arr.reduce((s,g)=>s+f(g),0)/arr.length;return {n:arr.length,kda:(a(g=>g.k)+a(g=>g.a))/Math.max(a(g=>g.d),0.01),k:a(g=>g.k),d:a(g=>g.d),aa:a(g=>g.a),dpm:a(g=>g.dpm),gpm:a(g=>g.gpm),kp:a(g=>g.kp),vpm:a(g=>g.vpm)};};
+  const winS=split(mine.filter(g=>g.res==='W')),loseS=split(mine.filter(g=>g.res!=='W'));
+  const bucket=(lo,hi)=>{const arr=mine.filter(g=>g.mins>=lo&&g.mins<hi);return arr.length?{n:arr.length,w:arr.filter(g=>g.res==='W').length,kda:(arr.reduce((s,g)=>s+g.k+g.a,0))/Math.max(arr.reduce((s,g)=>s+g.d,0),1)}:null;};
+  const dur={short:bucket(0,25),mid:bucket(25,35),long:bucket(35,999)};
+  // 맞라인 상대 대비: 같은 경기(시간·라인·서로 상대)의 상대 기록 찾기
+  const mu=[];mine.forEach(g=>{if(!g.opp)return;const o=all.find(x=>x.pid===g.opp&&x.opp===g.pid&&x.pos===g.pos&&x.dur===g.dur);if(o)mu.push({g,o});});
+  const mav=f=>mu.length?mu.reduce((s,m)=>s+f(m),0)/mu.length:0;
+  const matchup=mu.length?{n:mu.length,gold:mav(m=>m.g.gpm-m.o.gpm),cs:mav(m=>m.g.cspm-m.o.cspm),dmg:mav(m=>m.g.dpm-m.o.dpm),kda:mav(m=>(m.g.k+m.g.a)/Math.max(m.g.d,1)-(m.o.k+m.o.a)/Math.max(m.o.d,1)),goldWin:mu.filter(m=>m.g.gpm>m.o.gpm).length,dmgWin:mu.filter(m=>m.g.dpm>m.o.dpm).length}:null;
   const lanes={};mine.forEach(g=>{lanes[g.pos]=(lanes[g.pos]||0)+1;});
   const champs={};mine.forEach(g=>{if(!g.champ)return;const c=champs[g.champ]||(champs[g.champ]={n:0,w:0});c.n++;if(g.res==='W')c.w++;});
-  return {fb,n:mine.length,w:mine.filter(g=>g.res==='W').length,idx,kda,k:avg(g=>g.k),d:avg(g=>g.d),a:avg(g=>g.a),dpm:avg(g=>g.dpm),gpm:avg(g=>g.gpm),cspm:avg(g=>g.cspm),vpm:avg(g=>g.vpm),ccpm:avg(g=>g.ccpm),kp:avg(g=>g.kp),lanes,champs,total:all.length};
+  return {fb,winS,loseS,dur,matchup,games:mine.slice().reverse(),n:mine.length,w:mine.filter(g=>g.res==='W').length,idx,kda,k:avg(g=>g.k),d:avg(g=>g.d),a:avg(g=>g.a),dpm:avg(g=>g.dpm),gpm:avg(g=>g.gpm),cspm:avg(g=>g.cspm),vpm:avg(g=>g.vpm),ccpm:avg(g=>g.ccpm),kp:avg(g=>g.kp),lanes,champs,total:all.length};
 }
 function pfRadar(idx){
   const R=110,C=130,N=PF_AXES.length;
@@ -4019,14 +4032,37 @@ function renderProf(){
   const strong=sorted.filter(x=>x.v>=110).slice(0,3),weak=sorted.filter(x=>x.v<=90).slice(-3).reverse();
   const bars=PF_AXES.map(ax=>{const v=r.idx[ax.k];const cls=v>=110?'hi':v<=90?'lo':'mid';return `<div class="pf-bar"><span>${ax.label}</span><i><b class="${cls}" style="width:${Math.min(100,v/2)}%"></b></i><b>${Math.round(v)}</b></div>`;}).join('');
   const LB=k=>(POSITIONS.find(q=>q.key===k)||{}).label||k;
+  const xbars=PF_EXTRA.map(ax=>{const v=r.idx[ax.k];const cls=v>=110?'hi':v<=90?'lo':'mid';return `<div class="pf-bar"><span>${ax.label}</span><i><b class="${cls}" style="width:${Math.min(100,v/2)}%"></b></i><b>${Math.round(v)}</b></div>`;}).join('');
+  // 해석 코멘트
+  const I=r.idx,notes=[];
+  if(I.dmg>=115&&I.surv<=92)notes.push('딜은 강하지만 데스가 많아요 → 공격적인 스타일, 포지셔닝·생존이 과제예요.');
+  if(I.dmg>=115&&I.surv>=105)notes.push('딜도 높고 잘 죽지도 않아요 → 안정적인 캐리 스타일이에요.');
+  if(I.dmg<=88&&I.tank>=110)notes.push('딜은 낮지만 피해를 많이 받아줘요 → 앞라인(탱커/브루저) 역할에 가까워요.');
+  if(I.vis>=115)notes.push('시야 점수가 높아요 → 와드·시야 관리를 잘해요.');
+  if(I.vis<=85)notes.push('시야 점수가 낮아요 → 와드·제어와드 습관을 더 챙기면 좋아요.');
+  if(I.cc>=115)notes.push('CC(군중제어) 기여가 높아요 → 이니시·교전 설계에 강해요.');
+  if(I.kp>=112)notes.push('킬관여가 높아요 → 팀 교전에 적극적으로 참여해요.');
+  if(I.kp<=88)notes.push('킬관여가 낮아요 → 교전 합류·로밍이 늦거나 라인에 머무는 편이에요.');
+  if(I.gold>=110)notes.push('성장(골드/분)이 좋아요 → 라인 관리·파밍이 안정적이에요.');
+  if(I.gold<=90)notes.push('성장(골드/분)이 낮아요 → 파밍·오브젝트 골드 수급이 부족해요.');
+  if(I.eff>=115)notes.push('골드 대비 딜 효율이 좋아요 → 아이템 대비 화력이 높아요.');
+  if(I.eff<=85)notes.push('골드 대비 딜 효율이 낮아요 → 템 대비 딜 기여가 아쉬워요.');
+  if(!notes.length)notes.push('눈에 띄는 쏠림 없이 라인 평균 수준이에요. 기록이 더 쌓이면 특징이 뚜렷해져요.');
+  const f1=v=>v.toFixed(1),sg=v=>(v>=0?'+':'')+v.toFixed(1);
+  const sTbl=(r.winS||r.loseS)?`<table class="pf-raw" style="margin-top:12px"><tr><th>결과별</th><th>판</th><th>K/D/A</th><th>KDA</th><th>분당 딜</th><th>분당 골드</th><th>킬관여</th></tr>${[['승리',r.winS],['패배',r.loseS]].filter(z=>z[1]).map(([t,x])=>`<tr><td>${t}</td><td>${x.n}</td><td>${f1(x.k)}/${f1(x.d)}/${f1(x.aa)}</td><td>${x.kda.toFixed(2)}</td><td>${Math.round(x.dpm)}</td><td>${Math.round(x.gpm)}</td><td>${Math.round(x.kp)}%</td></tr>`).join('')}</table>`:'';
+  const durTbl=`<table class="pf-raw" style="margin-top:12px"><tr><th>경기 시간</th><th>판</th><th>승률</th><th>KDA</th></tr>${[['25분 미만',r.dur.short],['25~35분',r.dur.mid],['35분 이상',r.dur.long]].filter(x=>x[1]).map(([t,x])=>`<tr><td>${t}</td><td>${x.n}</td><td>${Math.round(100*x.w/x.n)}%</td><td>${x.kda.toFixed(2)}</td></tr>`).join('')}</table>`;
+  const muTbl=r.matchup?`<table class="pf-raw" style="margin-top:12px"><tr><th>맞라인 상대 대비 (${r.matchup.n}판)</th><th>분당 골드</th><th>분당 CS</th><th>분당 딜</th><th>KDA</th></tr><tr><td>평균 차이</td><td>${sg(r.matchup.gold)}</td><td>${sg(r.matchup.cs)}</td><td>${sg(r.matchup.dmg)}</td><td>${sg(r.matchup.kda)}</td></tr><tr><td>앞선 판</td><td>${r.matchup.goldWin}/${r.matchup.n}</td><td></td><td>${r.matchup.dmgWin}/${r.matchup.n}</td><td></td></tr></table>`:'<div class="hint" style="margin-top:12px">맞라인 상대 비교는 같은 경기에서 상대 라이너의 기록도 함께 있어야 해서 아직 없어요.</div>';
+  const logRows=r.games.slice(0,10).map(g=>`<tr><td>${g.champ?chImg(g.champ,'ct-img')+' '+escapeHtml(chName(g.champ)):'-'}</td><td>${LB(g.pos)}</td><td style="color:${g.res==='W'?'#2e9d5b':'#d4533b'}">${g.res==='W'?'승':'패'}</td><td>${g.k}/${g.d}/${g.a}</td><td>${Math.round(g.dmg/1000*10)/10}k</td><td>${Math.round(g.gold/100)/10}k</td><td>${g.cs}</td><td>${g.vis}</td><td>${Math.round(g.mins)}분</td></tr>`).join('');
+  const logTbl=`<table class="pf-raw" style="margin-top:12px"><tr><th>최근 경기</th><th>라인</th><th>결과</th><th>K/D/A</th><th>딜</th><th>골드</th><th>CS</th><th>시야</th><th>시간</th></tr>${logRows}</table>`;
   const laneTxt=Object.entries(r.lanes).sort((a,b)=>b[1]-a[1]).map(x=>LB(x[0])+' '+x[1]+'판').join(' · ');
   const champRows=Object.entries(r.champs).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([c,v])=>`<tr><td>${chImg(c,'ct-img')} ${escapeHtml(chName(c))}</td><td>${v.n}판</td><td>${Math.round(100*v.w/v.n)}%</td></tr>`).join('');
   el.innerHTML=hero+`<section class="card"><div class="pf-chips">${chips}</div>
     ${laneChips}<div class="pf-grid"><div style="text-align:center"><h2 style="margin:0 0 4px">${escapeHtml(pl.name)}</h2><div style="color:var(--ink-dim);font-size:.85rem;margin-bottom:6px">${r.n}판 ${r.w}승 ${r.n-r.w}패 · ${laneTxt}</div>${pfRadar(r.idx)}</div>
     <div><div style="margin-bottom:10px">${strong.length?strong.map(x=>`<span class="pf-tag s">▲ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):'<span class="pf-tag" style="background:rgba(0,0,0,.06)">뚜렷한 강점 없음</span>'}${weak.length?weak.map(x=>`<span class="pf-tag w">▼ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):''}</div>
-      <div class="pf-sw">${bars}</div>
+      <div class="pf-sw">${bars}</div><div style="margin:12px 0 4px;color:var(--ink-dim);font-size:.8rem">세부 지표</div><div class="pf-sw">${xbars}</div>
+      <div style="margin-top:14px"><b style="font-size:.9rem">해석</b><ul style="margin:6px 0 0;padding-left:18px;font-size:.86rem;line-height:1.6">${notes.map(n=>'<li>'+n+'</li>').join('')}</ul></div>
       <table class="pf-raw" style="margin-top:14px"><tr><th>평균</th><th>K/D/A</th><th>KDA</th><th>분당 딜</th><th>분당 골드</th><th>분당 CS</th><th>분당 시야</th><th>분당 CC</th><th>킬관여</th></tr><tr><td>${r.n}판</td><td>${r.k.toFixed(1)}/${r.d.toFixed(1)}/${r.a.toFixed(1)}</td><td>${r.kda.toFixed(2)}</td><td>${Math.round(r.dpm)}</td><td>${Math.round(r.gpm)}</td><td>${r.cspm.toFixed(1)}</td><td>${r.vpm.toFixed(2)}</td><td>${r.ccpm.toFixed(1)}</td><td>${Math.round(r.kp)}%</td></tr></table>
-      ${champRows?`<table class="pf-raw" style="margin-top:12px"><tr><th>챔피언</th><th>판</th><th>승률</th></tr>${champRows}</table>`:''}
+      ${sTbl}${durTbl}${muTbl}${champRows?`<table class="pf-raw" style="margin-top:12px"><tr><th>챔피언</th><th>판</th><th>승률</th></tr>${champRows}</table>`:''}${logTbl}
     </div></div>
     <div class="hint" style="margin-top:12px">${r.n<5?'⚠️ 표본이 '+r.n+'판뿐이라 참고용이에요. ':''}${PF.lane!=='ALL'?LBL(PF.lane)+' 라인 기록만 봐요. ':''}${r.fb?'⚠️ 같은 라인 비교 표본이 4판 미만인 라인은 전체 평균과 비교했어요. ':''}같은 라인 평균과 비교한 값이에요. 생존은 분당 데스가 적을수록 높아요.</div></section>`;
   el.querySelectorAll('.pf-chip[data-pid]').forEach(b=>b.onclick=()=>{PF.pid=b.dataset.pid;PF.lane='ALL';renderProf();});
