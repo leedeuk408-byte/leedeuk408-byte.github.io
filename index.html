@@ -3049,6 +3049,7 @@ function renderDevPanel(){
           <button class="ghost" id="devPtReset" style="color:var(--loss-ink)">전체 100P로 초기화</button>
           <button class="ghost" id="devRefundAll" style="color:var(--loss-ink)">구매 내역 전부 환불</button>
         </div>
+        <details class="dev-refund"><summary>특정 선수만 구매 내역 환불</summary><div id="devRefundList" class="dev-chips"></div><button class="ghost" id="devRefundSel" style="color:var(--loss-ink);margin-top:8px">선택한 선수 환불</button></details>
         <div id="devPtNow" class="dev-now"></div>
         <div id="devPtResult" class="dev-result" aria-live="polite"></div>
       </div>
@@ -3083,8 +3084,10 @@ function renderDevPanel(){
     document.getElementById("devPtRevoke").onclick=()=>devAdjustPoints(-ptQty(),false);
     document.getElementById("devPtAll").onclick=()=>devAdjustPoints(ptQty(),true);
     document.getElementById("devPtReset").onclick=devResetPoints;
-    document.getElementById("devRefundAll").onclick=devRefundAll;
+    document.getElementById("devRefundAll").onclick=()=>devRefund(null);
+    document.getElementById("devRefundSel").onclick=()=>{const ids=[...document.querySelectorAll("#devRefundList input:checked")].map(i=>i.value);if(!ids.length){alert("환불할 선수를 먼저 골라주세요.");return;}devRefund(ids);};
   }
+  { const rl=document.getElementById("devRefundList");if(rl){const sig=players.map(p=>p.id+p.name).join();if(rl._s!==sig){const keep=new Set([...rl.querySelectorAll("input:checked")].map(i=>i.value));rl._s=sig;rl.innerHTML=players.slice().sort((a,b)=>a.name.localeCompare(b.name,"ko")).map(p=>`<label class="dev-chip" style="cursor:pointer"><input type="checkbox" value="${p.id}"${keep.has(p.id)?" checked":""}> ${escapeHtml(p.name)}</label>`).join("");}} }
   { const ps=document.getElementById("devPtSel"),pv=ps.value;ps.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");if(pv&&players.some(p=>p.id===pv))ps.value=pv;devPtNow(); }
   renderDevRestore();
   updateDevLogs();
@@ -3286,19 +3289,24 @@ async function devRestoreServerBackup(){
   updateDoc(sessionRef,{players:f.players,matchLog:f.matchLog}).then(()=>alert('복구했어요. 새로고침하면 반영돼요.')).catch(e=>alert('실패했어요: '+(e&&e.message||e))).finally(()=>{window.__bootstrapPush=false;});
 }
 
-function devRefundAll(){
+function devRefund(ids){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const out=document.getElementById("devPtResult");
-  if(!confirm("모든 선수가 지금까지 산 것(스킨·아이템)을 전부 환불할까요?\n· 사용한 포인트가 전부 돌아와요\n· 산 스킨/아이템과 착용 중인 스킨은 모두 사라져요\n· 예약된 아이템도 취소돼요"))return;
+  const set=ids?new Set(ids):null;
+  const label=set?(players.filter(p=>set.has(p.id)).map(p=>p.name).join(", ")+" 님"):"모든 선수";
+  if(!confirm(label+"이(가) 지금까지 산 것(스킨·아이템)을 전부 환불할까요?\n· 사용한 포인트가 전부 돌아와요\n· 산 스킨/아이템과 착용 중인 스킨은 모두 사라져요\n· 예약된 아이템도 취소돼요"))return;
   runTransaction(db, async(tx)=>{
     const snap=await tx.get(sessionRef);const data=snap.data()||{};
     const fp=(data.players||[]).map(p=>{
+      if(set&&!set.has(p.id))return p;
       const rr=((p.buys||{}).reroll)||0;
       return {...p,skins:[],eq:{},paid:{},buys:{},used:{},bonusGranted:Math.max(0,(p.bonusGranted||0)-rr)};
     });
-    tx.update(sessionRef,{players:fp,itemQueue:[],auditLog:auditAppend(data,[{t:'dev',msg:'구매 내역 전부 환불 (스킨·아이템 회수, 포인트 반환)'}])});
+    const q=set?(data.itemQueue||[]).filter(x=>!set.has(x.by)):[];
+    tx.update(sessionRef,{players:fp,itemQueue:q,auditLog:auditAppend(data,[{t:'dev',msg:'구매 내역 환불 · '+label}])});
   }).then(()=>{
-    if(out){out.textContent="구매 내역을 전부 환불했어요";out.style.color="var(--win-ink)";}
+    if(out){out.textContent="환불 완료 · "+label;out.style.color="var(--win-ink)";}
+    document.querySelectorAll("#devRefundList input:checked").forEach(i=>{i.checked=false;});
     setTimeout(devPtNow,400);
   }).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
 }
