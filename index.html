@@ -4042,7 +4042,7 @@ function seriesRecordGame(winners){
     if(lockedBefore.has(c))viol.push({game:n,champ:c,by:a.id});
     if(!used.some(u=>u.champ===c))used.push({champ:c,team:a.team^flip,by:a.id,game:n});});
   const wins=[...(sr.wins||[0,0])];wins[winGrp]++;
-  const games=[...(sr.games||[]),{n,ts:Date.now(),winTeam,winGrp,flip,champs}];
+  const games=[...(sr.games||[]),{n,ts:Date.now(),winTeam,winGrp,flip,champs,rid:window.__pendingRid||null}];
   const bo=sr.bestOf||3,need=Math.ceil(bo/2);
   const done=wins[0]>=need||wins[1]>=need||games.length>=bo;
   const next={...sr,games,used,violations:viol,wins,flip,status:done?'done':'active'};
@@ -4265,7 +4265,8 @@ async function riotImportResult(btn){
     [0,1].forEach(t=>{byTeam[t].slice(0,2).forEach(x=>probes.push(x.pl.puuid));});
     const done=new Set(remote.riotImported||[]);
     const regPuuids=new Set(reg.map(x=>x.pl.puuid));
-    const since=(cm.createdAt||0)-10*60*1000;
+    let since=(cm.createdAt||0)-10*60*1000;
+    try{const sr0=remote.series;if(sr0&&cm.seriesId===sr0.id){const gs=sr0.games||[];gs.forEach(g=>{if(g.rid)done.add(g.rid);});const lt=gs.length?gs[gs.length-1].ts:0;if(lt)since=Math.max(since,lt-5*60*1000);}}catch(e){}
     let best=null;const skipSet=new Set();
     for(const kind of ["tourney","custom"]){
       const ids=new Set();
@@ -4317,11 +4318,11 @@ async function riotImportResult(btn){
     try{const pb=((remote.currentMatch&&remote.currentMatch.items)||[]).filter(x=>x.type==='ban'&&bl.includes(x.target));
       if(pb.length){const msg='밴 금지권 위반: '+pb.map(x=>chName(x.target)).join(', ')+' 이(가) 밴됐어요';auditPush([{t:'item',msg}]);setTimeout(()=>alert(msg),400);}}catch(e){}
     const okR=await claimRecord('match',remote.currentMatch&&remote.currentMatch.matchId);if(okR===null)return;if(!okR){claimDeniedMsg();return;}
-    pendingChamps=champs;pendingStats=stats;pendingBans=bl.length?bl:null;
+    pendingChamps=champs;pendingStats=stats;pendingBans=bl.length?bl:null;window.__pendingRid=best.matchId;
     try{
       pushRemote({riotImported:[...(remote.riotImported||[]),best.matchId].slice(-200)});
       recordMatch(winners,losers,true);
-    }finally{pendingChamps=null;pendingStats=null;pendingBans=null;}
+    }finally{pendingChamps=null;pendingStats=null;pendingBans=null;window.__pendingRid=null;}
   }catch(e){
     alert("가져오지 못했어요: "+(e&&e.message?e.message:e)+(e&&(e.status===401||e.status===403)?"\n(라이엇 키가 만료됐을 수 있어요. 운영자에게 알려주세요)":""));
   }finally{
