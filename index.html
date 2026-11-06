@@ -3880,7 +3880,7 @@ document.getElementById("riotSaveBtn").onclick=async()=>{
 };
 
 /* ===== 우리 내전 챔피언 티어: 승률/픽률/밴률 (롤 자동 가져오기로 쌓인 경기 기준) ===== */
-const CT={lane:'ALL',min:2};
+const CT={lane:'ALL',min:1};
 function champTierData(lane){
   const stat={},ban={};let champEntries=0;
   players.forEach(p=>(p.hist||[]).forEach(h=>{
@@ -3920,10 +3920,11 @@ function renderChampTier(){
     <p>롤 결과 자동 가져오기로 쌓인 경기만 집계해요. 승률, 픽률, 밴률을 합친 점수로 티어를 나눠요.</p></div>
     <div class="ct-stats"><div><b>${d.games}</b><small>분석한 경기</small></div><div><b>${d.total}</b><small>등장한 챔피언</small></div></div></section>
     <section class="card ct-card"><div class="ct-top"><div class="ct-lanes">${lanes.map(l=>`<button type="button" class="ct-lane${CT.lane===l[0]?' on':''}" data-lane="${l[0]}">${l[1]}</button>`).join('')}</div>
-    <span class="ct-note">${CT.min}판 이상 쓰인 챔피언만 · 정렬: 티어 점수${d.banGames?'':' · 밴률은 다음 경기부터 쌓여요'}</span></div>
+    <span class="ct-note"><button type="button" class="ct-lane${CT.min>1?' on':''}" id="ctMinBtn">${CT.min>1?'2판 이상만 보는 중':'1판만 쓴 챔피언 포함'}</button> 정렬: 티어 점수 · 표본이 적으면 점수가 보정돼요${d.banGames?'':' · 밴률은 다음 경기부터 쌓여요'}</span></div>
     ${rows?`<div class="ct-table"><div class="ct-row ct-head"><span>티어</span><span>챔피언</span><span>픽 수</span><span>픽률</span><span>승률</span><span>밴률</span><span>많이 쓴 선수</span></div>${rows}</div>`
       :'<div class="empty" style="padding:40px 10px;text-align:center;color:var(--ink-dim)">아직 집계할 경기가 없어요.<br>팀 결과 화면에서 "롤 결과 자동 가져오기"로 기록하면 여기에 쌓여요.</div>'}</section>`;
-  el.querySelectorAll('.ct-lane').forEach(b=>b.onclick=()=>{CT.lane=b.dataset.lane;renderChampTier();});
+  el.querySelectorAll('.ct-lane[data-lane]').forEach(b=>b.onclick=()=>{CT.lane=b.dataset.lane;renderChampTier();});
+  const mb=document.getElementById('ctMinBtn');if(mb)mb.onclick=()=>{CT.min=CT.min>1?1:2;renderChampTier();};
 }
 window.renderChampTier=renderChampTier;
 document.getElementById('navChamp').addEventListener('click',()=>{renderChampTier();if(!CH.list.length)loadChamps().then(renderChampTier);});
