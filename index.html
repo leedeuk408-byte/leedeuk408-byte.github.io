@@ -1046,7 +1046,7 @@ window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.rea
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, runTransaction, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, runTransaction, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5LgCf1NfUYA2oi34L-ujLvlseSk3awNQ",
@@ -3085,7 +3085,7 @@ function renderDevPanel(){
         <div id="devAudit"></div>
       </div>
       <div class="card dev-card"><h2>데이터 복구</h2>
-        <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업으로 되돌려요.</div>
+        <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업(최근 7일)으로 되돌려요.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button></div>
       </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
@@ -3265,13 +3265,17 @@ function updateDevCount(){
 
 /* ===== 서버 자동 백업(하루 1번, 그날 처음 접속한 기기가 저장) + 개발자 복구 도구 ===== */
 let serverBackupTried=false;
+const BACKUP_KEEP=7;
 function kstDay(off){return new Date(Date.now()+9*3600e3-(off||0)*86400e3).toISOString().slice(0,10).replace(/-/g,'');}
 async function serverBackupMaybe(){
   if(serverBackupTried||!remoteLoaded||(remote.players||[]).length<3)return;
   serverBackupTried=true;
   try{
     const ref=doc(db,'sessions','bk_'+kstDay(0));
-    await runTransaction(db,async(tx)=>{const sn=await tx.get(ref);if(sn.exists())return;tx.set(ref,{ts:Date.now(),players:remote.players,matchLog:remote.matchLog||[]});});
+    let created=false;
+    await runTransaction(db,async(tx)=>{created=false;const sn=await tx.get(ref);if(sn.exists())return;tx.set(ref,{ts:Date.now(),players:remote.players,matchLog:remote.matchLog||[]});created=true;});
+    // 최근 7일치만 보관: 새 백업을 만든 기기가 8일 이상 지난 것을 지움
+    if(created){for(let i=BACKUP_KEEP;i<BACKUP_KEEP+10;i++){try{await deleteDoc(doc(db,'sessions','bk_'+kstDay(i)));}catch(e){}}}
   }catch(e){console.warn('자동 백업 실패(서버 규칙에서 막혀 있을 수 있어요)',e&&e.message);}
 }
 const AUDIT_L={'탑':'TOP','정글':'JUG','미드':'MID','원딜':'ADC','서폿':'SUP'};
@@ -3304,7 +3308,7 @@ function devReapplyAudit(){
 }
 async function devRestoreServerBackup(){
   const found=[];
-  for(let i=0;i<30;i++){
+  for(let i=0;i<BACKUP_KEEP;i++){
     const d=kstDay(i);
     try{const sn=await getDoc(doc(db,'sessions','bk_'+d));if(sn.exists()){const v=sn.data();found.push({d,players:v.players||[],matchLog:v.matchLog||[]});}}catch(e){if(i===0){alert('백업을 읽지 못했어요: '+(e&&e.message||e));return;}}
   }
