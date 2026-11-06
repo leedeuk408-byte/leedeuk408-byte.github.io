@@ -4063,7 +4063,7 @@ function seriesNext(swap){
   const n=(sr.games||[]).length+1;if(n>(sr.bestOf||3))return;
   const flipNext=(swap?1-(sr.flip?1:0):(sr.flip?1:0));
   const asgNext=sr.assignments.map(a=>({...a,team:a.team^flipNext}));
-  pushRemote({vote:null,currentMatch:{matchId:uid(),assignments:asgNext,sumA:sr.sumA,sumB:sr.sumB,diff:sr.diff,basicUsedBy:[],bonusUsedBy:[],rerollLog:[],pleadedBy:[],readyBy:[],locked:true,createdAt:Date.now(),basicAllowance:{},penalizedIds:[],deadlineAt:correctedNow()+MATCH_TIMER_MS,seriesId:sr.id,seriesGame:n,seriesFlip:flipNext}});
+  pushRemote({vote:null,currentMatch:{matchId:uid(),assignments:asgNext,sumA:flipNext?sr.sumB:sr.sumA,sumB:flipNext?sr.sumA:sr.sumB,diff:sr.diff,basicUsedBy:[],bonusUsedBy:[],rerollLog:[],pleadedBy:[],readyBy:[],locked:true,createdAt:Date.now(),basicAllowance:{},penalizedIds:[],deadlineAt:correctedNow()+MATCH_TIMER_MS,seriesId:sr.id,seriesGame:n,seriesFlip:flipNext}});
   auditPush([{t:'match',msg:'피어리스 '+n+'번째 판 시작'+(swap?' · 진영 교체':' · 진영 유지')}]);
 }
 function renderSeriesPanel(){
@@ -4107,7 +4107,10 @@ document.addEventListener('change',e=>{
   const other=asg.find(a=>a.team===me.team&&a.id!==me.id&&a.pos===want);
   if(other)other.pos=old;
   me.pos=want;
-  pushRemote({series:{...sr,assignments:asg}});
+  let sA=0,sB=0;const noTier=[];
+  asg.forEach(x=>{const pl=players.find(p=>p.id===x.id);if(!pl)return;if(pl.tiers[x.pos]==null)noTier.push(pl.name);const v=laneScore(pl,x.pos);if(x.team===0)sA+=v;else sB+=v;});
+  pushRemote({series:{...sr,assignments:asg,sumA:sA,sumB:sB,diff:Math.abs(sA-sB)}});
+  if(noTier.length)setTimeout(()=>alert('티어가 없는 라인에 배정된 사람이 있어요: '+noTier.join(', ')+'\n(점수 0으로 계산돼요)'),50);
   auditPush([{t:'match',msg:'피어리스 라인 변경 · '+seriesPlayerName(me.id)+' '+((POSITIONS.find(q=>q.key===old)||{}).label||old)+' → '+((POSITIONS.find(q=>q.key===want)||{}).label||want)+(other?' (↔ '+seriesPlayerName(other.id)+')':'')}]);
 });
 document.addEventListener('click',e=>{
