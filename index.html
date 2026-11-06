@@ -4033,21 +4033,72 @@ function renderProf(){
   const bars=PF_AXES.map(ax=>{const v=r.idx[ax.k];const cls=v>=110?'hi':v<=90?'lo':'mid';return `<div class="pf-bar"><span>${ax.label}</span><i><b class="${cls}" style="width:${Math.min(100,v/2)}%"></b></i><b>${Math.round(v)}</b></div>`;}).join('');
   const LB=k=>(POSITIONS.find(q=>q.key===k)||{}).label||k;
   const xbars=PF_EXTRA.map(ax=>{const v=r.idx[ax.k];const cls=v>=110?'hi':v<=90?'lo':'mid';return `<div class="pf-bar"><span>${ax.label}</span><i><b class="${cls}" style="width:${Math.min(100,v/2)}%"></b></i><b>${Math.round(v)}</b></div>`;}).join('');
-  // 해석 코멘트
-  const I=r.idx,notes=[];
-  if(I.dmg>=115&&I.surv<=92)notes.push('딜은 강하지만 데스가 많아요 → 공격적인 스타일, 포지셔닝·생존이 과제예요.');
-  if(I.dmg>=115&&I.surv>=105)notes.push('딜도 높고 잘 죽지도 않아요 → 안정적인 캐리 스타일이에요.');
-  if(I.dmg<=88&&I.tank>=110)notes.push('딜은 낮지만 피해를 많이 받아줘요 → 앞라인(탱커/브루저) 역할에 가까워요.');
-  if(I.vis>=115)notes.push('시야 점수가 높아요 → 와드·시야 관리를 잘해요.');
-  if(I.vis<=85)notes.push('시야 점수가 낮아요 → 와드·제어와드 습관을 더 챙기면 좋아요.');
-  if(I.cc>=115)notes.push('CC(군중제어) 기여가 높아요 → 이니시·교전 설계에 강해요.');
-  if(I.kp>=112)notes.push('킬관여가 높아요 → 팀 교전에 적극적으로 참여해요.');
-  if(I.kp<=88)notes.push('킬관여가 낮아요 → 교전 합류·로밍이 늦거나 라인에 머무는 편이에요.');
-  if(I.gold>=110)notes.push('성장(골드/분)이 좋아요 → 라인 관리·파밍이 안정적이에요.');
-  if(I.gold<=90)notes.push('성장(골드/분)이 낮아요 → 파밍·오브젝트 골드 수급이 부족해요.');
-  if(I.eff>=115)notes.push('골드 대비 딜 효율이 좋아요 → 아이템 대비 화력이 높아요.');
-  if(I.eff<=85)notes.push('골드 대비 딜 효율이 낮아요 → 템 대비 딜 기여가 아쉬워요.');
-  if(!notes.length)notes.push('눈에 띄는 쏠림 없이 라인 평균 수준이에요. 기록이 더 쌓이면 특징이 뚜렷해져요.');
+  // 해석 코멘트 (유형 + 영역별 문장)
+  const I=r.idx;const pctTxt=v=>Math.abs(Math.round(v-100))+'%';
+  const ins=[];const add=(tag,t)=>ins.push({tag,t});
+  // 1) 플레이 유형
+  let type=null;
+  if(I.dmg>=115&&I.surv>=100)type=['🗡️ 안정적인 캐리형','딜을 넣으면서도 잘 죽지 않아요.'];
+  else if(I.dmg>=110&&I.surv<=92)type=['🔥 공격적인 돌격형','딜은 강하지만 데스가 많은 하이리스크 스타일이에요.'];
+  else if(I.tank>=115&&I.dmg<=100)type=['🛡️ 앞라인 탱커형','피해를 받아내며 팀의 앞을 서요.'];
+  else if(I.vis>=120&&I.dmg<=90)type=['👁️ 시야·서포트형','딜보다 시야·맵 관리로 기여해요.'];
+  else if(I.cc>=115&&I.kp>=105)type=['⚡ 이니시·교전 설계형','CC로 교전을 열고 합류가 빨라요.'];
+  else if(I.gold>=112&&I.kp<=95)type=['🌾 성장 중심형','파밍은 좋지만 교전 합류는 적은 편이에요.'];
+  else if(I.kp>=115)type=['🤝 교전 참여형','팀 교전마다 빠지지 않고 합류해요.'];
+  else if(PF_AXES.every(ax=>I[ax.k]>=90&&I[ax.k]<=110))type=['⚖️ 올라운더형','어느 쪽으로도 치우치지 않은 균형형이에요.'];
+  else type=['🔎 특징 파악 중','뚜렷한 한 가지 유형보다 여러 성향이 섞여 있어요.'];
+  add('유형',type[0]+' — '+type[1]);
+  // 2) 가장 두드러진 영역
+  const srt=PF_AXES.concat(PF_EXTRA).map(ax=>({ax,v:I[ax.k]})).sort((a,b)=>b.v-a.v);
+  const top=srt[0],bot=srt[srt.length-1];
+  if(top.v>=110)add('강점',top.ax.label+' 지표가 같은 라인 평균보다 '+pctTxt(top.v)+' 높아 가장 두드러져요.');
+  if(bot.v<=90)add('약점',bot.ax.label+' 지표가 같은 라인 평균보다 '+pctTxt(bot.v)+' 낮아 가장 아쉬워요.');
+  if(I.dmg>=115&&I.surv<=92)add('습관','딜은 높지만 데스가 많아요 → 교전 후반 포지셔닝과 무리한 진입을 줄이면 더 올라가요.');
+  if(I.dmg<=88&&I.tank>=110)add('역할','딜은 낮지만 받은 피해가 많아요 → 브루저·탱커 역할에 충실한 편이에요.');
+  if(I.vis>=115)add('시야','시야 점수가 높아요 → 와드·제어와드 관리를 잘해요.');
+  if(I.vis<=85)add('시야','시야 점수가 낮아요 → 제어와드와 와드 설치 습관을 챙기면 좋아요.');
+  if(I.cc>=115)add('CC','CC 기여가 높아요 → 교전을 여는 역할에 강해요.');
+  if(I.cc<=80)add('CC','CC 기여가 낮아요 → 군중제어가 약한 챔피언을 쓰거나 기여가 적어요.');
+  if(I.kp>=112)add('교전','킬관여가 높아요 → 팀 교전에 적극적으로 합류해요.');
+  if(I.kp<=88)add('교전','킬관여가 낮아요 → 합류·로밍이 늦거나 라인에 머무는 편이에요.');
+  if(I.gold>=110)add('성장','골드 수급이 좋아요 → 라인 관리·파밍이 안정적이에요.');
+  if(I.gold<=90)add('성장','골드 수급이 낮아요 → 파밍·오브젝트 골드가 부족해요.');
+  if(I.eff>=115)add('효율','골드 대비 딜 효율이 높아요 → 아이템 대비 화력이 좋아요.');
+  if(I.eff<=85)add('효율','골드 대비 딜 효율이 낮아요 → 템 대비 딜 기여가 아쉬워요.');
+  if(I.share>=118)add('역할','팀 딜의 큰 비중을 책임져요 → 캐리 부담이 큰 편이라 이 선수가 무너지면 팀 딜도 같이 줄어요.');
+  // 3) 승패 패턴
+  if(r.winS&&r.loseS&&r.winS.n>=2&&r.loseS.n>=1){
+    const dr=r.winS.dpm/Math.max(r.loseS.dpm,1);const dd=r.loseS.d-r.winS.d;
+    if(dr>=1.4)add('승패','이기는 판은 분당 딜이 '+Math.round((dr-1)*100)+'% 더 높아요 → 이 선수가 잘 풀려야 이기는 경향이에요.');
+    else if(dr<=0.85)add('승패','지는 판에서도 딜은 오히려 비슷하거나 높아요 → 이 선수 때문에 지는 판은 적어요.');
+    if(dd>=2)add('승패','지는 판에는 데스가 평균 '+dd.toFixed(1)+'개 늘어요 → 불리할 때 무리하는 경향이 있어요.');
+    if(r.loseS.kda<1.5&&r.winS.kda>=3.5)add('승패','이길 땐 KDA '+r.winS.kda.toFixed(1)+', 질 땐 '+r.loseS.kda.toFixed(1)+' → 기복이 큰 편이에요.');
+  }
+  // 4) 경기 시간
+  const dS=r.dur.short,dL=r.dur.long;
+  if(dS&&dL&&dS.n>=2&&dL.n>=2){const a=dS.w/dS.n,b=dL.w/dL.n;
+    if(a-b>=0.3)add('운영','짧은 경기에서 승률이 더 높아요 → 초중반 강세, 후반 약세 타입이에요.');
+    if(b-a>=0.3)add('운영','긴 경기에서 승률이 더 높아요 → 후반 캐리 타입이에요.');}
+  // 5) 라인전
+  if(r.matchup&&r.matchup.n>=3){const m=r.matchup,wr=m.goldWin/m.n;
+    if(wr>=0.7)add('라인전','맞라인 상대보다 골드가 앞선 판이 '+m.goldWin+'/'+m.n+' → 라인전이 강해요.');
+    else if(wr<=0.3)add('라인전','맞라인 상대에게 골드가 밀린 판이 많아요('+(m.n-m.goldWin)+'/'+m.n+') → 라인전 보완이 필요해요.');
+    if(m.dmg>=300)add('라인전','맞라인 상대보다 분당 딜이 평균 '+Math.round(m.dmg)+' 높아요.');
+  }
+  // 6) 챔피언 폭
+  const ce=Object.entries(r.champs);
+  if(ce.length&&r.n>=6){const mx=Math.max(...ce.map(x=>x[1].n));
+    if(mx/r.n>=0.6)add('챔피언','한 챔피언을 '+Math.round(100*mx/r.n)+'% 쓰는 원트릭 성향이에요.');
+    else if(ce.length>=r.n-1)add('챔피언','거의 매판 다른 챔피언을 써요 → 챔피언 폭이 넓어요.');}
+  // 7) 라인별 비교 (전체 라인 보기일 때)
+  if(PF.lane==='ALL'){const sc=Object.keys(rAll.lanes).filter(k=>rAll.lanes[k]>=2).map(k=>{const q=pfAnalyze(PF.pid,k);const mean=PF_AXES.reduce((s,ax)=>s+q.idx[ax.k],0)/PF_AXES.length;return {k,mean,n:q.n};}).sort((a,b)=>b.mean-a.mean);
+    if(sc.length>=2&&sc[0].mean-sc[sc.length-1].mean>=8)add('라인',LBL(sc[0].k)+' 라인에서 가장 잘했고('+Math.round(sc[0].mean)+'), '+LBL(sc[sc.length-1].k)+'에서는 아쉬웠어요('+Math.round(sc[sc.length-1].mean)+').');}
+  // 8) 한 줄 조언
+  const weakAx=srt.filter(x=>PF_AXES.includes(x.ax)).slice(-1)[0];
+  const tips={dmg:'교전에서 딜 기회를 더 만들어 보세요(안전한 거리에서 꾸준히 딜).',tank:'탱커·브루저라면 앞에서 피해를 받아주는 타이밍을 늘려 보세요.',vis:'와드·제어와드를 귀환마다 설치하는 습관을 들여 보세요.',cc:'CC 스킬 연계와 이니시 타이밍을 의식해 보세요.',kp:'오브젝트·교전 타이밍에 맞춰 합류 속도를 높여 보세요.',gold:'라인 CS와 웨이브 관리, 오브젝트 골드를 더 챙겨 보세요.',surv:'위험 구간에서 한 박자 빠르게 빠지는 연습이 도움이 돼요.'};
+  if(weakAx&&weakAx.v<=95)add('조언',tips[weakAx.ax.k]);
+  if(ins.length<3)add('참고','기록이 더 쌓이면 승패·라인전·시간대 같은 해석이 더 다양하게 나와요.');
+  const notes=ins.map(x=>'<b style="color:var(--ink-dim);font-size:.75rem;margin-right:6px">'+x.tag+'</b>'+x.t);
   const f1=v=>v.toFixed(1),sg=v=>(v>=0?'+':'')+v.toFixed(1);
   const sTbl=(r.winS||r.loseS)?`<table class="pf-raw" style="margin-top:12px"><tr><th>결과별</th><th>판</th><th>K/D/A</th><th>KDA</th><th>분당 딜</th><th>분당 골드</th><th>킬관여</th></tr>${[['승리',r.winS],['패배',r.loseS]].filter(z=>z[1]).map(([t,x])=>`<tr><td>${t}</td><td>${x.n}</td><td>${f1(x.k)}/${f1(x.d)}/${f1(x.aa)}</td><td>${x.kda.toFixed(2)}</td><td>${Math.round(x.dpm)}</td><td>${Math.round(x.gpm)}</td><td>${Math.round(x.kp)}%</td></tr>`).join('')}</table>`:'';
   const durTbl=`<table class="pf-raw" style="margin-top:12px"><tr><th>경기 시간</th><th>판</th><th>승률</th><th>KDA</th></tr>${[['25분 미만',r.dur.short],['25~35분',r.dur.mid],['35분 이상',r.dur.long]].filter(x=>x[1]).map(([t,x])=>`<tr><td>${t}</td><td>${x.n}</td><td>${Math.round(100*x.w/x.n)}%</td><td>${x.kda.toFixed(2)}</td></tr>`).join('')}</table>`;
