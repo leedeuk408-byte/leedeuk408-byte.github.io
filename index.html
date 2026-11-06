@@ -3047,6 +3047,7 @@ function renderDevPanel(){
           <button class="ghost" id="devPtRevoke">회수하기</button>
           <button class="ghost" id="devPtAll">전체 지급</button>
           <button class="ghost" id="devPtReset" style="color:var(--loss-ink)">전체 100P로 초기화</button>
+          <button class="ghost" id="devRefundAll" style="color:var(--loss-ink)">구매 내역 전부 환불</button>
         </div>
         <div id="devPtNow" class="dev-now"></div>
         <div id="devPtResult" class="dev-result" aria-live="polite"></div>
@@ -3082,6 +3083,7 @@ function renderDevPanel(){
     document.getElementById("devPtRevoke").onclick=()=>devAdjustPoints(-ptQty(),false);
     document.getElementById("devPtAll").onclick=()=>devAdjustPoints(ptQty(),true);
     document.getElementById("devPtReset").onclick=devResetPoints;
+    document.getElementById("devRefundAll").onclick=devRefundAll;
   }
   { const ps=document.getElementById("devPtSel"),pv=ps.value;ps.innerHTML=players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");if(pv&&players.some(p=>p.id===pv))ps.value=pv;devPtNow(); }
   renderDevRestore();
@@ -3284,6 +3286,22 @@ async function devRestoreServerBackup(){
   updateDoc(sessionRef,{players:f.players,matchLog:f.matchLog}).then(()=>alert('복구했어요. 새로고침하면 반영돼요.')).catch(e=>alert('실패했어요: '+(e&&e.message||e))).finally(()=>{window.__bootstrapPush=false;});
 }
 
+function devRefundAll(){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  const out=document.getElementById("devPtResult");
+  if(!confirm("모든 선수가 지금까지 산 것(스킨·아이템)을 전부 환불할까요?\n· 사용한 포인트가 전부 돌아와요\n· 산 스킨/아이템과 착용 중인 스킨은 모두 사라져요\n· 예약된 아이템도 취소돼요"))return;
+  runTransaction(db, async(tx)=>{
+    const snap=await tx.get(sessionRef);const data=snap.data()||{};
+    const fp=(data.players||[]).map(p=>{
+      const rr=((p.buys||{}).reroll)||0;
+      return {...p,skins:[],eq:{},paid:{},buys:{},used:{},bonusGranted:Math.max(0,(p.bonusGranted||0)-rr)};
+    });
+    tx.update(sessionRef,{players:fp,itemQueue:[],auditLog:auditAppend(data,[{t:'dev',msg:'구매 내역 전부 환불 (스킨·아이템 회수, 포인트 반환)'}])});
+  }).then(()=>{
+    if(out){out.textContent="구매 내역을 전부 환불했어요";out.style.color="var(--win-ink)";}
+    setTimeout(devPtNow,400);
+  }).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
+}
 function devResetPoints(){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const out=document.getElementById("devPtResult");
