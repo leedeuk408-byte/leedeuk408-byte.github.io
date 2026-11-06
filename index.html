@@ -1175,7 +1175,7 @@ function pushRemote(partial){
     return;
   }
   // 안전장치: 서버에 선수가 있는데 빈 명단으로 덮어쓰려는 저장은 막음
-  if(partial&&Array.isArray(partial.players)&&partial.players.length===0&&(remote.players||[]).length>=3&&!window.__allowEmptyPush){
+  if(partial&&Array.isArray(partial.players)&&partial.players.length===0&&!window.__allowEmptyPush){
     if(window.__showErr)window.__showErr('빈 명단으로 덮어쓰는 저장을 막았어요. 새로고침해서 다시 시도해주세요.');
     return;
   }
@@ -1197,6 +1197,9 @@ function pushRemote(partial){
 
 onSnapshot(sessionRef, (snap)=>{
   if(!snap.exists()){
+    // 인터넷이 불안정할 때 서버 확인 없이 "문서 없음"으로 오는 임시 응답이면 무시 (이때 빈 명단을 서버에 써서 지워버리던 문제 방지)
+    if(snap.metadata&&snap.metadata.fromCache)return;
+    if(!players||players.length<3)return;
     // first time: initialize the shared doc with whatever we have locally (migration from old localStorage-only version)
     window.__bootstrapPush=true;try{pushRemote({ players: players||[], matchLog: state.matchLog||[], currentMatch: null, vote: null });}finally{window.__bootstrapPush=false;}
     setTimeout(sendClockPing, 500);
