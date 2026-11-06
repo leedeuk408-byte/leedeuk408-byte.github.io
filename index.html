@@ -4025,18 +4025,19 @@ function seriesRecordGame(winners){
   const asg=cm.assignments||[];
   const first=winners[0]&&asg.find(a=>a.id===winners[0].player.id);
   if(!first)return;
-  const winTeam=first.team,n=(sr.games||[]).length+1;
+  const flip=cm.seriesFlip?1:0;
+  const winTeam=first.team,winGrp=winTeam^flip,n=(sr.games||[]).length+1; // winTeam=이번 판 진영, winGrp=시작 진영 기준 팀
   const champs={};const used=[...(sr.used||[])];const viol=[...(sr.violations||[])];
   const lockedBefore=new Set(used.map(u=>u.champ));
   asg.forEach(a=>{const c=champOf(a.id);if(!c)return;champs[a.id]=c;
     if(lockedBefore.has(c))viol.push({game:n,champ:c,by:a.id});
-    if(!used.some(u=>u.champ===c))used.push({champ:c,team:a.team,by:a.id,game:n});});
-  const wins=[...(sr.wins||[0,0])];wins[winTeam]++;
-  const games=[...(sr.games||[]),{n,ts:Date.now(),winTeam,champs}];
+    if(!used.some(u=>u.champ===c))used.push({champ:c,team:a.team^flip,by:a.id,game:n});});
+  const wins=[...(sr.wins||[0,0])];wins[winGrp]++;
+  const games=[...(sr.games||[]),{n,ts:Date.now(),winTeam,winGrp,flip,champs}];
   const done=wins[0]>=2||wins[1]>=2||games.length>=3;
-  const next={...sr,games,used,violations:viol,wins,status:done?'done':'active'};
+  const next={...sr,games,used,violations:viol,wins,flip,status:done?'done':'active'};
   pushRemote({series:next});
-  auditPush([{t:'match',msg:'피어리스 '+n+'판 종료 · '+(winTeam===0?'블루':'레드')+' 승 ('+wins[0]+':'+wins[1]+')'+(done?' · 시리즈 종료':'')+(viol.length>(sr.violations||[]).length?' · 이미 쓴 챔피언 사용 감지':'')}]);
+  auditPush([{t:'match',msg:'피어리스 '+n+'판 종료 · '+(winTeam===0?'블루':'레드')+' 진영 승 ['+(winGrp===0?'블루':'레드')+' 시작팀] ('+wins[0]+':'+wins[1]+')'+(done?' · 시리즈 종료':'')+(viol.length>(sr.violations||[]).length?' · 이미 쓴 챔피언 사용 감지':'')}]);
 }
 function seriesStart(){
   const cm=remote.currentMatch;if(!cm||!cm.locked||remote.series)return;
@@ -4045,12 +4046,14 @@ function seriesStart(){
   pushRemote({series:sr,'currentMatch.seriesId':sr.id,'currentMatch.seriesGame':1});
   auditPush([{t:'match',msg:'피어리스 3판 2선 시작'}]);
 }
-function seriesNext(){
+function seriesNext(swap){
   const sr=remote.series;if(!sr||sr.status!=='active'||remote.currentMatch)return;
   if(remote.vote&&remote.vote.active)return;
   const n=(sr.games||[]).length+1;if(n>3)return;
-  pushRemote({vote:null,currentMatch:{matchId:uid(),assignments:sr.assignments,sumA:sr.sumA,sumB:sr.sumB,diff:sr.diff,basicUsedBy:[],bonusUsedBy:[],rerollLog:[],pleadedBy:[],readyBy:[],locked:true,createdAt:Date.now(),basicAllowance:{},penalizedIds:[],deadlineAt:correctedNow()+MATCH_TIMER_MS,seriesId:sr.id,seriesGame:n}});
-  auditPush([{t:'match',msg:'피어리스 '+n+'번째 판 시작'}]);
+  const flipNext=(swap?1-(sr.flip?1:0):(sr.flip?1:0));
+  const asgNext=sr.assignments.map(a=>({...a,team:a.team^flipNext}));
+  pushRemote({vote:null,currentMatch:{matchId:uid(),assignments:asgNext,sumA:sr.sumA,sumB:sr.sumB,diff:sr.diff,basicUsedBy:[],bonusUsedBy:[],rerollLog:[],pleadedBy:[],readyBy:[],locked:true,createdAt:Date.now(),basicAllowance:{},penalizedIds:[],deadlineAt:correctedNow()+MATCH_TIMER_MS,seriesId:sr.id,seriesGame:n,seriesFlip:flipNext}});
+  auditPush([{t:'match',msg:'피어리스 '+n+'번째 판 시작'+(swap?' · 진영 교체':' · 진영 유지')}]);
 }
 function renderSeriesPanel(){
   const box=document.getElementById('seriesPanel');if(!box)return;
@@ -4060,27 +4063,29 @@ function renderSeriesPanel(){
   const w=sr.wins||[0,0],games=sr.games||[],done=sr.status==='done';
   const cm=remote.currentMatch,playing=cm&&cm.seriesId===sr.id;
   const nm=id=>escapeHtml(seriesPlayerName(id));
-  const winner=done?(w[0]>w[1]?'블루':(w[1]>w[0]?'레드':'무승부')):'';
+  const winner=done?(w[0]>w[1]?'블루 시작팀':(w[1]>w[0]?'레드 시작팀':'무승부')):'';
   const gameRows=games.map(g=>{
     const chips=[0,1].map(t=>'<span class="sr-team t'+t+'">'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>g.champs&&g.champs[a.id]?chImg(g.champs[a.id],'sr-img'):'<i class="sr-img sr-none">?</i>').join('')+'</span>').join('<b class="sr-vs">vs</b>');
-    return '<div class="sr-game"><span class="sr-n">'+g.n+'판</span>'+chips+'<span class="sr-win t'+g.winTeam+'">'+(g.winTeam===0?'블루':'레드')+' 승</span></div>';}).join('');
+    const grp=g.winGrp!=null?g.winGrp:g.winTeam;return '<div class="sr-game"><span class="sr-n">'+g.n+'판</span>'+chips+'<span class="sr-win t'+grp+'">'+(grp===0?'블루':'레드')+' 시작팀 승'+(g.flip?' (진영 교체)':'')+'</span></div>';}).join('');
   const lock=(sr.used||[]).map(u=>'<span class="sr-lock t'+u.team+'" title="'+escapeHtml(chName(u.champ))+' · '+u.game+'판 · '+nm(u.by)+'">'+chImg(u.champ,'sr-img')+'<em>'+u.game+'</em></span>').join('');
   const viol=(sr.violations||[]).map(v=>'<div class="sr-viol">'+v.game+'판 · '+nm(v.by)+' — 이미 쓴 '+escapeHtml(chName(v.champ))+' 사용</div>').join('');
   const canNext=!done&&!cm&&!(remote.vote&&remote.vote.active)&&games.length<3;
   const ctrl=done?'<button class="primary" id="seriesCloseBtn">시리즈 정리하기</button>'
-    :(canNext?'<button class="primary" id="seriesNextBtn">'+(games.length+1)+'번째 판 시작</button>'
+    :(canNext?'<button class="primary" id="seriesNextBtn">'+(games.length+1)+'번째 판 시작 (진영 유지)</button> <button class="ghost" id="seriesSwapBtn">진영 바꿔서 시작</button>'
     :'<span class="sr-note">'+(playing?(cm.seriesGame||games.length+1)+'번째 판 진행 중 · 끝나면 "롤 결과 자동 가져오기"로 기록하세요':'투표가 끝나면 다음 판을 시작할 수 있어요')+'</span>');
   box.innerHTML='<div class="card sr-card"><div class="sr-head"><div><span class="sr-eyebrow">FEARLESS · BEST OF 3</span><h3>'+(done?'시리즈 종료 · '+winner+' 승리':'피어리스 3판 2선')+'</h3></div>'
     +'<div class="sr-score"><span class="t0">'+w[0]+'</span><i>:</i><span class="t1">'+w[1]+'</span></div></div>'
+    +(games.length?'<div class="sr-note" style="margin:-4px 0 8px;text-align:right">점수는 처음 진영 기준 (블루 시작팀 : 레드 시작팀)</div>':'')
     +(gameRows?'<div class="sr-games">'+gameRows+'</div>':'')
     +'<div class="sr-lockhead">잠긴 챔피언 <b>'+(sr.used||[]).length+'</b>개 <small>· 다음 판에 양 팀 모두 사용 불가</small></div>'
     +(lock?'<div class="sr-locks">'+lock+'</div>':'<div class="sr-note">아직 쓴 챔피언이 없어요. 1판을 롤 결과 자동 가져오기로 기록하면 여기에 잠겨요.</div>')
     +viol+'<div class="sr-ctrl">'+ctrl+(done?'':'<button class="icon-btn" id="seriesAbortBtn" style="text-decoration:underline;color:var(--ink-dim)">시리즈 중단</button>')+'</div></div>';
 }
 document.addEventListener('click',e=>{
-  const b=e.target.closest&&e.target.closest('#seriesStartBtn,#seriesNextBtn,#seriesCloseBtn,#seriesAbortBtn');if(!b)return;
+  const b=e.target.closest&&e.target.closest('#seriesStartBtn,#seriesNextBtn,#seriesSwapBtn,#seriesCloseBtn,#seriesAbortBtn');if(!b)return;
   if(b.id==='seriesStartBtn')seriesStart();
-  else if(b.id==='seriesNextBtn')seriesNext();
+  else if(b.id==='seriesNextBtn')seriesNext(false);
+  else if(b.id==='seriesSwapBtn')seriesNext(true);
   else if(b.id==='seriesCloseBtn'){pushRemote({series:null});}
   else if(b.id==='seriesAbortBtn'){if(confirm('시리즈를 중단할까요? (이미 기록된 경기는 그대로 남아요)')){pushRemote({series:null});auditPush([{t:'match',msg:'피어리스 시리즈 중단'}]);}}
 });
