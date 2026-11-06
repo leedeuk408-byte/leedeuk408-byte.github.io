@@ -1156,7 +1156,7 @@ let pingRetries=0;
 const pingRetryTimer=setInterval(()=>{ if(bestPingRtt!==Infinity||++pingRetries>10){clearInterval(pingRetryTimer);return;} sendClockPing(); },3000);
 
 function offerRecovery(){
-  if(!devUnlocked()){ if(window.__showErr)window.__showErr('서버 선수 명단이 비어 있어요. 직접 복구하지 말고 운영자에게 알려주세요.'); return; }
+  if(!devUnlocked())return;
   let cands=[];
   try{ if(BOOT_LOCAL&&BOOT_LOCAL.players&&BOOT_LOCAL.players.length>=3)cands.push({label:'이 기기에 저장된 마지막 명단',players:BOOT_LOCAL.players,matchLog:BOOT_LOCAL.matchLog||[]}); }catch(e){}
   try{ const g=JSON.parse(localStorage.getItem('lol_lastgood')||'null'); if(g&&g.players&&g.players.length>=3)cands.push({label:'이 기기의 마지막 정상 데이터('+new Date(g.ts).toLocaleString('ko-KR')+')',players:g.players,matchLog:g.matchLog||[]}); }catch(e){}
@@ -1233,7 +1233,6 @@ onSnapshot(sessionRef, (snap)=>{
   remote.players = data.players || [];
   remote.matchLog = data.matchLog || [];
   try{ if(remote.players.length>=3) localStorage.setItem('lol_lastgood',JSON.stringify({ts:Date.now(),players:remote.players,matchLog:remote.matchLog})); }catch(e){}
-  if(remote.players.length===0&&!window.__recoveryAsked){ window.__recoveryAsked=true; setTimeout(offerRecovery,600); }
   remote.series = data.series || null;
   remote.itemQueue = data.itemQueue || [];
   remote.currentMatch = data.currentMatch || null;
@@ -3087,7 +3086,7 @@ function renderDevPanel(){
       </div>
       <div class="card dev-card"><h2>데이터 복구</h2>
         <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업으로 되돌려요.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button></div>
       </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
         <div id="devRestoreList"></div>
@@ -3097,6 +3096,7 @@ function renderDevPanel(){
     document.getElementById("devScanLocalBtn").onclick=devScanLocalBackup;
     document.getElementById("devReplayBtn").onclick=devReapplyAudit;
     document.getElementById("devBkBtn").onclick=devRestoreServerBackup;
+    document.getElementById("devLocalBtn").onclick=offerRecovery;
     sel.onchange=updateDevCount;
     const qtyEl=document.getElementById("devQty");
     const getQty=()=>Math.min(10,Math.max(1,parseInt(qtyEl.value,10)||1));
