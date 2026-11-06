@@ -4077,7 +4077,7 @@ function renderSeriesPanel(){
   const winner=done?(w[0]>w[1]?'블루 시작팀':(w[1]>w[0]?'레드 시작팀':'무승부')):'';
   const gameRows=games.map(g=>{
     const chips=[0,1].map(t=>'<span class="sr-team t'+t+'">'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>g.champs&&g.champs[a.id]?chImg(g.champs[a.id],'sr-img'):'<i class="sr-img sr-none">?</i>').join('')+'</span>').join('<b class="sr-vs">vs</b>');
-    const grp=g.winGrp!=null?g.winGrp:g.winTeam;return '<div class="sr-game"><span class="sr-n">'+g.n+'판</span>'+chips+'<span class="sr-win t'+grp+'">'+(grp===0?'블루':'레드')+' 시작팀 승'+(g.flip?' (진영 교체)':'')+'</span></div>';}).join('');
+    const grp=g.winGrp!=null?g.winGrp:g.winTeam;return '<div class="sr-game"><span class="sr-n">'+g.n+'판</span>'+chips+'<span class="sr-win t'+grp+'">'+(grp===0?'블루':'레드')+' 시작팀 승'+(g.flip?' (진영 교체)':'')+'</span><button type="button" class="icon-btn sr-fix" data-n="'+g.n+'" style="text-decoration:underline;color:var(--ink-dim);font-size:11px;margin-left:6px">승패 수정</button></div>';}).join('');
   const lock=(sr.used||[]).map(u=>'<span class="sr-lock t'+u.team+'" title="'+escapeHtml(chName(u.champ))+' · '+u.game+'판 · '+nm(u.by)+'">'+chImg(u.champ,'sr-img')+'<em>'+u.game+'</em></span>').join('');
   const viol=(sr.violations||[]).map(v=>'<div class="sr-viol">'+v.game+'판 · '+nm(v.by)+' — 이미 쓴 '+escapeHtml(chName(v.champ))+' 사용</div>').join('');
   const canNext=!done&&!cm&&!(remote.vote&&remote.vote.active)&&games.length<(sr.bestOf||3);
@@ -4114,6 +4114,19 @@ document.addEventListener('change',e=>{
   pushRemote({series:{...sr,assignments:asg,sumA:sA,sumB:sB,diff:nd}});
   if(noTier.length)setTimeout(()=>alert('티어가 없는 라인에 배정된 사람이 있어요: '+noTier.join(', ')+'\n(점수 0으로 계산돼요)'),50);
   auditPush([{t:'match',msg:'피어리스 라인 변경 · '+seriesPlayerName(me.id)+' '+((POSITIONS.find(q=>q.key===old)||{}).label||old)+' → '+((POSITIONS.find(q=>q.key===want)||{}).label||want)+(other?' (↔ '+seriesPlayerName(other.id)+')':'')}]);
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('.sr-fix');if(!b)return;
+  const sr=remote.series;if(!sr)return;
+  const n=parseInt(b.dataset.n,10);const g=(sr.games||[]).find(x=>x.n===n);if(!g)return;
+  const cur=g.winGrp!=null?g.winGrp:g.winTeam;
+  if(!confirm(n+'판 승리를 '+(cur===0?'블루':'레드')+' 시작팀 → '+(cur===0?'레드':'블루')+' 시작팀으로 바꿀까요?\n(전적·포인트는 바뀌지 않고 피어리스 점수만 고쳐요)'))return;
+  const games=sr.games.map(x=>x.n===n?{...x,winGrp:1-cur,winTeam:(1-cur)^(x.flip?1:0)}:x);
+  const wins=[0,0];games.forEach(x=>wins[x.winGrp!=null?x.winGrp:x.winTeam]++);
+  const need=Math.ceil((sr.bestOf||3)/2);
+  const done=wins[0]>=need||wins[1]>=need||games.length>=(sr.bestOf||3);
+  pushRemote({series:{...sr,games,wins,status:done?'done':'active'}});
+  auditPush([{t:'match',msg:'피어리스 '+n+'판 승팀 수정 → '+(cur===0?'레드':'블루')+' 시작팀 ('+wins[0]+':'+wins[1]+')'}]);
 });
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('#swapSidesBtn');if(!b)return;
