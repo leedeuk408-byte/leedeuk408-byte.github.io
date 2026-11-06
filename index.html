@@ -773,6 +773,14 @@ h2,h3,h4{letter-spacing:-.01em}
   .item-strip{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2);font-size:.82rem}
   .item-strip:empty{display:none}
   .is-tag{padding:3px 10px;border-radius:999px;border:1px solid var(--ul);font-weight:700}
+  .sr-lanes{margin:12px 0 4px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--panel-2)}
+  .sr-lanes summary{cursor:pointer;font-weight:700;font-size:.88rem}
+  .sr-lanes summary small{font-weight:500;color:var(--ink-dim)}
+  .sr-lcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+  .sr-lcol .t0{color:var(--blue-ink)} .sr-lcol .t1{color:var(--red-ink)}
+  .sr-lrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:.85rem}
+  .sr-lane-sel{background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:4px 8px;border-radius:8px;font:inherit;font-size:.82rem}
+  @media(max-width:560px){.sr-lcols{grid-template-columns:1fr}}
   body,.card,.side,.modal,.vs-cell,.roster-item,.ct-hero,.shop-item{transition:background-color .35s,color .35s,border-color .35s}
 
   /* ===== 가시성 보정 (라이트/다크 공통 대비 개선) ===== */
@@ -4075,14 +4083,32 @@ function renderSeriesPanel(){
   const ctrl=done?'<button class="primary" id="seriesCloseBtn">시리즈 정리하기</button>'
     :(canNext?'<button class="primary" id="seriesNextBtn">'+(games.length+1)+'번째 판 시작 (진영 유지)</button> <button class="ghost" id="seriesSwapBtn">진영 바꿔서 시작</button>'
     :'<span class="sr-note">'+(playing?(cm.seriesGame||games.length+1)+'번째 판 진행 중 · 끝나면 "롤 결과 자동 가져오기"로 기록하세요':'투표가 끝나면 다음 판을 시작할 수 있어요')+'</span>');
+  // 다음 판 시작 전에: 같은 팀 안에서 라인을 서로 바꿀 수 있어요
+  const laneEd=canNext?(()=>{
+    const col=t=>'<div class="sr-lcol"><b class="t'+t+'">'+(t===0?'블루 시작팀':'레드 시작팀')+'</b>'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>'<label class="sr-lrow"><span>'+nm(a.id)+'</span><select class="sr-lane-sel" data-pid="'+a.id+'">'+POSITIONS.map(q=>'<option value="'+q.key+'"'+(q.key===a.pos?' selected':'')+'>'+q.label+'</option>').join('')+'</select></label>').join('')+'</div>';
+    return '<details class="sr-lanes" id="srLaneDet"'+(window.__srLaneOpen?' open':'')+'><summary>라인 바꾸기 <small>· 같은 팀 안에서 서로 맞바꿔요 · 다음 판부터 적용</small></summary><div class="sr-lcols">'+col(0)+col(1)+'</div></details>';
+  })():'';
   box.innerHTML='<div class="card sr-card"><div class="sr-head"><div><span class="sr-eyebrow">FEARLESS · BEST OF '+(sr.bestOf||3)+'</span><h3>'+(done?'시리즈 종료 · '+winner+' 승리':'피어리스 '+(sr.bestOf||3)+'판 '+Math.ceil((sr.bestOf||3)/2)+'선')+'</h3></div>'
     +'<div class="sr-score"><span class="t0">'+w[0]+'</span><i>:</i><span class="t1">'+w[1]+'</span></div></div>'
     +(games.length?'<div class="sr-note" style="margin:-4px 0 8px;text-align:right">점수는 처음 진영 기준 (블루 시작팀 : 레드 시작팀)</div>':'')
     +(gameRows?'<div class="sr-games">'+gameRows+'</div>':'')
     +'<div class="sr-lockhead">잠긴 챔피언 <b>'+(sr.used||[]).length+'</b>개 <small>· 다음 판에 양 팀 모두 사용 불가</small></div>'
     +(lock?'<div class="sr-locks">'+lock+'</div>':'<div class="sr-note">아직 쓴 챔피언이 없어요. 1판을 롤 결과 자동 가져오기로 기록하면 여기에 잠겨요.</div>')
-    +viol+'<div class="sr-ctrl">'+ctrl+(done?'':'<button class="icon-btn" id="seriesAbortBtn" style="text-decoration:underline;color:var(--ink-dim)">시리즈 중단</button>')+'</div></div>';
+    +viol+laneEd+'<div class="sr-ctrl">'+ctrl+(done?'':'<button class="icon-btn" id="seriesAbortBtn" style="text-decoration:underline;color:var(--ink-dim)">시리즈 중단</button>')+'</div></div>';
 }
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='srLaneDet')window.__srLaneOpen=e.target.open;},true);
+document.addEventListener('change',e=>{
+  const sel=e.target;if(!sel||!sel.classList||!sel.classList.contains('sr-lane-sel'))return;
+  const sr=remote.series;if(!sr||sr.status!=='active'||remote.currentMatch)return;
+  const asg=(sr.assignments||[]).map(a=>({...a}));
+  const me=asg.find(a=>a.id===sel.dataset.pid);if(!me)return;
+  const want=sel.value,old=me.pos;
+  const other=asg.find(a=>a.team===me.team&&a.id!==me.id&&a.pos===want);
+  if(other)other.pos=old;
+  me.pos=want;
+  pushRemote({series:{...sr,assignments:asg}});
+  auditPush([{t:'match',msg:'피어리스 라인 변경 · '+seriesPlayerName(me.id)+' '+((POSITIONS.find(q=>q.key===old)||{}).label||old)+' → '+((POSITIONS.find(q=>q.key===want)||{}).label||want)+(other?' (↔ '+seriesPlayerName(other.id)+')':'')}]);
+});
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('#seriesStartBtn,#seriesStart5Btn,#seriesNextBtn,#seriesSwapBtn,#seriesCloseBtn,#seriesAbortBtn');if(!b)return;
   if(b.id==='seriesStartBtn'||b.id==='seriesStart5Btn')seriesStart(parseInt(b.dataset.bo,10)||3);
