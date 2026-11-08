@@ -2724,6 +2724,13 @@ async function recordSharedWin(winTeamIdx){
 function startSharedVote(winIds,loseIds){
   pushRemote({ vote:{ active:true, stage:'best', winners:winIds, losers:loseIds, candidates:winIds, ballots:{}, round:1, resolvedBest:null, resolvedWorst:null } });
 }
+function pendingVotersHtml(voters,ballots){
+  const left=voters.filter(p=>!Object.prototype.hasOwnProperty.call(ballots||{},p.name));
+  if(!voters.length)return '';
+  return left.length
+    ?`<div class="vote-pending" style="margin:8px 0 10px;padding:9px 12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);font-size:.86rem;line-height:1.6"><b style="color:var(--ink-dim);font-size:.76rem;letter-spacing:.04em">아직 투표 안 한 사람 (${left.length}명)</b><br>${left.map(p=>escapeHtml(p.name)).join(' · ')}</div>`
+    :`<div class="vote-pending" style="margin:8px 0 10px;font-size:.84rem;color:var(--ink-dim)">✓ 모두 투표했어요</div>`;
+}
 function renderSharedVote(){
   const box=document.getElementById("result");if(!box)return;
   const v=remote.vote;
@@ -2750,6 +2757,7 @@ function renderSharedVote(){
   box.innerHTML=`<div class="card"><h2>${title}</h2>
     <div class="msub">익명 투표 · 과반수 넘으면 확정, 동률이면 재투표 · ${votedCount}/${voters.length}명 투표함</div>
     ${roundNote}
+    ${pendingVotersHtml(voters,ballots)}
     <div id="sharedVoteList">${rows}</div>
     ${iAmEligible?'<div class="hint" style="text-align:center;margin-top:10px">본인 팀 후보 중 한 명을 선택하세요. 다시 누르면 표를 바꿀 수 있어요.</div>':'<div class="hint" style="text-align:center;margin-top:10px">이번 투표는 '+(stage==='best'?'이긴 팀':'진 팀')+' 만 참여할 수 있어요.</div>'}
     <div style="text-align:center;margin-top:14px"><button class="icon-btn" id="resetVoteBtn" style="text-decoration:underline;color:var(--ink-dim)">이 투표 초기화하고 처음부터 다시</button></div>
@@ -2932,6 +2940,7 @@ function renderPromoVote(){
   const remaining=(v.promoQueue||[]).length;
   box.innerHTML=`<div class="card"><h2>${cur.dir==='up'?'▲':'⬇️'} 승급·강등 투표</h2>
     <div class="msub">${escapeHtml(pl.name)}님 — ${laneLabel} ${dirLabel} 조건 달성! 당사자를 제외한 ${voters.length}명이 익명 투표 · ${votedCount}/${voters.length}명 투표함${remaining>0?' · 다음 '+remaining+'건 더 있어요':''}</div>
+    ${pendingVotersHtml(voters,ballots)}
     ${iAmEligible?`<div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
         <button class="win-btn blue" id="promoYesBtn">찬성 (${dirLabel})</button>
         <button class="win-btn red" id="promoNoBtn">반대 (유지)</button>
