@@ -1794,7 +1794,7 @@ const SKINS=[
   {id:'f_g_gold',cat:'f',name:'황금 링',price:500,cls:'fr-g_gold'},
   {id:'f_g_ice',cat:'f',name:'얼음 링',price:500,cls:'fr-g_ice'}
 ];
-const SKIN_CATS={n:'이름 꾸밈',t:'칭호',b:'프로필 배경',e:'이름 이펙트',f:'프레임'};
+const SKIN_CATS={t:'칭호',b:'프로필 배경',e:'이름 이펙트',f:'프레임'};
 const SKIN_ALIAS={'e_g-blue':'e_aura','e_g-red':'e_fire','e_g-gold':'e_goldfx','e_g-mint':'e_aura','e_g-pink':'e_sakura','e_g-violet':'e_plasma','e_g-orange':'e_fire','e_g-white':'e_moon','e_g-lime':'e_firefly','e_g-cyan':'e_water',e_sp_gold:'e_stardust',e_sp_silver:'e_stardust',e_sp_pink:'e_stardust',e_sp_sky:'e_stardust',e_sp_violet:'e_galaxy_fx',e_sp_mint:'e_stardust',e_em_fire:'e_fire',e_em_ice:'e_frost',e_em_bolt:'e_bolt',e_em_sakura:'e_sakura',e_em_crown:'e_crown_fx',e_em_moon:'e_moon',e_em_gem:'e_diamond',e_em_note:'e_rainbow_fx',e_ul_rain:'e_rainbow_fx',e_ul_gold:'e_goldfx',e_ul_neon:'e_neon_fx',e_ul_fire:'e_fire',e_breath:'e_aura',e_float:'e_firefly',t_dawn:'t_ace',t_reroll:'t_lane',t_trust:'t_legend',n_g:'n_c',n_r:'n_ember',n_flow:'n_c',n_fire:'n_ember',b_grid:'b_paper'};
 // 예전 가격(이미 산 스킨은 산 가격 그대로 계산)
 const SKIN_LEGACY={n_g:100,n_r:100,n_c:200,n_mb:200,n_sun:200,n_lav:200,n_ember:200,n_em:200,n_silver:300,n_gold:300,n_flow:300,n_fire:300,n_aur:300,t_ace:100,t_lane:100,t_wall:200,t_fight:200,t_carry:300,t_legend:300,b_paper:100,b_grid:100,b_mint:100,b_sky:200,b_sunset:200,b_lav:200,b_dusk:200,b_ink:300,b_ocean:300,b_forest:300,b_aurora:300};
@@ -4703,7 +4703,7 @@ function itemOwned(pl,id){
 function skinSpent(pl){return (pl.skins||[]).reduce((a,id)=>a+skinPaidOf(pl,id),0)+itemSpent(pl);}
 function skinBalance(pl){return SKIN_BASE+(pl.bonusPts||0)+skinEarned(pl)-skinSpent(pl)-(pl.ptOffset||0);}
 function skinEq(pl,cat){const id=pl&&pl.eq&&pl.eq[cat];return id&&(pl.skins||[]).includes(id)?skinById(id):null;}
-function skinNameCls(pl){const k=skinEq(pl,'n'),e=skinEq(pl,'e');return (k?' '+k.cls:'')+(e?' '+e.cls:'');}
+function skinNameCls(pl){const e=skinEq(pl,'e');return e?' '+e.cls:'';}
 function skinFrCls(pl){const k=skinEq(pl,'f');return k?' '+k.cls:'';}
 function kingTitleHtml(label){return `<span class="sk-title sk-t-king"><span class="kg-lane">${escapeHtml(label)}</span><b>KING</b></span>`;}
 function kingLanesOf(pl){return POSITIONS.filter(p=>pl&&pl.tiers&&pl.tiers[p.key]!=null&&isKing(pl,p.key)).map(p=>p.label);}
@@ -4711,7 +4711,7 @@ function kingHtmlFor(pl){const l=kingLanesOf(pl);return l.length?kingTitleHtml(l
 function skinTitleHtml(pl){const k=skinEq(pl,'t');return k?`<span class="sk-title ${k.cls||''}">${escapeHtml(k.text)}</span>`:'';}
 function skinBgCls(pl){const k=skinEq(pl,'b');return k?' '+k.cls:'';}
 function skinMe(){return myName?players.find(p=>p.name===myName):null;}
-const SHOP={tab:'n'};
+const SHOP={tab:'e'};
 function renderShop(){
   const me=skinMe();
   const el=document.getElementById('shopBody');
