@@ -3614,6 +3614,7 @@ function renderDevPanel(){
           <button class="ghost" id="devPtReset" style="color:var(--loss-ink)">전체 100P로 초기화</button>
           <button class="ghost" id="devRefundAll" style="color:var(--loss-ink)">구매 내역 전부 환불</button>
         </div>
+        <details class="dev-refund" id="devPickWrap" open><summary>선택한 선수의 구매 항목 골라서 환불</summary><div style="font-size:.78rem;color:var(--ink-dim);margin:6px 0">위에서 고른 선수가 산 스킨 중 환불할 것만 체크하세요.</div><div id="devPickList" class="dev-chips"></div><button class="ghost" id="devPickBtn" style="color:var(--loss-ink);margin-top:8px">체크한 항목 환불</button></details>
         <details class="dev-refund"><summary>특정 선수만 구매 내역 환불</summary><div id="devRefundList" class="dev-chips"></div><button class="ghost" id="devRefundSel" style="color:var(--loss-ink);margin-top:8px">선택한 선수 환불</button></details>
         <div id="devPtNow" class="dev-now"></div>
         <div id="devPtResult" class="dev-result" aria-live="polite"></div>
@@ -3646,11 +3647,12 @@ function renderDevPanel(){
     document.getElementById("devGrantBtn").onclick=()=>devAdjustBonus(getQty());
     document.getElementById("devRevokeBtn").onclick=()=>devAdjustBonus(-getQty());
     const ptQty=()=>Math.min(100000,Math.max(1,parseInt(document.getElementById("devPtQty").value,10)||0));
-    document.getElementById("devPtSel").onchange=devPtNow;
+    document.getElementById("devPtSel").onchange=()=>{devPtNow();};
     document.getElementById("devPtGrant").onclick=()=>devAdjustPoints(ptQty(),false);
     document.getElementById("devPtRevoke").onclick=()=>devAdjustPoints(-ptQty(),false);
     document.getElementById("devPtAll").onclick=()=>devAdjustPoints(ptQty(),true);
     document.getElementById("devPtReset").onclick=devResetPoints;
+    document.getElementById("devPickBtn").onclick=devRefundPick;
     document.getElementById("devRefundAll").onclick=()=>devRefund(null);
     document.getElementById("devRefundSel").onclick=()=>{const ids=[...document.querySelectorAll("#devRefundList input:checked")].map(i=>i.value);if(!ids.length){alert("환불할 선수를 먼저 골라주세요.");return;}devRefund(ids);};
   }
@@ -3958,7 +3960,27 @@ function devResetPoints(){
     setTimeout(devPtNow,400);
   }).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
 }
-function devPtNow(){const ps=document.getElementById("devPtSel"),el=document.getElementById("devPtNow");if(!ps||!el)return;const pl=players.find(p=>p.id===ps.value);el.innerHTML=pl?(escapeHtml(pl.name)+"님 현재 <b>"+skinBalance(pl)+"P</b> (직접 받은 포인트 "+(pl.bonusPts||0)+"P)"):"";}
+function devPickRender(){const ps=document.getElementById("devPtSel"),el=document.getElementById("devPickList");if(!ps||!el)return;const pl=players.find(p=>p.id===ps.value);const own=pl?(pl.skins||[]):[];const sig=(pl?pl.id:"")+"|"+own.join();if(el._s===sig)return;el._s=sig;el.innerHTML=own.length?own.map(id=>{const k=skinById(id);const nm=k?(SKIN_CATS[k.cat]||"")+" · "+k.name:id;return `<label class="dev-chip"><input type="checkbox" value="${id}"> ${escapeHtml(nm)} (${skinPaidOf(pl,id)}P)</label>`;}).join(""):'<span style="color:var(--ink-dim);font-size:.8rem">산 스킨이 없어요</span>';}
+function devRefundPick(){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  const ps=document.getElementById("devPtSel"),out=document.getElementById("devPtResult");const pl=players.find(p=>p.id===ps.value);if(!pl)return;
+  const ids=[...document.querySelectorAll("#devPickList input:checked")].map(i=>i.value);
+  if(!ids.length){alert("환불할 항목을 먼저 체크해주세요.");return;}
+  const names=ids.map(id=>{const k=skinById(id);return k?k.name:id;}).join(", ");
+  if(!confirm(pl.name+" 님의 "+ids.length+"개를 환불할까요?\n"+names+"\n· 쓴 포인트가 돌아오고 착용도 해제돼요"))return;
+  const set=new Set(ids);
+  runTransaction(db,async(tx)=>{
+    const snap=await tx.get(sessionRef);const data=snap.data()||{};
+    const fp=(data.players||[]).map(q=>{
+      if(q.id!==pl.id)return q;
+      const paid={...(q.paid||{})};set.forEach(id=>delete paid[id]);
+      const eq={...(q.eq||{})};Object.keys(eq).forEach(c=>{if(set.has(eq[c]))delete eq[c];});
+      return {...q,skins:(q.skins||[]).filter(id=>!set.has(id)),paid,eq};
+    });
+    tx.update(sessionRef,{players:fp,auditLog:auditAppend(data,[{t:'dev',msg:'구매 일부 환불 · '+pl.name+' · '+names}])});
+  }).then(()=>{if(out){out.textContent="환불 완료 · "+pl.name+" · "+names;out.style.color="var(--win-ink)";}const el=document.getElementById("devPickList");if(el)el._s="";setTimeout(()=>{devPtNow();devPickRender();},400);}).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
+}
+function devPtNow(){devPickRender();const ps=document.getElementById("devPtSel"),el=document.getElementById("devPtNow");if(!ps||!el)return;const pl=players.find(p=>p.id===ps.value);el.innerHTML=pl?(escapeHtml(pl.name)+"님 현재 <b>"+skinBalance(pl)+"P</b> (직접 받은 포인트 "+(pl.bonusPts||0)+"P)"):"";}
 function devAdjustPoints(delta,all){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const ps=document.getElementById("devPtSel"),out=document.getElementById("devPtResult");
