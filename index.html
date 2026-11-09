@@ -961,6 +961,22 @@ h2,h3,h4{letter-spacing:-.01em}
   [class*="fr-g_"]::after{content:"";position:absolute;inset:-3px;border-radius:inherit;padding:3px;background:var(--ring);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);animation:frSpin 5s linear infinite;pointer-events:none;z-index:1}
   .modal[class*="fr-g_"]::after{display:none}.modal[class*="fr-g_"]{box-shadow:0 0 0 3px var(--frc),0 0 18px color-mix(in srgb,var(--frc) 55%,transparent)!important}
   .shop-frbox{display:flex;align-items:center;justify-content:center;width:100%;height:46px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:.78rem;color:var(--ink-dim)}
+
+  /* ===== KING 배지: 일반 칭호와 다른 전용 디자인 ===== */
+  @keyframes kgShine{0%,55%{left:-70%}100%{left:130%}}
+  @keyframes kgText{to{background-position:200% 0}}
+  .sk-title.sk-t-king{display:inline-flex;align-items:center;gap:.42em;margin-left:10px;padding:.16em .8em .16em .55em;border-radius:999px;font-family:"Barlow Condensed","Pretendard",sans-serif;font-size:.8em;font-weight:800;letter-spacing:.06em;vertical-align:middle;line-height:1.25;position:relative;overflow:hidden;
+    color:#FFE9A8;-webkit-text-fill-color:#FFE9A8;background:linear-gradient(135deg,rgba(255,215,106,.26),rgba(184,134,11,.12) 60%,rgba(255,215,106,.2));-webkit-background-clip:border-box;background-clip:border-box;animation:none;opacity:1;
+    border:1px solid rgba(255,215,106,.6);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 0 16px rgba(255,190,40,.22)}
+  .sk-title.sk-t-king::before{content:"";width:1.2em;height:1.2em;margin:0;flex:none;border:0;opacity:1;vertical-align:baseline;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%23FFF1BF'/><stop offset='1' stop-color='%23E8A91C'/></linearGradient></defs><path fill='url(%23g)' d='M2.5 18.5L1.5 7.5l5.2 4.3L12 4l5.3 7.8 5.2-4.3-1 11zM3 20.2h18V22H3z'/></svg>") center/contain no-repeat;filter:drop-shadow(0 0 4px rgba(255,200,60,.75))}
+  .sk-title.sk-t-king::after{content:"";position:absolute;top:0;bottom:0;width:38%;left:-70%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);transform:skewX(-20deg);animation:kgShine 3.4s ease-in-out infinite;pointer-events:none}
+  .sk-t-king .kg-lane{font-family:inherit;font-weight:800;letter-spacing:.02em;color:#FFF3C4;-webkit-text-fill-color:#FFF3C4}
+  .sk-t-king b{font-weight:900;letter-spacing:.24em;margin-right:-.24em;background:linear-gradient(100deg,#FFC83D 20%,#FFFBE6 50%,#FFC83D 80%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:kgText 3.6s linear infinite}
+  :root[data-theme="light"] .sk-title.sk-t-king{color:#6E4A00;-webkit-text-fill-color:#6E4A00;background:linear-gradient(135deg,#FFF1BF,#FFE08A 60%,#FFF1BF);border-color:#C98F0A;box-shadow:0 0 0 1px rgba(255,255,255,.6) inset,0 1px 6px rgba(190,130,0,.3)}
+  :root[data-theme="light"] .sk-t-king .kg-lane{color:#6E4A00;-webkit-text-fill-color:#6E4A00}
+  :root[data-theme="light"] .sk-t-king b{background-image:linear-gradient(100deg,#9A6700 20%,#C98F0A 50%,#7E5600 80%)}
+  :root[data-theme="light"] .sk-title.sk-t-king::before{filter:brightness(.72) saturate(1.5) drop-shadow(0 0 .5px #5A3D00)}
+  @media(prefers-reduced-motion:reduce){.sk-title.sk-t-king::after{display:none}}
   /* ===== 아이템 ===== */
   .shop-items .shop-item{gap:6px}
   .shop-desc{font-size:.72rem;line-height:1.45;color:var(--ink-dim);font-weight:500}
@@ -4560,7 +4576,7 @@ function skinBalance(pl){return SKIN_BASE+(pl.bonusPts||0)+skinEarned(pl)-skinSp
 function skinEq(pl,cat){const id=pl&&pl.eq&&pl.eq[cat];return id&&(pl.skins||[]).includes(id)?skinById(id):null;}
 function skinNameCls(pl){const k=skinEq(pl,'n'),e=skinEq(pl,'e');return (k?' '+k.cls:'')+(e?' '+e.cls:'');}
 function skinFrCls(pl){const k=skinEq(pl,'f');return k?' '+k.cls:'';}
-function kingTitleHtml(label){return `<span class="sk-title sk-t-king">${escapeHtml(label)} KING</span>`;}
+function kingTitleHtml(label){return `<span class="sk-title sk-t-king"><span class="kg-lane">${escapeHtml(label)}</span><b>KING</b></span>`;}
 function kingLanesOf(pl){return POSITIONS.filter(p=>pl&&pl.tiers&&pl.tiers[p.key]!=null&&isKing(pl,p.key)).map(p=>p.label);}
 function kingHtmlFor(pl){const l=kingLanesOf(pl);return l.length?kingTitleHtml(l.join('·')):'';}
 function skinTitleHtml(pl){const k=skinEq(pl,'t');return k?`<span class="sk-title ${k.cls||''}">${escapeHtml(k.text)}</span>`:'';}
