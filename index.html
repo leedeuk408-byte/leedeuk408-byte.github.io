@@ -877,6 +877,90 @@ h2,h3,h4{letter-spacing:-.01em}
   :root[data-theme="light"] .sk-t-first{--a:#6B00CC;--b:#CC009B;--c:#2500BF}
   .shop-sw{animation:none!important}
   .shop-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}.shop-tab{border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font:inherit;font-size:.84rem;font-weight:700;padding:8px 14px;border-radius:999px;cursor:pointer}.shop-tab small{font-weight:600;opacity:.6;margin-left:4px}.shop-tab.on{background:var(--ink);color:var(--panel-solid,var(--bg));border-color:var(--ink)}
+  /* ===== 이름 이펙트 30종 ===== */
+  @keyframes efPulse{0%,100%{filter:drop-shadow(0 0 .12em var(--efc)) drop-shadow(0 0 .02em var(--efc))}50%{filter:drop-shadow(0 0 .5em var(--efc)) drop-shadow(0 0 .18em var(--efc))}}
+  @keyframes efTwinkle{0%,100%{opacity:.15;transform:scale(.6) rotate(0)}50%{opacity:1;transform:scale(1.15) rotate(25deg)}}
+  @keyframes efBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-.14em)}}
+  @keyframes efBreath{0%,100%{filter:brightness(.92)}50%{filter:brightness(1.35) saturate(1.2)}}
+  @keyframes efUl{to{background-position:200% 0}}
+  [class*="ef-"]{position:relative;display:inline-block}
+  [class*="ef-g-"]{filter:drop-shadow(0 0 .3em var(--efc));animation:efPulse 2.4s ease-in-out infinite,skFlow 8s linear infinite}
+  [class*="ef-g-"]{animation-name:efPulse,skFlow}
+  .ef-g-blue{--efc:#5B8CFF}
+  .ef-g-red{--efc:#FF5E5E}
+  .ef-g-gold{--efc:#FFC83D}
+  .ef-g-mint{--efc:#3DE0C0}
+  .ef-g-pink{--efc:#FF6BB5}
+  .ef-g-violet{--efc:#A56BFF}
+  .ef-g-orange{--efc:#FF8A3D}
+  .ef-g-white{--efc:#FFFFFF}
+  .ef-g-lime{--efc:#9BF03D}
+  .ef-g-cyan{--efc:#3DD9FF}
+  .ef-sp_gold::after{content:"✦";position:absolute;right:-.85em;top:-.5em;font-size:.8em;color:#FFC83D;-webkit-text-fill-color:#FFC83D;animation:efTwinkle 1.8s ease-in-out infinite;pointer-events:none}
+  .ef-sp_gold::before{content:"✦";position:absolute;left:-.6em;bottom:-.35em;font-size:.55em;color:#FFC83D;-webkit-text-fill-color:#FFC83D;animation:efTwinkle 2.3s ease-in-out .6s infinite;pointer-events:none}
+  .ef-sp_silver::after{content:"✧";position:absolute;right:-.85em;top:-.5em;font-size:.8em;color:#D5DCF0;-webkit-text-fill-color:#D5DCF0;animation:efTwinkle 1.8s ease-in-out infinite;pointer-events:none}
+  .ef-sp_silver::before{content:"✧";position:absolute;left:-.6em;bottom:-.35em;font-size:.55em;color:#D5DCF0;-webkit-text-fill-color:#D5DCF0;animation:efTwinkle 2.3s ease-in-out .6s infinite;pointer-events:none}
+  .ef-sp_pink::after{content:"✦";position:absolute;right:-.85em;top:-.5em;font-size:.8em;color:#FF8AC8;-webkit-text-fill-color:#FF8AC8;animation:efTwinkle 1.8s ease-in-out infinite;pointer-events:none}
+  .ef-sp_pink::before{content:"✦";position:absolute;left:-.6em;bottom:-.35em;font-size:.55em;color:#FF8AC8;-webkit-text-fill-color:#FF8AC8;animation:efTwinkle 2.3s ease-in-out .6s infinite;pointer-events:none}
+  .ef-sp_sky::after{content:"✦";position:absolute;right:-.85em;top:-.5em;font-size:.8em;color:#7CC4FF;-webkit-text-fill-color:#7CC4FF;animation:efTwinkle 1.8s ease-in-out infinite;pointer-events:none}
+  .ef-sp_sky::before{content:"✦";position:absolute;left:-.6em;bottom:-.35em;font-size:.55em;color:#7CC4FF;-webkit-text-fill-color:#7CC4FF;animation:efTwinkle 2.3s ease-in-out .6s infinite;pointer-events:none}
+  .ef-sp_violet::after{content:"✧";position:absolute;right:-.85em;top:-.5em;font-size:.8em;color:#B58CFF;-webkit-text-fill-color:#B58CFF;animation:efTwinkle 1.8s ease-in-out infinite;pointer-events:none}
+  .ef-sp_violet::before{content:"✧";position:absolute;left:-.6em;bottom:-.35em;font-size:.55em;color:#B58CFF;-webkit-text-fill-color:#B58CFF;animation:efTwinkle 2.3s ease-in-out .6s infinite;pointer-events:none}
+  .ef-sp_mint::after{content:"✦";position:absolute;right:-.85em;top:-.5em;font-size:.8em;color:#5CF0CC;-webkit-text-fill-color:#5CF0CC;animation:efTwinkle 1.8s ease-in-out infinite;pointer-events:none}
+  .ef-sp_mint::before{content:"✦";position:absolute;left:-.6em;bottom:-.35em;font-size:.55em;color:#5CF0CC;-webkit-text-fill-color:#5CF0CC;animation:efTwinkle 2.3s ease-in-out .6s infinite;pointer-events:none}
+  .ef-em_fire::before{content:"🔥";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-em_ice::before{content:"❄️";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-em_bolt::before{content:"⚡";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-em_sakura::before{content:"🌸";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-em_crown::before{content:"👑";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-em_moon::before{content:"🌙";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-em_gem::before{content:"💎";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-em_note::before{content:"🎵";display:inline-block;margin-right:.25em;font-size:.9em;-webkit-text-fill-color:initial;animation:efBob 1.8s ease-in-out infinite}
+  .ef-ul_rain::after{content:"";position:absolute;left:0;right:0;bottom:-.12em;height:.11em;border-radius:99px;background:linear-gradient(90deg,#FF5E5E,#FFC83D,#5CF08A,#5B8CFF,#B58CFF,#FF5E5E);background-size:200% 100%;animation:efUl 3s linear infinite;-webkit-text-fill-color:initial}
+  .ef-ul_gold::after{content:"";position:absolute;left:0;right:0;bottom:-.12em;height:.11em;border-radius:99px;background:linear-gradient(90deg,#B8860B,#FFE08A,#B8860B);background-size:200% 100%;animation:efUl 3s linear infinite;-webkit-text-fill-color:initial}
+  .ef-ul_neon::after{content:"";position:absolute;left:0;right:0;bottom:-.12em;height:.11em;border-radius:99px;background:linear-gradient(90deg,#FF4FD8,#3DD9FF,#FF4FD8);background-size:200% 100%;animation:efUl 3s linear infinite;-webkit-text-fill-color:initial}
+  .ef-ul_fire::after{content:"";position:absolute;left:0;right:0;bottom:-.12em;height:.11em;border-radius:99px;background:linear-gradient(90deg,#FF3D2E,#FF8A1F,#FFD23A,#FF3D2E);background-size:200% 100%;animation:efUl 3s linear infinite;-webkit-text-fill-color:initial}
+  .ef-breath{animation:efBreath 2.6s ease-in-out infinite,skFlow 8s linear infinite}
+  .ef-float{animation:efBob 2s ease-in-out infinite,skFlow 8s linear infinite}
+  /* ===== 프레임 30종 ===== */
+  @property --ang{syntax:"<angle>";initial-value:0deg;inherits:false}
+  @keyframes frSpin{to{--ang:360deg}}
+  @keyframes frAura{0%,100%{box-shadow:0 0 0 1.5px var(--frc),0 0 6px color-mix(in srgb,var(--frc) 40%,transparent)}50%{box-shadow:0 0 0 1.5px var(--frc),0 0 22px color-mix(in srgb,var(--frc) 85%,transparent)}}
+  [class*="fr-"]{--frc:#888}
+  .fr-r_blue{--frc:#5B8CFF;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_red{--frc:#FF5E5E;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_gold{--frc:#E8A91C;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_mint{--frc:#2CC9A8;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_pink{--frc:#FF6BB5;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_violet{--frc:#8A5CFF;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_orange{--frc:#FF8A3D;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_lime{--frc:#7FD11F;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_cyan{--frc:#22B8E8;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_ruby{--frc:#D1264A;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_navy{--frc:#2E4BC9;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-r_white{--frc:#E6E9F2;box-shadow:0 0 0 2px var(--frc),0 0 12px color-mix(in srgb,var(--frc) 45%,transparent)!important}
+  .fr-d_gold{--frc:#E8A91C;box-shadow:0 0 0 2px var(--frc),0 0 0 5px var(--panel,#fff),0 0 0 7px var(--frc)!important}
+  .fr-d_blue{--frc:#5B8CFF;box-shadow:0 0 0 2px var(--frc),0 0 0 5px var(--panel,#fff),0 0 0 7px var(--frc)!important}
+  .fr-d_pink{--frc:#FF6BB5;box-shadow:0 0 0 2px var(--frc),0 0 0 5px var(--panel,#fff),0 0 0 7px var(--frc)!important}
+  .fr-d_mint{--frc:#2CC9A8;box-shadow:0 0 0 2px var(--frc),0 0 0 5px var(--panel,#fff),0 0 0 7px var(--frc)!important}
+  .fr-d_violet{--frc:#8A5CFF;box-shadow:0 0 0 2px var(--frc),0 0 0 5px var(--panel,#fff),0 0 0 7px var(--frc)!important}
+  .fr-d_red{--frc:#FF5E5E;box-shadow:0 0 0 2px var(--frc),0 0 0 5px var(--panel,#fff),0 0 0 7px var(--frc)!important}
+  .fr-a_blue{--frc:#5B8CFF;animation:frAura 2.6s ease-in-out infinite}
+  .fr-a_gold{--frc:#FFC83D;animation:frAura 2.6s ease-in-out infinite}
+  .fr-a_pink{--frc:#FF6BB5;animation:frAura 2.6s ease-in-out infinite}
+  .fr-a_green{--frc:#3DDC84;animation:frAura 2.6s ease-in-out infinite}
+  .fr-a_violet{--frc:#A56BFF;animation:frAura 2.6s ease-in-out infinite}
+  .fr-a_fire{--frc:#FF6A2E;animation:frAura 2.6s ease-in-out infinite}
+  .fr-g_rainbow{--frc:#B58CFF;--ring:conic-gradient(from var(--ang),#FF5E5E,#FFC83D,#5CF08A,#5B8CFF,#B58CFF,#FF5E5E)}
+  .fr-g_aurora{--frc:#6F8BFF;--ring:conic-gradient(from var(--ang),#3DE0C0,#6F8BFF,#C07BFF,#3DE0C0)}
+  .fr-g_sunset{--frc:#FF7A59;--ring:conic-gradient(from var(--ang),#FFB84D,#FF7A59,#FF5C9A,#FFB84D)}
+  .fr-g_neon{--frc:#FF4FD8;--ring:conic-gradient(from var(--ang),#FF4FD8,#3DD9FF,#FF4FD8,#FF4FD8)}
+  .fr-g_gold{--frc:#E8A91C;--ring:conic-gradient(from var(--ang),#B8860B,#FFE08A,#B8860B,#FFE08A,#B8860B)}
+  .fr-g_ice{--frc:#5B8CFF;--ring:conic-gradient(from var(--ang),#BFEFFF,#5B8CFF,#FFFFFF,#BFEFFF)}
+  [class*="fr-g_"]{position:relative}
+  [class*="fr-g_"]::after{content:"";position:absolute;inset:-3px;border-radius:inherit;padding:3px;background:var(--ring);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);animation:frSpin 5s linear infinite;pointer-events:none;z-index:1}
+  .modal[class*="fr-g_"]::after{display:none}.modal[class*="fr-g_"]{box-shadow:0 0 0 3px var(--frc),0 0 18px color-mix(in srgb,var(--frc) 55%,transparent)!important}
+  .shop-frbox{display:flex;align-items:center;justify-content:center;width:100%;height:46px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:.78rem;color:var(--ink-dim)}
   /* ===== 아이템 ===== */
   .shop-items .shop-item{gap:6px}
   .shop-desc{font-size:.72rem;line-height:1.45;color:var(--ink-dim);font-weight:500}
@@ -1503,9 +1587,69 @@ const SKINS=[
   {id:'b_space',cat:'b',name:'우주',price:500,cls:'sk-b-space'},
   {id:'b_ash',cat:'b',name:'화산재',price:500,cls:'sk-b-ash'},
   {id:'b_sakuranight',cat:'b',name:'밤 벚꽃',price:500,cls:'sk-b-sakuranight'},
-  {id:'b_nightsea',cat:'b',name:'밤바다',price:500,cls:'sk-b-nightsea'}
+  {id:'b_nightsea',cat:'b',name:'밤바다',price:500,cls:'sk-b-nightsea'},
+  {id:'e_g-blue',cat:'e',name:'블루 글로우',price:500,cls:'ef-g-blue'},
+  {id:'e_g-red',cat:'e',name:'레드 글로우',price:500,cls:'ef-g-red'},
+  {id:'e_g-gold',cat:'e',name:'골드 글로우',price:500,cls:'ef-g-gold'},
+  {id:'e_g-mint',cat:'e',name:'민트 글로우',price:500,cls:'ef-g-mint'},
+  {id:'e_g-pink',cat:'e',name:'핑크 글로우',price:500,cls:'ef-g-pink'},
+  {id:'e_g-violet',cat:'e',name:'보라 글로우',price:500,cls:'ef-g-violet'},
+  {id:'e_g-orange',cat:'e',name:'오렌지 글로우',price:500,cls:'ef-g-orange'},
+  {id:'e_g-white',cat:'e',name:'화이트 글로우',price:500,cls:'ef-g-white'},
+  {id:'e_g-lime',cat:'e',name:'라임 글로우',price:500,cls:'ef-g-lime'},
+  {id:'e_g-cyan',cat:'e',name:'시안 글로우',price:500,cls:'ef-g-cyan'},
+  {id:'e_sp_gold',cat:'e',name:'황금 반짝임',price:500,cls:'ef-sp_gold'},
+  {id:'e_sp_silver',cat:'e',name:'은빛 반짝임',price:500,cls:'ef-sp_silver'},
+  {id:'e_sp_pink',cat:'e',name:'핑크 반짝임',price:500,cls:'ef-sp_pink'},
+  {id:'e_sp_sky',cat:'e',name:'하늘 반짝임',price:500,cls:'ef-sp_sky'},
+  {id:'e_sp_violet',cat:'e',name:'보라 반짝임',price:500,cls:'ef-sp_violet'},
+  {id:'e_sp_mint',cat:'e',name:'민트 반짝임',price:500,cls:'ef-sp_mint'},
+  {id:'e_em_fire',cat:'e',name:'불꽃',price:500,cls:'ef-em_fire'},
+  {id:'e_em_ice',cat:'e',name:'눈꽃',price:500,cls:'ef-em_ice'},
+  {id:'e_em_bolt',cat:'e',name:'번개',price:500,cls:'ef-em_bolt'},
+  {id:'e_em_sakura',cat:'e',name:'벚꽃잎',price:500,cls:'ef-em_sakura'},
+  {id:'e_em_crown',cat:'e',name:'왕관',price:500,cls:'ef-em_crown'},
+  {id:'e_em_moon',cat:'e',name:'달빛',price:500,cls:'ef-em_moon'},
+  {id:'e_em_gem',cat:'e',name:'보석',price:500,cls:'ef-em_gem'},
+  {id:'e_em_note',cat:'e',name:'음표',price:500,cls:'ef-em_note'},
+  {id:'e_ul_rain',cat:'e',name:'무지개 밑줄',price:500,cls:'ef-ul_rain'},
+  {id:'e_ul_gold',cat:'e',name:'황금 밑줄',price:500,cls:'ef-ul_gold'},
+  {id:'e_ul_neon',cat:'e',name:'네온 밑줄',price:500,cls:'ef-ul_neon'},
+  {id:'e_ul_fire',cat:'e',name:'불꽃 밑줄',price:500,cls:'ef-ul_fire'},
+  {id:'e_breath',cat:'e',name:'숨결',price:500,cls:'ef-breath'},
+  {id:'e_float',cat:'e',name:'둥실',price:500,cls:'ef-float'},
+  {id:'f_r_blue',cat:'f',name:'블루 링',price:500,cls:'fr-r_blue'},
+  {id:'f_r_red',cat:'f',name:'레드 링',price:500,cls:'fr-r_red'},
+  {id:'f_r_gold',cat:'f',name:'골드 링',price:500,cls:'fr-r_gold'},
+  {id:'f_r_mint',cat:'f',name:'민트 링',price:500,cls:'fr-r_mint'},
+  {id:'f_r_pink',cat:'f',name:'핑크 링',price:500,cls:'fr-r_pink'},
+  {id:'f_r_violet',cat:'f',name:'보라 링',price:500,cls:'fr-r_violet'},
+  {id:'f_r_orange',cat:'f',name:'오렌지 링',price:500,cls:'fr-r_orange'},
+  {id:'f_r_lime',cat:'f',name:'라임 링',price:500,cls:'fr-r_lime'},
+  {id:'f_r_cyan',cat:'f',name:'시안 링',price:500,cls:'fr-r_cyan'},
+  {id:'f_r_ruby',cat:'f',name:'루비 링',price:500,cls:'fr-r_ruby'},
+  {id:'f_r_navy',cat:'f',name:'네이비 링',price:500,cls:'fr-r_navy'},
+  {id:'f_r_white',cat:'f',name:'화이트 링',price:500,cls:'fr-r_white'},
+  {id:'f_d_gold',cat:'f',name:'골드 더블',price:500,cls:'fr-d_gold'},
+  {id:'f_d_blue',cat:'f',name:'블루 더블',price:500,cls:'fr-d_blue'},
+  {id:'f_d_pink',cat:'f',name:'핑크 더블',price:500,cls:'fr-d_pink'},
+  {id:'f_d_mint',cat:'f',name:'민트 더블',price:500,cls:'fr-d_mint'},
+  {id:'f_d_violet',cat:'f',name:'보라 더블',price:500,cls:'fr-d_violet'},
+  {id:'f_d_red',cat:'f',name:'레드 더블',price:500,cls:'fr-d_red'},
+  {id:'f_a_blue',cat:'f',name:'블루 오라',price:500,cls:'fr-a_blue'},
+  {id:'f_a_gold',cat:'f',name:'골드 오라',price:500,cls:'fr-a_gold'},
+  {id:'f_a_pink',cat:'f',name:'핑크 오라',price:500,cls:'fr-a_pink'},
+  {id:'f_a_green',cat:'f',name:'그린 오라',price:500,cls:'fr-a_green'},
+  {id:'f_a_violet',cat:'f',name:'보라 오라',price:500,cls:'fr-a_violet'},
+  {id:'f_a_fire',cat:'f',name:'불꽃 오라',price:500,cls:'fr-a_fire'},
+  {id:'f_g_rainbow',cat:'f',name:'무지개 링',price:500,cls:'fr-g_rainbow'},
+  {id:'f_g_aurora',cat:'f',name:'오로라 링',price:500,cls:'fr-g_aurora'},
+  {id:'f_g_sunset',cat:'f',name:'노을 링',price:500,cls:'fr-g_sunset'},
+  {id:'f_g_neon',cat:'f',name:'네온 링',price:500,cls:'fr-g_neon'},
+  {id:'f_g_gold',cat:'f',name:'황금 링',price:500,cls:'fr-g_gold'},
+  {id:'f_g_ice',cat:'f',name:'얼음 링',price:500,cls:'fr-g_ice'}
 ];
-const SKIN_CATS={n:'이름 꾸밈',t:'칭호',b:'프로필 배경'};
+const SKIN_CATS={n:'이름 꾸밈',t:'칭호',b:'프로필 배경',e:'이름 이펙트',f:'프레임'};
 const SKIN_ALIAS={t_dawn:'t_ace',t_reroll:'t_lane',t_trust:'t_legend',n_g:'n_c',n_r:'n_ember',n_flow:'n_c',n_fire:'n_ember',b_grid:'b_paper'};
 // 예전 가격(이미 산 스킨은 산 가격 그대로 계산)
 const SKIN_LEGACY={n_g:100,n_r:100,n_c:200,n_mb:200,n_sun:200,n_lav:200,n_ember:200,n_em:200,n_silver:300,n_gold:300,n_flow:300,n_fire:300,n_aur:300,t_ace:100,t_lane:100,t_wall:200,t_fight:200,t_carry:300,t_legend:300,b_paper:100,b_grid:100,b_mint:100,b_sky:200,b_sunset:200,b_lav:200,b_dusk:200,b_ink:300,b_ocean:300,b_forest:300,b_aurora:300};
@@ -1848,7 +1992,7 @@ function renderRoster(){
     ensure(pl);
     const item=document.createElement("div");
     const isPicked=picked.has(pl.id), isLocked=locks[pl.id]!=null;
-    item.className="roster-item"+(isPicked?" picked":"")+(isLocked?" locked":"");
+    item.className="roster-item"+(isPicked?" picked":"")+(isLocked?" locked":"")+skinFrCls(pl);
     const pb=document.createElement("div");pb.className="pick-box";pb.textContent=isPicked?"✓":"";
     pb.onclick=()=>{if(picked.has(pl.id)){picked.delete(pl.id);delete locks[pl.id];}else{if(picked.size>=10){alert("최대 10명까지 선택할 수 있습니다.");return;}picked.add(pl.id);}renderRoster();};
     item.appendChild(pb);
@@ -2003,7 +2147,7 @@ function openProfile(id){
       <button class="ghost" onclick="startEdit('${pl.id}');document.getElementById('profModal').classList.remove('on')">티어 수정</button>
       <button class="primary" style="flex:1" onclick="document.getElementById('profModal').classList.remove('on')">닫기</button>
     </div>`;
-  document.getElementById("profBody").className="modal"+skinBgCls(pl);
+  document.getElementById("profBody").className="modal"+skinBgCls(pl)+skinFrCls(pl);
   document.getElementById("profModal").classList.add("on");
   document.querySelectorAll("#profBody .h2h-tab").forEach(btn=>{
     btn.onclick=()=>{
@@ -2554,7 +2698,7 @@ function renderSharedMatchArea(){
   function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const dot=cm.locked?'':(readyList.includes(m.player.name)?'<span class="rdy on" title="준비완료">✅</span>':'<span class="rdy" title="준비중">⏳</span>');
-    return `<div class="vs-cell ${side}${skinBgCls(players.find(q=>q.id===m.player.id))}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${king?kingTitleHtml(label):''}${lk}${pf}</span>${tierCell}</div>`;}
+    return `<div class="vs-cell ${side}${skinBgCls(players.find(q=>q.id===m.player.id))}${skinFrCls(players.find(q=>q.id===m.player.id))}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${king?kingTitleHtml(label):''}${lk}${pf}</span>${tierCell}</div>`;}
   function vsHtml(A,B,sumA,sumB){
     if(A.length!==5||B.length!==5||A.some((m,i)=>m.slot.pos!==B[i].slot.pos)){
       return `<div class="teams">${teamHtml(A,"blue","블루 팀",sumA)}${teamHtml(B,"red","레드 팀",sumB)}</div>`;}
@@ -4414,7 +4558,8 @@ function itemOwned(pl,id){
 function skinSpent(pl){return (pl.skins||[]).reduce((a,id)=>a+skinPaidOf(pl,id),0)+itemSpent(pl);}
 function skinBalance(pl){return SKIN_BASE+(pl.bonusPts||0)+skinEarned(pl)-skinSpent(pl)-(pl.ptOffset||0);}
 function skinEq(pl,cat){const id=pl&&pl.eq&&pl.eq[cat];return id&&(pl.skins||[]).includes(id)?skinById(id):null;}
-function skinNameCls(pl){const k=skinEq(pl,'n');return k?' '+k.cls:'';}
+function skinNameCls(pl){const k=skinEq(pl,'n'),e=skinEq(pl,'e');return (k?' '+k.cls:'')+(e?' '+e.cls:'');}
+function skinFrCls(pl){const k=skinEq(pl,'f');return k?' '+k.cls:'';}
 function kingTitleHtml(label){return `<span class="sk-title sk-t-king">${escapeHtml(label)} KING</span>`;}
 function kingLanesOf(pl){return POSITIONS.filter(p=>pl&&pl.tiers&&pl.tiers[p.key]!=null&&isKing(pl,p.key)).map(p=>p.label);}
 function kingHtmlFor(pl){const l=kingLanesOf(pl);return l.length?kingTitleHtml(l.join('·')):'';}
@@ -4432,7 +4577,7 @@ function renderShop(){
     `<div class="shop-item${!skinEq(me,c)?' eq':''}"><b>기본</b><span class="pv" style="color:var(--ink-dim)">없음</span><button data-eq="${c}:">${!skinEq(me,c)?'착용 중':'벗기'}</button></div>`+
     SKINS.filter(k=>k.cat===c).map(k=>{
       const own=(me.skins||[]).includes(k.id),on=skinEq(me,c)&&skinEq(me,c).id===k.id;
-      const pv=k.cat==='n'?`<span class="pv"><span class="${k.cls}">${escapeHtml(me.name)}</span></span>`:k.cat==='t'?`<span class="pv"><span class="sk-title ${k.cls||''}" style="margin:0">${escapeHtml(k.text)}</span></span>`:`<span class="shop-sw ${k.cls}"></span>`;
+      const pv=k.cat==='e'?`<span class="pv"><span class="${k.cls}">${escapeHtml(me.name)}</span></span>`:k.cat==='f'?`<span class="shop-frbox ${k.cls}">미리보기</span>`:k.cat==='n'?`<span class="pv"><span class="${k.cls}">${escapeHtml(me.name)}</span></span>`:k.cat==='t'?`<span class="pv"><span class="sk-title ${k.cls||''}" style="margin:0">${escapeHtml(k.text)}</span></span>`:`<span class="shop-sw ${k.cls}"></span>`;
       const btn=own?`<button data-eq="${c}:${k.id}"${on?' disabled':''}>${on?'착용 중':'착용'}</button>`:`<button class="buy" data-buy="${k.id}"${bal<k.price?' disabled':''}>${k.price}P</button>`;
       return `<div class="shop-item${on?' eq':''}"><b>${escapeHtml(k.name)}</b>${pv}${btn}</div>`;}).join('')+`</div>`).join('');
   const itemSec=`<div class="shop-cat">아이템 (한 판만 적용 · 대기실에서 예약)</div><div class="shop-grid shop-items">`+ITEMS.map(it=>{const n=itemOwned(me,it.id);return `<div class="shop-item"><b>${escapeHtml(it.name)}</b><span class="shop-desc">${escapeHtml(it.desc)}</span><span class="shop-own">보유 ${n}장</span><button class="buy" data-ibuy="${it.id}"${bal<it.price?' disabled':''}>${it.price}P</button></div>`;}).join('')+`</div>`;
@@ -4440,7 +4585,7 @@ function renderShop(){
   el.innerHTML=`<div class="shop-head"><div><h3>상점</h3><div style="font-size:.78rem;color:var(--ink-dim);line-height:1.5">기본 100P · 참가 +30 · 승 +15 · 패 +10 · 연승 판당 +10 · 연패 판당 +5 · BEST +10 · WORST −5</div></div><div class="shop-coin">${bal}<small>내 포인트</small></div></div>
     <div class="shop-preview"><span class="nm${skinNameCls(me)}">${escapeHtml(me.name)}</span>${skinTitleHtml(me)}</div>${tabsHtml}${SHOP.tab==='i'?itemSec:sec}
     <button class="primary" style="width:100%;margin-top:18px" onclick="document.getElementById('shopModal').classList.remove('on')">닫기</button>`;
-  el.className='modal'+skinBgCls(me);
+  el.className='modal'+skinBgCls(me)+skinFrCls(me);
   el.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{SHOP.tab=b.dataset.tab;renderShop();const bd=document.getElementById('shopBody');if(bd)bd.scrollTop=0;});
   el.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
     const me=skinMe();if(!me)return;const k=skinById(b.dataset.buy);if(!k||skinBalance(me)<k.price)return;
