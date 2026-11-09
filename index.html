@@ -460,7 +460,7 @@ button.primary:hover,button.ghost:hover{transform:translateY(-1px)}
 button.primary:active,button.ghost:active{transform:none}
 .r-tag,.slot-tier,.tag{border-radius:999px}
 h2,h3,h4{letter-spacing:-.01em}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){*:not([class*="ef-"]):not([class*="sk-"]):not([class*="fr-"]){transition:none!important;animation:none!important}}
 
 /* ---- team result polish ---- */
 .vs-score{background:linear-gradient(180deg,var(--panel-2),transparent);}
@@ -667,7 +667,7 @@ h2,h3,h4{letter-spacing:-.01em}
   .ct-row:not(.ct-head){transition:background .15s}.ct-row:not(.ct-head):hover{background:var(--panel-2)}
   .vs-bar-track i{transition:flex-grow .6s ease,width .6s ease}
   html{scroll-behavior:smooth}
-  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+  @media(prefers-reduced-motion:reduce){*:not([class*="ef-"]):not([class*="sk-"]):not([class*="fr-"]),*:not([class*="ef-"]):not([class*="sk-"]):not([class*="fr-"])::before,*:not([class*="ef-"]):not([class*="sk-"]):not([class*="fr-"])::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
   /* ===== SKINS (은은한 꾸미기) ===== */
   @keyframes mvShine{to{background-position:-200% 0}}
@@ -880,8 +880,8 @@ h2,h3,h4{letter-spacing:-.01em}
   /* ===== 이름 이펙트 30종 ===== */
   @keyframes efPulse{0%,100%{filter:drop-shadow(0 0 .12em var(--efc)) drop-shadow(0 0 .02em var(--efc))}50%{filter:drop-shadow(0 0 .5em var(--efc)) drop-shadow(0 0 .18em var(--efc))}}
   @keyframes efTwinkle{0%,100%{opacity:.15;transform:scale(.6) rotate(0)}50%{opacity:1;transform:scale(1.15) rotate(25deg)}}
-  @keyframes efBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-.14em)}}
-  @keyframes efBreath{0%,100%{filter:brightness(.92)}50%{filter:brightness(1.35) saturate(1.2)}}
+  @keyframes efBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-.3em) rotate(-1.5deg)}}
+  @keyframes efBreath{0%,100%{filter:brightness(.8);transform:scale(1)}50%{filter:brightness(1.6) saturate(1.35) drop-shadow(0 0 .4em rgba(255,255,255,.55));transform:scale(1.07)}}
   @keyframes efUl{to{background-position:200% 0}}
   [class*="ef-"]{position:relative;display:inline-block}
   [class*="ef-g-"]{filter:drop-shadow(0 0 .3em var(--efc));animation:efPulse 2.4s ease-in-out infinite,skFlow 8s linear infinite}
@@ -920,8 +920,8 @@ h2,h3,h4{letter-spacing:-.01em}
   .ef-ul_gold::after{content:"";position:absolute;left:0;right:0;bottom:-.12em;height:.11em;border-radius:99px;background:linear-gradient(90deg,#B8860B,#FFE08A,#B8860B);background-size:200% 100%;animation:efUl 3s linear infinite;-webkit-text-fill-color:initial}
   .ef-ul_neon::after{content:"";position:absolute;left:0;right:0;bottom:-.12em;height:.11em;border-radius:99px;background:linear-gradient(90deg,#FF4FD8,#3DD9FF,#FF4FD8);background-size:200% 100%;animation:efUl 3s linear infinite;-webkit-text-fill-color:initial}
   .ef-ul_fire::after{content:"";position:absolute;left:0;right:0;bottom:-.12em;height:.11em;border-radius:99px;background:linear-gradient(90deg,#FF3D2E,#FF8A1F,#FFD23A,#FF3D2E);background-size:200% 100%;animation:efUl 3s linear infinite;-webkit-text-fill-color:initial}
-  .ef-breath{animation:efBreath 2.6s ease-in-out infinite,skFlow 8s linear infinite}
-  .ef-float{animation:efBob 2s ease-in-out infinite,skFlow 8s linear infinite}
+  .ef-breath{animation:efBreath 2.2s ease-in-out infinite,skFlow 8s linear infinite}
+  .ef-float{animation:efBob 1.6s ease-in-out infinite,skFlow 8s linear infinite}
   /* ===== 프레임 30종 ===== */
   @property --ang{syntax:"<angle>";initial-value:0deg;inherits:false}
   @keyframes frSpin{to{--ang:360deg}}
