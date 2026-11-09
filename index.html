@@ -334,6 +334,9 @@ document.documentElement.setAttribute('data-theme',t);})();
   .view{display:none}
   .main[data-view="lobby"] #viewLobby,.main[data-view="match"] #viewMatch,.main[data-view="dev"] #viewDev,.main[data-view="champ"] #viewChamp{display:block}
   .main[data-view="prof"] #viewProf{display:block}
+  .main[data-view="rank"] #viewRank{display:block}
+  .rk-pod{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 16px}.rk-p{border:1px solid var(--line);background:var(--panel-2);border-radius:16px;padding:14px 10px;text-align:center}.rk-p .m{font-size:1.5rem}.rk-p b{display:block;font-size:1.02rem;margin:4px 0 2px}.rk-p small{color:var(--ink-dim);font-size:.78rem}.rk-p.r1{border-color:#E8A91C;background:linear-gradient(180deg,color-mix(in srgb,#E8A91C 16%,var(--panel-2)),var(--panel-2))}
+  .rk-tbl th:nth-child(2),.rk-tbl td:nth-child(2){text-align:left}.rk-me td{font-weight:800;background:color-mix(in srgb,var(--ink) 6%,transparent)}.rk-dim td{opacity:.5}@media(max-width:560px){.rk-pod{grid-template-columns:1fr}}
   .pf-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.pf-chip{border:1px solid var(--line,#ddd);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:.82rem;cursor:pointer}.pf-chip.on{background:var(--ink);color:var(--bg,#fff)}.pf-chip small{opacity:.6;margin-left:4px}
   .pf-grid{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:20px;align-items:start}@media(max-width:760px){.pf-grid{grid-template-columns:1fr}}
   .pf-sw{display:grid;gap:8px}.pf-bar{display:grid;grid-template-columns:64px 1fr 44px;gap:8px;align-items:center;font-size:.85rem}.pf-bar i{display:block;height:8px;border-radius:99px;background:var(--line,#e5e5e5);position:relative;overflow:hidden}.pf-bar i b{position:absolute;left:0;top:0;bottom:0;border-radius:99px}.pf-bar .hi{background:#2e9d5b}.pf-bar .lo{background:#d4533b}.pf-bar .mid{background:#8a8f98}
@@ -995,6 +998,7 @@ window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.rea
       <button type="button" class="nav-btn" data-view="match" id="navMatch"><span class="nav-ic" aria-hidden="true"></span>팀 결과<i class="nav-dot" id="navDot"></i></button>
       <div class="nav-sep"></div>
       <button type="button" class="nav-btn" data-view="champ" id="navChamp"><span class="nav-ic" aria-hidden="true"></span>챔피언 티어</button>
+      <button type="button" class="nav-btn" data-view="rank" id="navRank"><span class="nav-ic" aria-hidden="true"></span>랭킹</button>
       <button type="button" class="nav-btn" data-view="prof" id="navProf"><span class="nav-ic" aria-hidden="true"></span>분석</button>
       <button type="button" class="nav-btn" id="navShop">상점</button>
       <button type="button" class="nav-btn" data-open="statsBtn"><span class="nav-ic" aria-hidden="true"></span>전체 통계</button>
@@ -1080,6 +1084,7 @@ window.addEventListener('unhandledrejection',function(e){show('promise: '+(e.rea
   </section>
   <section id="viewChamp" class="view"><div id="champPanel"></div></section>
   <section id="viewProf" class="view"><div id="profPanel"></div></section>
+  <section id="viewRank" class="view"><div id="rankPanel"></div></section>
   <section id="viewDev" class="view"><div id="devPanel" style="display:none"></div></section>
 
   <section id="viewMatch" class="view"><div class="empty-match" id="emptyMatch">아직 진행 중인 매치가 없어요.<br>대기실에서 선수를 고르고 팀을 만들어 보세요.</div>
@@ -1245,7 +1250,7 @@ function changeMyName(){
 }
 
 /* ---------- shared remote state (Firestore) ---------- */
-let remote = { itemQueue: [], series: null, players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [], currentDraft: null, riotImported: [], auditLog: [] };
+let remote = { itemQueue: [], series: null, players: [], matchLog: [], currentMatch: null, vote: null, currentAuction: null, deletedPlayers: [], currentDraft: null, riotImported: [], auditLog: [], seasons: {} };
 let remoteLoaded = false;
 let suppressNextSnapshot = false;
 // correct for each device's clock being off from real time: offset = trueServerTime - thisDeviceClockAtSameMoment
@@ -1373,6 +1378,8 @@ onSnapshot(sessionRef, (snap)=>{
   remote.riotImported = data.riotImported || [];
   remote.auditLog = data.auditLog || [];
   remote.deletedPlayers = data.deletedPlayers || [];
+  remote.seasons = data.seasons || {};
+  setTimeout(()=>{try{if(window.rkArchive)window.rkArchive();}catch(e){}},1500);
   // 시계 보정: 내가 보낸 핑의 서버 확정값만 사용 (processPingSample 참고)
   processPingSample(snap.data({ serverTimestamps: 'none' }));
   // sync into local working vars used throughout the app
@@ -4308,6 +4315,75 @@ function renderProf(){
 }
 window.renderProf=renderProf;
 document.getElementById('navProf').addEventListener('click',()=>{renderProf();if(!CH.list.length)loadChamps().then(renderProf);});
+/* ===== 월간 랭킹 (시즌 = 한 달, 한국 시간 기준) ===== */
+const RK={ym:null,sort:'wr'};const KST_MS=9*3600*1000,RK_MIN=3;
+function ymOf(ts){const d=new Date(ts+KST_MS);return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0');}
+function ymLabel(ym){const a=ym.split('-');return a[0]+'년 '+parseInt(a[1],10)+'월';}
+function rkCompute(ym){
+  const full=(state.matchLog||[]);
+  const log=full.filter(m=>m.ts&&ymOf(m.ts)===ym).sort((a,b)=>a.ts-b.ts);
+  const P={};const get=id=>P[id]||(P[id]={id,g:0,w:0,l:0,best:0,worst:0,ms:0,cs:0});
+  log.forEach(m=>{
+    (m.win||[]).forEach(id=>{const r=get(id);r.g++;r.w++;r.cs++;if(r.cs>r.ms)r.ms=r.cs;});
+    (m.lose||[]).forEach(id=>{const r=get(id);r.g++;r.l++;r.cs=0;});
+    if(m.best)get(m.best).best++;if(m.worst)get(m.worst).worst++;
+  });
+  const nameOf=id=>{const p=players.find(x=>x.id===id);return p?p.name:'(삭제됨)';};
+  const rows=Object.values(P).map(r=>({id:r.id,name:nameOf(r.id),g:r.g,w:r.w,l:r.l,best:r.best,worst:r.worst,ms:r.ms}));
+  const oldest=full[0];
+  return {ym,games:log.length,rows,partial:!!(full.length>=200&&oldest&&ymOf(oldest.ts)===ym)};
+}
+function rkMonths(){
+  const set=new Set([ymOf(Date.now())]);
+  (state.matchLog||[]).forEach(m=>{if(m.ts)set.add(ymOf(m.ts));});
+  Object.keys(remote.seasons||{}).forEach(k=>set.add(k));
+  return Array.from(set).sort().reverse();
+}
+function rkData(ym){
+  const cur=ymOf(Date.now());
+  if(ym!==cur&&remote.seasons&&remote.seasons[ym])return remote.seasons[ym];
+  return rkCompute(ym);
+}
+const RK_DONE=new Set();
+window.rkArchive=function(){ // 지난 달 기록이 경기 기록(200건)에서 밀려나기 전에 서버에 보관
+  if(!remoteLoaded)return;const cur=ymOf(Date.now());
+  rkMonths().forEach(ym=>{
+    if(ym>=cur||RK_DONE.has(ym)||(remote.seasons&&remote.seasons[ym]))return;
+    const snap=rkCompute(ym);if(!snap.games)return;RK_DONE.add(ym);snap.savedAt=Date.now();
+    updateDoc(sessionRef,{['seasons.'+ym]:snap}).catch(e=>console.warn('시즌 보관 실패',e));
+  });
+};
+function renderRank(){
+  const el=document.getElementById('rankPanel');if(!el)return;
+  const months=rkMonths();const cur=ymOf(Date.now());
+  if(!RK.ym||!months.includes(RK.ym))RK.ym=cur;
+  const d=rkData(RK.ym);
+  const wr=r=>r.g?r.w/r.g:0;
+  const cmp={wr:(a,b)=>(b.g>=RK_MIN)-(a.g>=RK_MIN)||wr(b)-wr(a)||b.w-a.w||b.g-a.g,w:(a,b)=>b.w-a.w||wr(b)-wr(a)||b.g-a.g,best:(a,b)=>b.best-a.best||b.w-a.w||wr(b)-wr(a),g:(a,b)=>b.g-a.g||b.w-a.w,ms:(a,b)=>b.ms-a.ms||b.w-a.w};
+  const rows=d.rows.slice().sort(cmp[RK.sort]);
+  const [y,m]=RK.ym.split('-').map(Number);
+  const left=Math.max(0,Math.ceil((Date.UTC(y,m,1)-KST_MS-Date.now())/86400000));
+  const isCur=RK.ym===cur;
+  const hero=`<section class="ct-hero"><div><span class="ct-eyebrow">MONTHLY SEASON</span><h1>${ymLabel(RK.ym)} 시즌 랭킹</h1><p>${isCur?'매달 1일에 새 시즌이 시작돼요. 이번 시즌은 '+left+'일 남았어요.':'지난 시즌 기록이에요.'} 시리즈(피어리스)는 한 판으로 세요. 승률 순위는 ${RK_MIN}판 이상 한 사람만 들어가요.</p></div><div class="ct-stats"><div><b>${d.games}</b><small>경기 수</small></div><div><b>${d.rows.length}</b><small>참가 선수</small></div></div></section>`;
+  const mchips='<div class="pf-chips">'+months.map(k=>`<button type="button" class="pf-chip${k===RK.ym?' on':''}" data-ym="${k}">${ymLabel(k)}${k===cur?'<small>이번 달</small>':''}</button>`).join('')+'</div>';
+  const SORTS=[['wr','승률'],['w','승수'],['best','BEST'],['g','참가'],['ms','최다 연승']];
+  const schips='<div class="pf-chips" style="margin-top:-6px">'+SORTS.map(x=>`<button type="button" class="pf-chip${RK.sort===x[0]?' on':''}" data-sort="${x[0]}">${x[1]} 순</button>`).join('')+'</div>';
+  if(!d.rows.length){el.innerHTML=hero+`<section class="card">${mchips}<div style="padding:36px 10px;text-align:center;color:var(--ink-dim)">이 달에는 아직 기록된 경기가 없어요.</div></section>`;bindRank(el);return;}
+  const top=rows.filter(r=>RK.sort!=='wr'||r.g>=RK_MIN).slice(0,3);
+  const val=r=>RK.sort==='wr'?Math.round(wr(r)*100)+'%':RK.sort==='w'?r.w+'승':RK.sort==='best'?'BEST '+r.best:RK.sort==='g'?r.g+'판':r.ms+'연승';
+  const medal=['🥇','🥈','🥉'];
+  const pod=top.length?'<div class="rk-pod">'+top.map((r,i)=>`<div class="rk-p r${i+1}"><div class="m">${medal[i]}</div><b>${escapeHtml(r.name)}</b><small>${val(r)} · ${r.g}판 ${r.w}승 ${r.l}패</small></div>`).join('')+'</div>':'';
+  const tbl=`<table class="pf-raw rk-tbl"><tr><th>#</th><th>이름</th><th>판</th><th>승</th><th>패</th><th>승률</th><th>최다연승</th><th>BEST</th><th>WORST</th></tr>`+rows.map((r,i)=>{const dim=RK.sort==='wr'&&r.g<RK_MIN;return `<tr class="${r.name===myName?'rk-me':''}${dim?' rk-dim':''}"><td>${dim?'-':i+1}</td><td>${escapeHtml(r.name)}</td><td>${r.g}</td><td>${r.w}</td><td>${r.l}</td><td>${Math.round(wr(r)*100)}%</td><td>${r.ms}</td><td>${r.best}</td><td>${r.worst}</td></tr>`;}).join('')+'</table>';
+  el.innerHTML=hero+`<section class="card">${mchips}${schips}${pod}${tbl}${d.partial?'<div class="hint" style="margin-top:12px">⚠️ 이 달은 경기 기록 보관 한도(최근 200경기)에 걸려서 일부 경기가 빠졌을 수 있어요.</div>':''}</section>`;
+  bindRank(el);
+}
+function bindRank(el){
+  el.querySelectorAll('[data-ym]').forEach(b=>b.onclick=()=>{RK.ym=b.dataset.ym;renderRank();});
+  el.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{RK.sort=b.dataset.sort;renderRank();});
+}
+window.renderRank=renderRank;
+document.getElementById('navRank').addEventListener('click',()=>{renderRank();try{window.rkArchive();}catch(e){}});
+
 
 
 /* ===== 스킨 상점: 경기 활동으로 포인트가 쌓이고, 겉모습(이름 꾸밈·칭호·프로필 배경)만 살 수 있어요 ===== */
