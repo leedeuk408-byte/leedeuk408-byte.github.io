@@ -4843,7 +4843,7 @@ function renderSeriesPanel(){
   const nm=id=>escapeHtml(seriesPlayerName(id));
   const winner=done?(w[0]>w[1]?'블루 시작팀':(w[1]>w[0]?'레드 시작팀':'무승부')):'';
   const gameRows=games.map(g=>{
-    const chips=[0,1].map(t=>'<span class="sr-team t'+t+'">'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>g.champs&&g.champs[a.id]?chImg(g.champs[a.id],'sr-img'):'<i class="sr-img sr-none">?</i>').join('')+'</span>').join('<b class="sr-vs">vs</b>');
+    const chips=[0,1].map(t=>'<span class="sr-team t'+t+'">'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>g.champs&&g.champs[a.id]?chImg(g.champs[a.id],'sr-img'):'<i class="sr-img sr-none" data-n="'+g.n+'" data-pid="'+a.id+'" title="눌러서 챔피언 직접 입력" style="cursor:pointer">?</i>').join('')+'</span>').join('<b class="sr-vs">vs</b>');
     const grp=g.winGrp!=null?g.winGrp:g.winTeam;return '<div class="sr-game"><span class="sr-n">'+g.n+'판</span>'+chips+'<span class="sr-win t'+grp+'">'+(grp===0?'블루':'레드')+' 시작팀 승'+(g.flip?' (진영 교체)':'')+'</span><button type="button" class="icon-btn sr-fix" data-n="'+g.n+'" style="text-decoration:underline;color:var(--ink-dim);font-size:11px;margin-left:6px">승패 수정</button></div>';}).join('');
   const lock=(sr.used||[]).map(u=>'<span class="sr-lock t'+u.team+'" title="'+escapeHtml(chName(u.champ))+' · '+u.game+'판 · '+nm(u.by)+'">'+chImg(u.champ,'sr-img')+'<em>'+u.game+'</em></span>').join('');
   const viol=(sr.violations||[]).map(v=>'<div class="sr-viol">'+v.game+'판 · '+nm(v.by)+' — 이미 쓴 '+escapeHtml(chName(v.champ))+' 사용</div>').join('');
@@ -4882,6 +4882,28 @@ document.addEventListener('change',e=>{
   pushRemote({series:{...sr,assignments:asg,sumA:sA,sumB:sB,diff:nd}});
   if(noTier.length)setTimeout(()=>alert('티어가 없는 라인에 배정된 사람이 있어요: '+noTier.join(', ')+'\n(점수 0으로 계산돼요)'),50);
   auditPush([{t:'match',msg:'피어리스 라인 변경 · '+seriesPlayerName(me.id)+' '+((POSITIONS.find(q=>q.key===old)||{}).label||old)+' → '+((POSITIONS.find(q=>q.key===want)||{}).label||want)+(other?' (↔ '+seriesPlayerName(other.id)+')':'')}]);
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('.sr-none');if(!b||!b.dataset.pid)return;
+  const sr=remote.series;if(!sr)return;
+  const n=parseInt(b.dataset.n,10),pid=b.dataset.pid;
+  const g=(sr.games||[]).find(x=>x.n===n);if(!g)return;
+  if(!CH.list.length){alert('챔피언 목록을 아직 못 불러왔어요. 잠시 뒤 다시 눌러주세요.');loadChamps();return;}
+  const who=seriesPlayerName(pid);
+  const q=(prompt(n+'판 · '+who+' 님이 쓴 챔피언 이름을 입력하세요 (예: 야스오)')||'').trim().replace(/\s+/g,'');
+  if(!q)return;
+  const norm=x=>(x||'').replace(/\s+/g,'').toLowerCase();
+  let hit=CH.list.filter(c=>norm(c.name)===q.toLowerCase()||norm(c.id)===q.toLowerCase());
+  if(!hit.length)hit=CH.list.filter(c=>norm(c.name).includes(q.toLowerCase())||norm(c.id).includes(q.toLowerCase()));
+  if(hit.length!==1){alert(hit.length?'여러 챔피언이 걸려요: '+hit.slice(0,6).map(c=>c.name).join(', ')+'\n더 정확히 입력해주세요.':'그런 챔피언을 못 찾았어요. 이름을 다시 확인해주세요.');return;}
+  const c=hit[0];
+  if(!confirm(n+'판 · '+who+' → '+c.name+' 로 기록할까요?'))return;
+  const a=(sr.assignments||[]).find(x=>x.id===pid);
+  const games=sr.games.map(x=>x.n===n?{...x,champs:{...(x.champs||{}),[pid]:c.id}}:x);
+  const used=[...(sr.used||[])];
+  if(!used.some(u=>u.champ===c.id))used.push({champ:c.id,team:a?a.team:0,by:pid,game:n});
+  pushRemote({series:{...sr,games,used}});
+  auditPush([{t:'match',msg:'피어리스 '+n+'판 챔피언 수동 입력 · '+who+' → '+c.name}]);
 });
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('.sr-fix');if(!b)return;
