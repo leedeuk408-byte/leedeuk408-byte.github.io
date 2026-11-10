@@ -4843,7 +4843,7 @@ function renderSeriesPanel(){
   const nm=id=>escapeHtml(seriesPlayerName(id));
   const winner=done?(w[0]>w[1]?'블루 시작팀':(w[1]>w[0]?'레드 시작팀':'무승부')):'';
   const gameRows=games.map(g=>{
-    const chips=[0,1].map(t=>'<span class="sr-team t'+t+'">'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>g.champs&&g.champs[a.id]?chImg(g.champs[a.id],'sr-img'):'<i class="sr-img sr-none" data-n="'+g.n+'" data-pid="'+a.id+'" title="눌러서 챔피언 직접 입력" style="cursor:pointer">?</i>').join('')+'</span>').join('<b class="sr-vs">vs</b>');
+    const chips=[0,1].map(t=>'<span class="sr-team t'+t+'">'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>g.champs&&g.champs[a.id]?chImg(g.champs[a.id],'sr-img'):'<i class="sr-img sr-none" data-n="'+g.n+'" data-pid="'+a.id+'" title="눌러서 챔피언 채우기 (라이엇 ID가 있으면 롤 기록에서 자동)" style="cursor:pointer">?</i>').join('')+'</span>').join('<b class="sr-vs">vs</b>');
     const grp=g.winGrp!=null?g.winGrp:g.winTeam;return '<div class="sr-game"><span class="sr-n">'+g.n+'판</span>'+chips+'<span class="sr-win t'+grp+'">'+(grp===0?'블루':'레드')+' 시작팀 승'+(g.flip?' (진영 교체)':'')+'</span><button type="button" class="icon-btn sr-fix" data-n="'+g.n+'" style="text-decoration:underline;color:var(--ink-dim);font-size:11px;margin-left:6px">승패 수정</button></div>';}).join('');
   const lock=(sr.used||[]).map(u=>'<span class="sr-lock t'+u.team+'" title="'+escapeHtml(chName(u.champ))+' · '+u.game+'판 · '+nm(u.by)+'">'+chImg(u.champ,'sr-img')+'<em>'+u.game+'</em></span>').join('');
   const viol=(sr.violations||[]).map(v=>'<div class="sr-viol">'+v.game+'판 · '+nm(v.by)+' — 이미 쓴 '+escapeHtml(chName(v.champ))+' 사용</div>').join('');
@@ -4890,6 +4890,22 @@ document.addEventListener('click',e=>{
   const g=(sr.games||[]).find(x=>x.n===n);if(!g)return;
   if(!CH.list.length){alert('챔피언 목록을 아직 못 불러왔어요. 잠시 뒤 다시 눌러주세요.');loadChamps();return;}
   const who=seriesPlayerName(pid);
+  const apl=(sr.assignments||[]).find(x=>x.id===pid),plx=players.find(x=>x.id===pid);
+  if(g.rid&&plx&&plx.puuid&&!b.dataset.busy){
+    b.dataset.busy='1';b.textContent='…';
+    riotApi('/match?id='+encodeURIComponent(g.rid)).then(m=>{
+      const part=(m.participants||[]).find(x=>x.puuid===plx.puuid);
+      const c=part&&CH.byKey[String(part.champion)];
+      if(c&&confirm(n+'판 · '+who+' 님의 롤 기록을 찾았어요 → '+c.name+'\n이 챔피언으로 채울까요?')){
+        const games=sr.games.map(x=>x.n===n?{...x,champs:{...(x.champs||{}),[pid]:c.id}}:x);
+        const used=[...(sr.used||[])];
+        if(!used.some(u=>u.champ===c.id))used.push({champ:c.id,team:apl?apl.team:0,by:pid,game:n});
+        pushRemote({series:{...sr,games,used}});
+        auditPush([{t:'match',msg:'피어리스 '+n+'판 챔피언 롤 기록으로 보충 · '+who+' → '+c.name}]);
+      }else if(!c){alert('롤 기록에서 '+who+' 님을 찾지 못했어요. 이 판에 참가한 계정이 맞는지, 라이엇 ID가 맞는지 확인해주세요.');}
+    }).catch(er=>alert('롤 기록을 불러오지 못했어요: '+(er&&er.message?er.message:er))).finally(()=>{delete b.dataset.busy;if(b.isConnected)b.textContent='?';});
+    return;
+  }
   const q=(prompt(n+'판 · '+who+' 님이 쓴 챔피언 이름을 입력하세요 (예: 야스오)')||'').trim().replace(/\s+/g,'');
   if(!q)return;
   const norm=x=>(x||'').replace(/\s+/g,'').toLowerCase();
