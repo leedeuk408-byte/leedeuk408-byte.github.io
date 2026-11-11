@@ -3323,7 +3323,7 @@ function recordMatch(winners,losers,shared){
   // append to match log
   if(!state.matchLog)state.matchLog=[];
   state.matchLog.push({ts:Date.now(),win:winIds,lose:loseIds,best:null,worst:null,...(pendingBans?{bn:pendingBans}:{})});
-  if(state.matchLog.length>200)state.matchLog.shift();
+  if(state.matchLog.length>600)state.matchLog.shift();
   // 공유(랭크게임) 모드는 더 이상 자동 승급/강등이 없음 — BEST/WORST 투표가 끝난 뒤 당사자 제외 투표로 결정됨.
   // 로컬(수동/경매) 모드는 공유 투표 인프라가 없으니 기존처럼 즉시 자동 적용.
   const changes=shared?[]:applyPromotions(entryIds);
