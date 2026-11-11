@@ -3620,7 +3620,6 @@ function renderDevPanel(){
           <button class="ghost" id="devPtReset" style="color:var(--loss-ink)">전체 100P로 초기화</button>
           <button class="ghost" id="devRefundAll" style="color:var(--loss-ink)">구매 내역 전부 환불</button>
         </div>
-        <details class="dev-refund" id="devBfWrap"><summary>지난 피어리스 시리즈 지표 채우기</summary><div style="font-size:.78rem;color:var(--ink-dim);margin:6px 0">예전 시리즈에서 빠진 앞 판들의 롤 지표를 최근 가져온 경기 기록에서 찾아 채워요. 먼저 미리보기를 보여주고, 확인해야 저장돼요.</div><button class="ghost" id="devBfBtn">미리보기 · 채우기</button><div id="devBfOut" style="font-size:.8rem;margin-top:6px"></div></details>
         <details class="dev-refund" id="devPickWrap" open><summary>선택한 선수의 구매 항목 골라서 환불</summary><div style="font-size:.78rem;color:var(--ink-dim);margin:6px 0">위에서 고른 선수가 산 스킨 중 환불할 것만 체크하세요.</div><div id="devPickList" class="dev-chips"></div><button class="ghost" id="devPickBtn" style="color:var(--loss-ink);margin-top:8px">체크한 항목 환불</button></details>
         <details class="dev-refund"><summary>특정 선수만 구매 내역 환불</summary><div id="devRefundList" class="dev-chips"></div><button class="ghost" id="devRefundSel" style="color:var(--loss-ink);margin-top:8px">선택한 선수 환불</button></details>
         <div id="devPtNow" class="dev-now"></div>
@@ -3634,6 +3633,11 @@ function renderDevPanel(){
       <div class="card dev-card"><h2>데이터 복구</h2>
         <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업(최근 7개)으로 되돌려요.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button><button class="ghost" id="devDedupeBtn">중복 경기 정리</button></div>
+      </div>
+      <div class="card dev-card"><h2>피어리스 시리즈 지표 채우기</h2>
+        <div class="dev-help">예전 피어리스 시리즈에서 빠진 앞 판들의 롤 지표(KDA·딜량 등)를, 최근 가져온 롤 경기 기록에서 찾아 채워요. 먼저 미리보기를 보여주고 확인해야 저장돼요. 전적·포인트는 바뀌지 않아요.</div>
+        <button class="ghost" id="devBfBtn">미리보기 · 채우기</button>
+        <div id="devBfOut" class="dev-result" aria-live="polite"></div>
       </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
         <div id="devRestoreList"></div>
