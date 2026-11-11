@@ -4012,6 +4012,7 @@ function devResetPoints(){
     setTimeout(devPtNow,400);
   }).catch(e=>{if(out){out.textContent="실패: "+(e&&e.message?e.message:e);out.style.color="var(--loss-ink)";}});
 }
+function chIdOf(v){const t=String(v==null?'':v);if(!t)return null;if(CH.byId[t])return t;if(CH.byKey[t])return CH.byKey[t].id;return isNaN(Number(t))?t:null;}
 function riotStatArr(best,part){
   if(typeof part.dmg!=='number')return null;
   const mates=best.participants.filter(q=>q.team===part.team);
@@ -4031,14 +4032,15 @@ async function devBfDiag(){
       let m;try{m=await riotApi('/match?id='+encodeURIComponent(id));}catch(e){lines.push(id+' · 불러오기 실패');continue;}
       await sleep(60);
       const reg=m.participants.filter(x=>byPuuid[x.puuid]);
-      let inHist=0,inSx=0,champ=0;
+      let inHist=0,inSx=0,champ=0,champN=0;
       reg.forEach(x=>{const pl=byPuuid[x.puuid];
         const h=(pl.hist||[]).find(h=>h.st&&h.st[11]===m.gameDuration&&h.st[0]===(x.k||0)&&h.st[1]===(x.d||0));
         if(h){inHist++;if(h.champ)champ++;}
         if((pl.hist||[]).some(h=>(h.sx||[]).some(q=>q.st&&q.st[11]===m.gameDuration&&q.st[0]===(x.k||0))))inSx++;
+        if((pl.hist||[]).some(h=>(h.sx||[]).some(q=>q.champ&&q.st&&q.st[11]===m.gameDuration&&q.st[0]===(x.k||0))||(h.champ&&h.st&&h.st[11]===m.gameDuration&&h.st[0]===(x.k||0)&&!h.sx)))champN++;
       });
       n++;
-      lines.push(n+'. '+new Date(m.gameCreation).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · '+Math.round((m.gameDuration||0)/60)+'분 · 등록선수 '+reg.length+'명 · 전적에 있음 '+inHist+' · 시리즈보충 '+inSx+' · '+((inHist+inSx)?'반영됨':'⚠ 전적에 없음'));
+      lines.push(n+'. '+new Date(m.gameCreation).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · '+Math.round((m.gameDuration||0)/60)+'분 · 등록선수 '+reg.length+'명 · 전적에 있음 '+inHist+' · 시리즈보충 '+inSx+' · 챔피언기록 '+champN+' · '+((inHist+inSx)?'반영됨':'⚠ 전적에 없음'));
     }
     const cm=(state.matchLog||[]).length;
     lines.push('--');lines.push('경기 기록(matchLog) '+cm+'건');
@@ -4075,8 +4077,8 @@ async function devBackfill(){
       const per=[];
       regOf(last).forEach(pt=>{
         const pl=byPuuid[pt.puuid];const ent=(pl.hist||[]).find(h=>same(h,last,pt));if(!ent)return;
-        const rows=g.map(m=>{const q=m.participants.find(x=>x.puuid===pt.puuid);if(!q)return null;const c=CH.byKey[String(q.champion)];const r={pos:ent.pos,opp:ent.opp||null,result:q.win?'W':'L'};if(c)r.champ=c.id;const st=riotStatArr(m,q);if(st)r.st=st;return r;}).filter(Boolean);
-        if(rows.length>=2&&(!ent.sx||ent.sx.length<rows.length))per.push({pid:pl.id,name:pl.name,dur:last.gameDuration,k:pt.k||0,d:pt.d||0,rows});
+        const rows=g.map(m=>{const q=m.participants.find(x=>x.puuid===pt.puuid);if(!q)return null;const cid=chIdOf(q.champion);const r={pos:ent.pos,opp:ent.opp||null,result:q.win?'W':'L'};if(cid)r.champ=cid;const st=riotStatArr(m,q);if(st)r.st=st;return r;}).filter(Boolean);
+        if(rows.length>=2&&(!ent.sx||ent.sx.length<rows.length||ent.sx.some((r,i)=>!r.champ&&rows[i]&&rows[i].champ)))per.push({pid:pl.id,name:pl.name,dur:last.gameDuration,k:pt.k||0,d:pt.d||0,rows});
       });
       if(per.length)plan.push({games:g.length,when:new Date(last.gameCreation).toLocaleString('ko-KR'),per});else done++;
     });
@@ -4084,13 +4086,13 @@ async function devBackfill(){
     const sr=remote.series;const serFix=[];
     if(sr&&sr.status==='active'){
       (sr.games||[]).forEach(g=>{
-        if(g.rows&&Object.keys(g.rows).length>=8)return;
+        if(g.rows&&Object.keys(g.rows).length>=8&&Object.values(g.rows).filter(r=>r.champ).length>=Math.min(8,Object.keys(g.rows).length))return;
         const m=ms.find(x=>x.__id===g.rid);if(!m)return;
         const rows={};(sr.assignments||[]).forEach(a=>{
           const pl=players.find(p=>p.id===a.id);const q=pl&&pl.puuid&&m.participants.find(x=>x.puuid===pl.puuid);if(!q)return;
-          const c=CH.byKey[String(q.champion)];const r={pos:a.pos,opp:null,result:q.win?'W':'L'};
+          const cid=chIdOf(q.champion);const r={pos:a.pos,opp:null,result:q.win?'W':'L'};
           const o=(sr.assignments||[]).find(x=>x.team!==a.team&&x.pos===a.pos);if(o)r.opp=o.id;
-          if(c)r.champ=c.id;const st=riotStatArr(m,q);if(st)r.st=st;rows[a.id]=r;});
+          if(cid)r.champ=cid;const st=riotStatArr(m,q);if(st)r.st=st;rows[a.id]=r;});
         if(Object.keys(rows).length)serFix.push({n:g.n,rows});
       });
     }
@@ -4103,7 +4105,7 @@ async function devBackfill(){
       const ps=(data.players||[]).map(p=>{
         const mine=plan.flatMap(x=>x.per.filter(q=>q.pid===p.id));if(!mine.length)return p;
         const hist=[...(p.hist||[])];
-        mine.forEach(q=>{const i=hist.findIndex(h=>h.st&&h.st[11]===q.dur&&h.st[0]===q.k&&h.st[1]===q.d&&(!h.sx||h.sx.length<q.rows.length));if(i>=0)hist[i]={...hist[i],sx:q.rows};});
+        mine.forEach(q=>{const i=hist.findIndex(h=>h.st&&h.st[11]===q.dur&&h.st[0]===q.k&&h.st[1]===q.d&&(!h.sx||h.sx.length<q.rows.length||h.sx.some((r,k)=>!r.champ&&q.rows[k]&&q.rows[k].champ)));if(i>=0)hist[i]={...hist[i],sx:q.rows};});
         return {...p,hist};
       });
       const upd={players:ps,auditLog:auditAppend(data,[{t:'dev',msg:'시리즈 지표 채우기 · '+plan.length+'개 시리즈 · '+total+'명'+(serFix.length?' · 진행 중 시리즈 '+serFix.length+'판':'')}])};
@@ -5102,7 +5104,7 @@ document.addEventListener('click',e=>{
     b.dataset.busy='1';b.textContent='…';
     riotApi('/match?id='+encodeURIComponent(g.rid)).then(m=>{
       const part=(m.participants||[]).find(x=>x.puuid===plx.puuid);
-      const c=part&&CH.byKey[String(part.champion)];
+      const cid0=part&&chIdOf(part.champion);const c=cid0?{id:cid0,name:chName(cid0)}:null;
       if(c&&confirm(n+'판 · '+who+' 님의 롤 기록을 찾았어요 → '+c.name+'\n이 챔피언으로 채울까요?')){
         const games=sr.games.map(x=>x.n===n?{...x,champs:{...(x.champs||{}),[pid]:c.id}}:x);
         const used=[...(sr.used||[])];
