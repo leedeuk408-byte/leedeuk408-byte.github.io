@@ -3632,7 +3632,7 @@ function renderDevPanel(){
       </div>
       <div class="card dev-card"><h2>데이터 복구</h2>
         <div class="dev-help">티어가 예전으로 돌아갔을 때 쓰세요. 활동 기록에 남은 티어 변경을 다시 적용하거나, 서버에 하루 한 번 쌓이는 자동 백업(최근 7개)으로 되돌려요.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button><button class="ghost" id="devDedupeBtn">중복 경기 정리</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="devReplayBtn">활동 기록에서 티어 변경 다시 적용</button><button class="ghost" id="devUndoDupBtn">중복 정리 되돌리기</button><button class="ghost" id="devBkBtn">서버 자동 백업에서 복구</button><button class="ghost" id="devLocalBtn">이 기기 복사본으로 복구</button><button class="ghost" id="devDedupeBtn">중복 경기 정리</button></div>
       </div>
       <div class="card dev-card"><h2>피어리스 시리즈 지표 채우기</h2>
         <div class="dev-help">예전 피어리스 시리즈에서 빠진 앞 판들의 롤 지표(KDA·딜량 등)를, 최근 가져온 롤 경기 기록에서 찾아 채워요. 먼저 미리보기를 보여주고 확인해야 저장돼요. 전적·포인트는 바뀌지 않아요.</div>
@@ -3647,6 +3647,7 @@ function renderDevPanel(){
     document.getElementById("devScanLocalBtn").onclick=devScanLocalBackup;
     document.getElementById("devReplayBtn").onclick=devReapplyAudit;
     document.getElementById("devBkBtn").onclick=devRestoreServerBackup;
+    document.getElementById("devUndoDupBtn").onclick=devUndoDedupe;
     document.getElementById("devLocalBtn").onclick=offerRecovery;
     document.getElementById("devDedupeBtn").onclick=devDedupeMatches;
     sel.onchange=updateDevCount;
@@ -3866,6 +3867,42 @@ function devReapplyAudit(){
     const next=auditReplay(base,data.auditLog||[]);const n=auditNetChanges(base,next).length;
     tx.update(sessionRef,{players:next,auditLog:auditAppend(data,[{t:'edit',msg:'활동 기록에서 티어 변경 '+n+'건 다시 적용'}])});
   }).then(()=>alert('다시 적용했어요.')).catch(e=>alert('실패했어요: '+(e&&e.message||e)));
+}
+function dupUndo(pre,curPlayers,curLog){
+  const key=h=>JSON.stringify([h.result,h.pos||null,h.opp||null,h.champ||null,h.st||null,h.award||null]);
+  const players=(curPlayers||[]).map(cp=>{
+    const pp=(pre.players||[]).find(x=>x.id===cp.id);
+    if(!pp||!pp.hist)return cp;
+    const cur=cp.hist||[];let j=0;
+    const out=pp.hist.map(h=>{if(j<cur.length&&key(h)===key(cur[j])){return cur[j++];}return h;});
+    const tail=cur.slice(j);
+    const nh=[...out,...tail];
+    if(nh.length===cur.length)return cp;
+    const r={...cp,hist:nh};
+    if(pp.ptBase!=null)r.ptBase=pp.ptBase+tail.length;
+    return r;
+  });
+  const lastTs=Math.max(0,...((pre.matchLog||[]).map(m=>m.ts||0)));
+  const matchLog=[...(pre.matchLog||[]),...((curLog||[]).filter(m=>(m.ts||0)>lastTs))];
+  return {players,matchLog};
+}
+async function devUndoDedupe(){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  let pre;
+  try{const sn=await getDoc(doc(db,'sessions','bk_pre_dedupe'));if(!sn.exists()){alert('정리 직전 백업을 찾지 못했어요.\n대신 "서버 자동 백업으로 복구"를 써볼 수 있어요.');return;}pre=sn.data();}
+  catch(e){alert('백업을 읽지 못했어요: '+(e&&e.message||e));return;}
+  const cnt=pl=>(pl||[]).reduce((x,p)=>x+((p.hist||[]).length),0);
+  const when=pre.ts?new Date(pre.ts).toLocaleString('ko-KR'):'?';
+  const r=dupUndo(pre,players,state.matchLog||[]);
+  const back=cnt(r.players)-cnt(players);
+  if(back<=0&&r.matchLog.length<=(state.matchLog||[]).length){alert('되돌릴 기록이 없어요. (정리 직전 '+when+' 백업과 지금이 같아요)');return;}
+  if(!confirm('중복 정리 직전('+when+') 상태로 되돌릴까요?\n\n· 선수 전적 기록 +'+back+'건 복구\n· 경기 기록 '+(state.matchLog||[]).length+' → '+r.matchLog.length+'건\n\n※ 정리 이후에 새로 기록된 경기는 그대로 유지돼요.'))return;
+  runTransaction(db,async(tx)=>{
+    const sn=await tx.get(sessionRef);const d=sn.data()||{};
+    if((d.players||[]).length<3)throw new Error('서버 명단이 비어 있어요.');
+    const rr=dupUndo(pre,d.players||[],d.matchLog||[]);
+    tx.update(sessionRef,{players:rr.players,matchLog:rr.matchLog,auditLog:auditAppend(d,[{t:'dev',msg:'중복 정리 되돌리기'}])});
+  }).then(()=>alert('되돌렸어요. 새로고침하면 반영돼요.')).catch(e=>alert('실패했어요: '+(e&&e.message||e)));
 }
 async function devRestoreServerBackup(){
   const found=[];
