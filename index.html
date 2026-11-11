@@ -4847,7 +4847,7 @@ function srSwapCalc(sr,aid,bid){
   const bA=sr.baseA!=null?sr.baseA:sr.sumA,bB=sr.baseB!=null?sr.baseB:sr.sumB;
   const cap=(bA!=null&&bB!=null)?Math.max(bA,bB)+0.5:null;
   const nd=Math.abs(sA-sB);
-  const ok=nd<=2+1e-9&&(cap==null||(sA<=cap+1e-9&&sB<=cap+1e-9));
+  const ok=(cap==null||(sA<=cap+1e-9&&sB<=cap+1e-9));
   return {ok,asg,sA,sB,nd,cap};
 }
 function renderSeriesPanel(){
