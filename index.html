@@ -3638,6 +3638,8 @@ function renderDevPanel(){
         <div class="dev-help">예전 피어리스 시리즈에서 빠진 앞 판들의 롤 지표(KDA·딜량 등)를, 최근 가져온 롤 경기 기록에서 찾아 채워요. 먼저 미리보기를 보여주고 확인해야 저장돼요. 전적·포인트는 바뀌지 않아요.</div>
         <button class="ghost" id="devBfBtn">미리보기 · 채우기</button>
         <div id="devBfOut" class="dev-result" aria-live="polite"></div>
+        <button class="ghost" id="devBfDiagBtn" style="margin-top:8px">경기별 진단 보기</button>
+        <pre id="devBfDiag" style="white-space:pre-wrap;font-size:.74rem;margin-top:6px;user-select:text"></pre>
       </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
         <div id="devRestoreList"></div>
@@ -3666,6 +3668,7 @@ function renderDevPanel(){
     document.getElementById("devPtReset").onclick=devResetPoints;
     document.getElementById("devPickBtn").onclick=devRefundPick;
     document.getElementById("devBfBtn").onclick=devBackfill;
+    document.getElementById("devBfDiagBtn").onclick=devBfDiag;
     document.getElementById("devRefundAll").onclick=()=>devRefund(null);
     document.getElementById("devRefundSel").onclick=()=>{const ids=[...document.querySelectorAll("#devRefundList input:checked")].map(i=>i.value);if(!ids.length){alert("환불할 선수를 먼저 골라주세요.");return;}devRefund(ids);};
   }
@@ -4015,6 +4018,33 @@ function riotStatArr(best,part){
   const tK=mates.reduce((x,q)=>x+(q.k||0),0),tD=mates.reduce((x,q)=>x+(q.dmg||0),0);
   return [part.k||0,part.d||0,part.a||0,part.dmg||0,part.taken||0,part.gold||0,part.cs||0,part.vis||0,Math.round(part.cc||0),
     tK?Math.round(100*((part.k||0)+(part.a||0))/tK):0,tD?Math.round(100*(part.dmg||0)/tD):0,best.gameDuration||0];
+}
+async function devBfDiag(){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  const out=document.getElementById('devBfDiag'),btn=document.getElementById('devBfDiagBtn');
+  btn.disabled=true;out.textContent='불러오는 중…';
+  try{
+    const ids=(remote.riotImported||[]).slice(-60);
+    const byPuuid={};players.forEach(p=>{if(p.puuid)byPuuid[p.puuid]=p;});
+    const lines=[];let n=0;
+    for(const id of ids){
+      let m;try{m=await riotApi('/match?id='+encodeURIComponent(id));}catch(e){lines.push(id+' · 불러오기 실패');continue;}
+      await sleep(60);
+      const reg=m.participants.filter(x=>byPuuid[x.puuid]);
+      let inHist=0,inSx=0,champ=0;
+      reg.forEach(x=>{const pl=byPuuid[x.puuid];
+        const h=(pl.hist||[]).find(h=>h.st&&h.st[11]===m.gameDuration&&h.st[0]===(x.k||0)&&h.st[1]===(x.d||0));
+        if(h){inHist++;if(h.champ)champ++;}
+        if((pl.hist||[]).some(h=>(h.sx||[]).some(q=>q.st&&q.st[11]===m.gameDuration&&q.st[0]===(x.k||0))))inSx++;
+      });
+      n++;
+      lines.push(n+'. '+new Date(m.gameCreation).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · '+Math.round((m.gameDuration||0)/60)+'분 · 등록선수 '+reg.length+'명 · 전적에 있음 '+inHist+' · 시리즈보충 '+inSx+' · '+((inHist+inSx)?'반영됨':'⚠ 전적에 없음'));
+    }
+    const cm=(state.matchLog||[]).length;
+    lines.push('--');lines.push('경기 기록(matchLog) '+cm+'건');
+    out.textContent=lines.join('\n');
+  }catch(e){out.textContent='실패: '+(e&&e.message?e.message:e);}
+  finally{btn.disabled=false;}
 }
 async function devBackfill(){
   if(myName!==DEV_NAME||!devUnlocked())return;
