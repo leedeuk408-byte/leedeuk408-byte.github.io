@@ -4854,7 +4854,7 @@ function renderSeriesPanel(){
   // 다음 판 시작 전에: 같은 팀 안에서 라인을 서로 바꿀 수 있어요
   const laneEd=canNext?(()=>{
     const col=t=>'<div class="sr-lcol"><b class="t'+t+'">'+(t===0?'블루 시작팀':'레드 시작팀')+'</b>'+(sr.assignments||[]).filter(a=>a.team===t).sort((a,b)=>posIndex[a.pos]-posIndex[b.pos]).map(a=>'<label class="sr-lrow"><span>'+nm(a.id)+'</span><select class="sr-lane-sel" data-pid="'+a.id+'">'+POSITIONS.map(q=>'<option value="'+q.key+'"'+(q.key===a.pos?' selected':'')+'>'+q.label+'</option>').join('')+'</select></label>').join('')+'</div>';
-    return '<details class="sr-lanes" id="srLaneDet"'+(window.__srLaneOpen?' open':'')+'><summary>라인 바꾸기 <small>· 같은 팀 안에서 서로 맞바꿔요 · 팀 점수 처음 대비 ±1점·전력 차 2점 이하만 가능 · 지금 '+(sr.diff!=null?Number(sr.diff).toFixed(1):'?')+'점 · 다음 판부터 적용</small></summary><div class="sr-lcols">'+col(0)+col(1)+'</div></details>';
+    return '<details class="sr-lanes" id="srLaneDet"'+(window.__srLaneOpen?' open':'')+'><summary>라인 바꾸기 <small>· 같은 팀 안에서 서로 맞바꿔요 · 팀 점수 상한(처음 높은 쪽+0.5)·전력 차 2점 이하만 가능 · 지금 '+(sr.diff!=null?Number(sr.diff).toFixed(1):'?')+'점 · 다음 판부터 적용</small></summary><div class="sr-lcols">'+col(0)+col(1)+'</div></details>';
   })():'';
   box.innerHTML='<div class="card sr-card"><div class="sr-head"><div><span class="sr-eyebrow">FEARLESS · BEST OF '+(sr.bestOf||3)+'</span><h3>'+(done?'시리즈 종료 · '+winner+' 승리':'피어리스 '+(sr.bestOf||3)+'판 '+Math.ceil((sr.bestOf||3)/2)+'선')+'</h3></div>'
     +'<div class="sr-score"><span class="t0">'+w[0]+'</span><i>:</i><span class="t1">'+w[1]+'</span></div></div>'
@@ -4879,8 +4879,9 @@ document.addEventListener('change',e=>{
   asg.forEach(x=>{const pl=players.find(p=>p.id===x.id);if(!pl)return;if(pl.tiers[x.pos]==null)noTier.push(pl.name);const v=laneScore(pl,x.pos);if(x.team===0)sA+=v;else sB+=v;});
   const nd=Math.abs(sA-sB),LIM=2;
   if(nd>LIM+1e-9){alert('라인을 바꾸면 전력 차가 '+nd.toFixed(1)+'점이 돼요.\n전력 차가 '+LIM+'점을 넘으면 바꿀 수 없어요. (지금 '+(sr.diff!=null?Number(sr.diff).toFixed(1):'?')+'점)');renderSeriesPanel();return;}
-  const bA=sr.baseA!=null?sr.baseA:sr.sumA,bB=sr.baseB!=null?sr.baseB:sr.sumB,DEV=1;
-  if(bA!=null&&bB!=null&&(Math.abs(sA-bA)>DEV+1e-9||Math.abs(sB-bB)>DEV+1e-9)){alert('처음 팀 점수에서 팀당 ±'+DEV+'점까지만 바꿀 수 있어요.\n\n처음: 블루 '+Number(bA).toFixed(1)+' · 레드 '+Number(bB).toFixed(1)+'\n이렇게 바꾸면: 블루 '+sA.toFixed(1)+' · 레드 '+sB.toFixed(1));renderSeriesPanel();return;}
+  const bA=sr.baseA!=null?sr.baseA:sr.sumA,bB=sr.baseB!=null?sr.baseB:sr.sumB,CAPX=0.5;
+  const cap=(bA!=null&&bB!=null)?Math.max(bA,bB)+CAPX:null;
+  if(cap!=null&&(sA>cap+1e-9||sB>cap+1e-9)){alert('팀 점수는 '+cap.toFixed(1)+'점까지만 올라갈 수 있어요.\n(처음 점수 중 높은 쪽 '+Math.max(bA,bB).toFixed(1)+' + '+CAPX+')\n\n처음: 블루 '+Number(bA).toFixed(1)+' · 레드 '+Number(bB).toFixed(1)+'\n이렇게 바꾸면: 블루 '+sA.toFixed(1)+' · 레드 '+sB.toFixed(1));renderSeriesPanel();return;}
   pushRemote({series:{...sr,assignments:asg,sumA:sA,sumB:sB,baseA:bA!=null?bA:sA,baseB:bB!=null?bB:sB,diff:nd}});
   if(noTier.length)setTimeout(()=>alert('티어가 없는 라인에 배정된 사람이 있어요: '+noTier.join(', ')+'\n(점수 0으로 계산돼요)'),50);
   auditPush([{t:'match',msg:'피어리스 라인 변경 · '+seriesPlayerName(me.id)+' '+((POSITIONS.find(q=>q.key===old)||{}).label||old)+' → '+((POSITIONS.find(q=>q.key===want)||{}).label||want)+(other?' (↔ '+seriesPlayerName(other.id)+')':'')}]);
