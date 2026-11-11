@@ -4048,6 +4048,7 @@ async function devBfDiag(){
   }catch(e){out.textContent='실패: '+(e&&e.message?e.message:e);}
   finally{btn.disabled=false;}
 }
+function sxNeed(sx,rows){return !sx||sx.length<rows.length||sx.some((r,i)=>rows[i]&&((!r.champ&&rows[i].champ)||(rows[i].pv&&!r.pv)));}
 async function devBackfill(){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const out=document.getElementById('devBfOut'),btn=document.getElementById('devBfBtn');
@@ -4077,8 +4078,8 @@ async function devBackfill(){
       const per=[];
       regOf(last).forEach(pt=>{
         const pl=byPuuid[pt.puuid];const ent=(pl.hist||[]).find(h=>same(h,last,pt));if(!ent)return;
-        const rows=g.map(m=>{const q=m.participants.find(x=>x.puuid===pt.puuid);if(!q)return null;const cid=chIdOf(q.champion);const r={pos:ent.pos,opp:ent.opp||null,result:q.win?'W':'L'};if(cid)r.champ=cid;const st=riotStatArr(m,q);if(st)r.st=st;return r;}).filter(Boolean);
-        if(rows.length>=2&&(!ent.sx||ent.sx.length<rows.length||ent.sx.some((r,i)=>!r.champ&&rows[i]&&rows[i].champ)))per.push({pid:pl.id,name:pl.name,dur:last.gameDuration,k:pt.k||0,d:pt.d||0,rows});
+        const rows=g.map(m=>{const q=m.participants.find(x=>x.puuid===pt.puuid);if(!q)return null;const cid=chIdOf(q.champion);const rp=RIOT_POS[q.pos];const r={pos:rp||ent.pos,opp:rp?null:(ent.opp||null),result:q.win?'W':'L'};if(rp){r.pv=1;const oq=m.participants.find(x=>x.team!==q.team&&x.pos===q.pos);const op=oq&&byPuuid[oq.puuid];r.opp=op?op.id:null;}if(cid)r.champ=cid;const st=riotStatArr(m,q);if(st)r.st=st;return r;}).filter(Boolean);
+        if(rows.length>=2&&sxNeed(ent.sx,rows))per.push({pid:pl.id,name:pl.name,dur:last.gameDuration,k:pt.k||0,d:pt.d||0,rows});
       });
       if(per.length)plan.push({games:g.length,when:new Date(last.gameCreation).toLocaleString('ko-KR'),per});else done++;
     });
@@ -4105,7 +4106,7 @@ async function devBackfill(){
       const ps=(data.players||[]).map(p=>{
         const mine=plan.flatMap(x=>x.per.filter(q=>q.pid===p.id));if(!mine.length)return p;
         const hist=[...(p.hist||[])];
-        mine.forEach(q=>{const i=hist.findIndex(h=>h.st&&h.st[11]===q.dur&&h.st[0]===q.k&&h.st[1]===q.d&&(!h.sx||h.sx.length<q.rows.length||h.sx.some((r,k)=>!r.champ&&q.rows[k]&&q.rows[k].champ)));if(i>=0)hist[i]={...hist[i],sx:q.rows};});
+        mine.forEach(q=>{const i=hist.findIndex(h=>h.st&&h.st[11]===q.dur&&h.st[0]===q.k&&h.st[1]===q.d&&sxNeed(h.sx,q.rows));if(i>=0)hist[i]={...hist[i],sx:q.rows};});
         return {...p,hist};
       });
       const upd={players:ps,auditLog:auditAppend(data,[{t:'dev',msg:'시리즈 지표 채우기 · '+plan.length+'개 시리즈 · '+total+'명'+(serFix.length?' · 진행 중 시리즈 '+serFix.length+'판':'')}])};
