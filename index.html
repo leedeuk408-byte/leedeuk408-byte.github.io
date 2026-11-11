@@ -3987,47 +3987,63 @@ async function devBackfill(){
   try{
     if(!CH.list.length)await loadChamps();
     const ids=(remote.riotImported||[]).slice(-60);
-    if(ids.length<2){say('가져온 경기 기록이 부족해요.');return;}
+    if(ids.length<1){say('가져온 경기 기록이 부족해요. (저장된 경기 '+ids.length+'개)');return;}
     const byPuuid={};players.forEach(p=>{if(p.puuid)byPuuid[p.puuid]=p;});
-    const ms=[];
-    for(const id of ids){try{const m=await riotApi('/match?id='+encodeURIComponent(id));if(m&&m.participants)ms.push(m);}catch(e){if(e&&(e.status===401||e.status===403))throw e;}await sleep(60);}
+    const ms=[];let fail=0;
+    for(const id of ids){try{const m=await riotApi('/match?id='+encodeURIComponent(id));if(m&&m.participants){m.__id=id;ms.push(m);}else fail++;}catch(e){fail++;if(e&&(e.status===401||e.status===403))throw e;}await sleep(60);}
     const regOf=m=>m.participants.filter(x=>byPuuid[x.puuid]);
-    const entryOf=(pl,m,part,needNoSx)=>(pl.hist||[]).find(h=>h.st&&h.st[11]===m.gameDuration&&h.st[0]===(part.k||0)&&h.st[1]===(part.d||0)&&(!needNoSx||!h.sx));
-    const recorded=m=>{const r=regOf(m);const n=r.filter(x=>{const pl=byPuuid[x.puuid];return (pl.hist||[]).some(h=>(h.st&&h.st[11]===m.gameDuration&&h.st[0]===(x.k||0)&&h.st[1]===(x.d||0))||(h.sx||[]).some(q=>q.st&&q.st[11]===m.gameDuration&&q.st[0]===(x.k||0)));}).length;return n>=Math.max(3,Math.ceil(r.length*0.6));};
+    const same=(h,m,x)=>h.st&&h.st[11]===m.gameDuration&&h.st[0]===(x.k||0)&&h.st[1]===(x.d||0);
+    const recorded=m=>{const r=regOf(m);const n=r.filter(x=>{const pl=byPuuid[x.puuid];return (pl.hist||[]).some(h=>same(h,m,x)||(h.sx||[]).some(q=>q.st&&q.st[11]===m.gameDuration&&q.st[0]===(x.k||0)));}).length;return n>=Math.max(3,Math.ceil(r.length*0.6));};
     const groups=[];
     ms.forEach(m=>{
       const g=groups[groups.length-1];
-      const same=g?(()=>{const lm=g[g.length-1];const a=new Set(regOf(lm).map(x=>x.puuid));const b=regOf(m).map(x=>x.puuid);return b.filter(x=>a.has(x)).length>=8&&Math.abs(m.gameCreation-lm.gameCreation)<4*3600*1000;})():false;
-      if(same)g.push(m);else groups.push([m]);
+      const ok=g?(()=>{const lm=g[g.length-1];const a=new Set(regOf(lm).map(x=>x.puuid));const b=regOf(m).map(x=>x.puuid);const need=Math.max(4,Math.floor(Math.min(a.size,b.length)*0.7));return b.filter(x=>a.has(x)).length>=need&&Math.abs(m.gameCreation-lm.gameCreation)<4*3600*1000;})():false;
+      if(ok)g.push(m);else groups.push([m]);
     });
-    const plan=[];
+    const plan=[];let cand=0,done=0;
     groups.filter(g=>g.length>=2).forEach(g=>{
       const last=g[g.length-1];
       if(!recorded(last))return;
-      if(g.slice(0,-1).every(recorded))return;
+      cand++;
       const per=[];
       regOf(last).forEach(pt=>{
-        const pl=byPuuid[pt.puuid];const ent=entryOf(pl,last,pt,true);if(!ent)return;
+        const pl=byPuuid[pt.puuid];const ent=(pl.hist||[]).find(h=>same(h,last,pt));if(!ent)return;
         const rows=g.map(m=>{const q=m.participants.find(x=>x.puuid===pt.puuid);if(!q)return null;const c=CH.byKey[String(q.champion)];const r={pos:ent.pos,opp:ent.opp||null,result:q.win?'W':'L'};if(c)r.champ=c.id;const st=riotStatArr(m,q);if(st)r.st=st;return r;}).filter(Boolean);
-        if(rows.length>=2)per.push({pid:pl.id,name:pl.name,dur:last.gameDuration,k:pt.k||0,d:pt.d||0,rows});
+        if(rows.length>=2&&(!ent.sx||ent.sx.length<rows.length))per.push({pid:pl.id,name:pl.name,dur:last.gameDuration,k:pt.k||0,d:pt.d||0,rows});
       });
-      if(per.length)plan.push({games:g.length,when:new Date(last.gameCreation).toLocaleString('ko-KR'),per});
+      if(per.length)plan.push({games:g.length,when:new Date(last.gameCreation).toLocaleString('ko-KR'),per});else done++;
     });
-    if(!plan.length){say('채울 시리즈를 못 찾았어요. (이미 채워졌거나, 최근 가져온 기록에 없어요)');return;}
+    // 진행 중인 시리즈: 지표가 비어 있는 판을 경기 ID로 채움
+    const sr=remote.series;const serFix=[];
+    if(sr&&sr.status==='active'){
+      (sr.games||[]).forEach(g=>{
+        if(g.rows&&Object.keys(g.rows).length>=8)return;
+        const m=ms.find(x=>x.__id===g.rid);if(!m)return;
+        const rows={};(sr.assignments||[]).forEach(a=>{
+          const pl=players.find(p=>p.id===a.id);const q=pl&&pl.puuid&&m.participants.find(x=>x.puuid===pl.puuid);if(!q)return;
+          const c=CH.byKey[String(q.champion)];const r={pos:a.pos,opp:null,result:q.win?'W':'L'};
+          const o=(sr.assignments||[]).find(x=>x.team!==a.team&&x.pos===a.pos);if(o)r.opp=o.id;
+          if(c)r.champ=c.id;const st=riotStatArr(m,q);if(st)r.st=st;rows[a.id]=r;});
+        if(Object.keys(rows).length)serFix.push({n:g.n,rows});
+      });
+    }
+    if(!plan.length&&!serFix.length){say('채울 곳을 못 찾았어요. · 불러온 경기 '+ms.length+'개(실패 '+fail+') · 같은 멤버 연속 경기 묶음 '+groups.filter(g=>g.length>=2).length+'개 · 시리즈 후보 '+cand+'개 · 이미 채워진 것 '+done+'개');return;}
     const total=plan.reduce((x,p)=>x+p.per.length,0);
-    const msg=plan.map(p=>p.when+' · '+p.games+'판 · '+p.per.length+'명').join('\n');
-    if(!confirm('다음 시리즈의 앞 판 지표를 채울까요?\n\n'+msg+'\n\n(전적·포인트는 바뀌지 않고 분석 지표만 추가돼요)')){say('취소했어요.');return;}
+    const msg=plan.map(p=>p.when+' · '+p.games+'판 · '+p.per.length+'명').concat(serFix.map(f=>'진행 중인 시리즈 '+f.n+'판 · '+Object.keys(f.rows).length+'명')).join('\n');
+    if(!confirm('다음을 채울까요?\n\n'+msg+'\n\n(전적·포인트는 바뀌지 않고 분석 지표만 추가돼요)')){say('취소했어요.');return;}
     await runTransaction(db,async(tx)=>{
       const snap=await tx.get(sessionRef);const data=snap.data()||{};
       const ps=(data.players||[]).map(p=>{
         const mine=plan.flatMap(x=>x.per.filter(q=>q.pid===p.id));if(!mine.length)return p;
         const hist=[...(p.hist||[])];
-        mine.forEach(q=>{const i=hist.findIndex(h=>h.st&&h.st[11]===q.dur&&h.st[0]===q.k&&h.st[1]===q.d&&!h.sx);if(i>=0)hist[i]={...hist[i],sx:q.rows};});
+        mine.forEach(q=>{const i=hist.findIndex(h=>h.st&&h.st[11]===q.dur&&h.st[0]===q.k&&h.st[1]===q.d&&(!h.sx||h.sx.length<q.rows.length));if(i>=0)hist[i]={...hist[i],sx:q.rows};});
         return {...p,hist};
       });
-      tx.update(sessionRef,{players:ps,auditLog:auditAppend(data,[{t:'dev',msg:'지난 시리즈 지표 채우기 · '+plan.length+'개 시리즈 · '+total+'명'}])});
+      const upd={players:ps,auditLog:auditAppend(data,[{t:'dev',msg:'시리즈 지표 채우기 · '+plan.length+'개 시리즈 · '+total+'명'+(serFix.length?' · 진행 중 시리즈 '+serFix.length+'판':'')}])};
+      if(serFix.length&&data.series&&data.series.games){upd.series={...data.series,games:data.series.games.map(g=>{const f=serFix.find(x=>x.n===g.n);return f?{...g,rows:f.rows}:g;})};}
+      tx.update(sessionRef,upd);
     });
-    say('완료 · '+plan.length+'개 시리즈 · '+total+'명 채웠어요.','var(--win-ink)');
+    say('완료 · 시리즈 '+plan.length+'개('+total+'명)'+(serFix.length?' · 진행 중 시리즈 '+serFix.length+'판':'')+' 채웠어요.','var(--win-ink)');
   }catch(e){say('실패: '+(e&&e.message?e.message:e)+(e&&(e.status===401||e.status===403)?' (라이엇 키 만료 가능)':''),'var(--loss-ink)');}
   finally{btn.disabled=false;}
 }
