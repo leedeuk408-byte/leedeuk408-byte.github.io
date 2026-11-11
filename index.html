@@ -3289,8 +3289,9 @@ function renderVoteResultBanner(){
 let voteState={best:null,worst:null,ids:[]};
 function recordMatch(winners,losers,shared){
   // 피어리스: 시리즈가 끝날 때 한 번만 승/패로 기록 (중간 판은 시리즈 점수만 기록)
-  let __ser=null;
+  let __ser=null;window.__serAllRows=null;
   if(shared){try{__ser=seriesRecordGame(winners);}catch(e){console.error('series',e);}}
+  const __sxAll=(__ser&&__ser.done)?window.__serAllRows:null;const sxField=id=>{if(!__sxAll)return {};const a=__sxAll.map(r=>r&&r[id]).filter(Boolean);return a.length?{sx:a}:{};};
   if(__ser){
     if(!__ser.done){
       { // 중간 판: 전적/연승/BEST·WORST는 시리즈 끝에, 참가+승패 포인트는 판마다 바로 지급
@@ -3317,8 +3318,8 @@ function recordMatch(winners,losers,shared){
   // push results; award filled in after vote. store lane (pos) + direct opponent id if known (auto mode)
   const entryIds=[];
   const winIds=[],loseIds=[];
-  winners.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].l:null;pl.hist.push({result:'W',award:null,pos,opp:opp||null,...champField(pl.id),...statField(pl.id)});entryIds.push(pl.id);winIds.push(pl.id);});
-  losers.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].w:null;pl.hist.push({result:'L',award:null,pos,opp:opp||null,...champField(pl.id),...statField(pl.id)});entryIds.push(pl.id);loseIds.push(pl.id);});
+  winners.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].l:null;pl.hist.push({result:'W',award:null,pos,opp:opp||null,...champField(pl.id),...statField(pl.id),...sxField(pl.id)});entryIds.push(pl.id);winIds.push(pl.id);});
+  losers.forEach(m=>{const pl=players.find(p=>p.id===m.player.id);const pos=(m.slot&&m.slot.pos)||null;const opp=(pos&&oppByPos[pos])?oppByPos[pos].w:null;pl.hist.push({result:'L',award:null,pos,opp:opp||null,...champField(pl.id),...statField(pl.id),...sxField(pl.id)});entryIds.push(pl.id);loseIds.push(pl.id);});
   // append to match log
   if(!state.matchLog)state.matchLog=[];
   state.matchLog.push({ts:Date.now(),win:winIds,lose:loseIds,best:null,worst:null,...(pendingBans?{bn:pendingBans}:{})});
@@ -4282,7 +4283,7 @@ function inBaselines(){
   if(_inBase&&_inBaseKey===key)return _inBase;
   const acc={};
   const add=(k,m,pid)=>{const a=acc[k]||(acc[k]={n:0,sum:{},pids:new Set()});a.n++;a.pids.add(pid);for(const f in m)a.sum[f]=(a.sum[f]||0)+m[f];};
-  players.forEach(pl=>(pl.hist||[]).forEach(h=>{
+  players.forEach(pl=>histX(pl).forEach(h=>{
     if(!h.st||!h.pos)return;const m=inMetrics(h.st);
     add(h.pos,m,pl.id);const g=inGroup(h);if(g==='TANK')add('TANK:'+h.pos,m,pl.id);
   }));
@@ -4293,7 +4294,7 @@ function inBaselines(){
 function inPct(r){const v=Math.round((r-1)*100);return (v>=0?'+':'')+v+'%';}
 function playerInsights(pl){
   const good=[],bad=[];const base=inBaselines();
-  const hist=pl.hist||[];const withSt=hist.filter(h=>h.st&&h.pos);
+  const hist=histX(pl);const withSt=hist.filter(h=>h.st&&h.pos);
   // 1) 상세 지표: 라인(탱커 챔피언은 따로) 평균 대비
   const byKey={};
   withSt.forEach(h=>{const g=inGroup(h);const k=g==='TANK'?'TANK:'+h.pos:h.pos;(byKey[k]||(byKey[k]=[])).push(inMetrics(h.st));});
@@ -4354,7 +4355,7 @@ function insightSection(pl){
 
 function champSection(pl){
   const m={};
-  (pl.hist||[]).forEach(h=>{if(!h.champ)return;const x=m[h.champ]||(m[h.champ]={g:0,w:0});x.g++;if(h.result==="W")x.w++;});
+  histX(pl).forEach(h=>{if(!h.champ)return;const x=m[h.champ]||(m[h.champ]={g:0,w:0});x.g++;if(h.result==="W")x.w++;});
   const rows=Object.entries(m).sort((a,b)=>b[1].g-a[1].g).slice(0,8);
   if(!rows.length)return '<div class="prof-section-h">챔피언별 전적</div><div class="prof-line mini">롤 결과 자동 가져오기로 경기를 기록하면 여기에 쌓여요</div>';
   return '<div class="prof-section-h">챔피언별 전적</div>'+rows.map(([id,x])=>`<div class="prof-line" style="display:flex;align-items:center;gap:8px">${chImg(id,"dr-pimg")}<b>${escapeHtml(chName(id))}</b><span class="mini">${x.g}판 ${x.w}승 ${x.g-x.w}패 (${Math.round(x.w/x.g*100)}%)</span></div>`).join("");
@@ -4427,7 +4428,7 @@ document.getElementById("riotSaveBtn").onclick=async()=>{
 const CT={lane:'ALL',min:1};
 function champTierData(lane){
   const stat={},ban={};let champEntries=0;
-  players.forEach(p=>(p.hist||[]).forEach(h=>{
+  players.forEach(p=>histX(p).forEach(h=>{
     if(!h.champ)return;champEntries++;
     if(lane!=='ALL'&&h.pos!==lane)return;
     const r=stat[h.champ]||(stat[h.champ]={id:h.champ,n:0,w:0,who:{}});
@@ -4488,11 +4489,12 @@ const PF_EXTRA=[
   {k:'eff',label:'딜 효율',f:x=>x.eff},
   {k:'cs',label:'CS',f:x=>x.cspm}
 ];
+function histX(pl){const out=[];(pl.hist||[]).forEach(h=>{if(h.sx&&h.sx.length){h.sx.forEach(r=>out.push({...h,pos:r.pos,opp:r.opp||null,result:r.result,champ:r.champ||null,st:r.st||null}));}else out.push(h);});return out;}
 function pfGame(h){
   const st=h.st;if(!st||!st[11])return null;const mins=st[11]/60;
   return {pos:h.pos,res:h.result,champ:h.champ,k:st[0],d:st[1],a:st[2],dpm:st[3]/mins,tpm:st[4]/mins,gpm:st[5]/mins,cspm:st[6]/mins,vpm:st[7]/mins,ccpm:st[8]/mins,kp:st[9],share:st[10],dpmDeath:st[1]/mins,mins,dur:st[11],dmg:st[3],gold:st[5],cs:st[6],vis:st[7],eff:st[5]?st[3]/st[5]:0,opp:h.opp||null,ban:null};
 }
-function pfAll(){const out=[];players.forEach(p=>(p.hist||[]).forEach(h=>{const g=pfGame(h);if(g){g.pid=p.id;out.push(g);}}));return out;}
+function pfAll(){const out=[];players.forEach(p=>histX(p).forEach(h=>{const g=pfGame(h);if(g){g.pid=p.id;out.push(g);}}));return out;}
 function pfAnalyze(pid,lane){
   const all=pfAll();const mine=all.filter(g=>g.pid===pid&&(!lane||lane==='ALL'||g.pos===lane));if(!mine.length)return null;
   const base={};
@@ -4810,7 +4812,8 @@ function seriesRecordGame(winners){
     if(lockedBefore.has(c))viol.push({game:n,champ:c,by:a.id});
     if(!used.some(u=>u.champ===c))used.push({champ:c,team:a.team^flip,by:a.id,game:n});});
   const wins=[...(sr.wins||[0,0])];wins[winGrp]++;
-  const games=[...(sr.games||[]),{n,ts:Date.now(),winTeam,winGrp,flip,champs,rid:window.__pendingRid||null}];
+  const rows={};asg.forEach(a=>{const o=asg.find(x=>x.team!==a.team&&x.pos===a.pos);const r={pos:a.pos,opp:o?o.id:null,result:a.team===winTeam?'W':'L'};if(champs[a.id])r.champ=champs[a.id];if(pendingStats&&pendingStats[a.id])r.st=pendingStats[a.id];rows[a.id]=r;});
+  const games=[...(sr.games||[]),{n,ts:Date.now(),winTeam,winGrp,flip,champs,rows,rid:window.__pendingRid||null}];
   const bo=sr.bestOf||3,need=Math.ceil(bo/2);
   const done=wins[0]>=need||wins[1]>=need||games.length>=bo;
   const next={...sr,games,used,violations:viol,wins,flip,status:done?'done':'active'};
@@ -4819,6 +4822,7 @@ function seriesRecordGame(winners){
   if(!sr.v2)return null; // 이전 방식으로 시작한 시리즈는 판마다 기록
   const serGrp=wins[0]>wins[1]?0:(wins[1]>wins[0]?1:winGrp);
   const mk=a=>({slot:{pos:a.pos},player:{id:a.id}});
+  window.__serAllRows=games.map(g=>g.rows||null);
   return {done,wins,winners:done?asg.filter(a=>(a.team^flip)===serGrp).map(mk):null,losers:done?asg.filter(a=>(a.team^flip)!==serGrp).map(mk):null};
 }
 function seriesStart(bo){
