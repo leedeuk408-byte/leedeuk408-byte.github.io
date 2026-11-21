@@ -5294,9 +5294,9 @@ async function riotImportResult(btn){
     [0,1].forEach(t=>{byTeam[t].slice(0,2).forEach(x=>probes.push(x.pl.puuid));});
     const done=new Set(remote.riotImported||[]);
     const regPuuids=new Set(reg.map(x=>x.pl.puuid));
-    let since=(cm.createdAt||0)-10*60*1000;
-    try{const sr0=remote.series;if(sr0&&cm.seriesId===sr0.id){const gs=sr0.games||[];gs.forEach(g=>{if(g.rid)done.add(g.rid);});const lt=gs.length?gs[gs.length-1].ts:0;if(lt)since=Math.max(since,lt-5*60*1000);}}catch(e){}
-    let best=null;const skipSet=new Set();const dg={found:0,done:0,old:0,few:0,err:0,errMsg:'',fewMax:0,needN:Math.max(4,Math.ceil(reg.length*0.8))};
+    let since=(cm.createdAt||0)-30*60*1000;
+    try{const sr0=remote.series;if(sr0&&cm.seriesId===sr0.id){const gs=sr0.games||[];gs.forEach(g=>{if(g.rid)done.add(g.rid);});const lt=gs.length?gs[gs.length-1].ts:0;if(lt)since=Math.max(since,lt-20*60*1000);}}catch(e){}
+    let best=null;const skipSet=new Set();const dg={since:since,newest:0,found:0,done:0,old:0,few:0,err:0,errMsg:'',fewMax:0,needN:Math.max(4,Math.ceil(reg.length*0.8))};
     for(const kind of ["tourney","custom"]){
       const ids=new Set();
       for(const pu of probes){
@@ -5306,7 +5306,7 @@ async function riotImportResult(btn){
       dg.found+=ids.size;const fresh=[...ids].filter(i=>!done.has(i));dg.done+=ids.size-fresh.length;
       for(const id of fresh.slice(0,8)){
         let m;try{m=await riotApi("/match?id="+id);}catch(e){dg.err++;dg.errMsg=e.message||String(e.status||'');continue;}
-        if(m.gameCreation<since){dg.old++;continue;}
+        dg.newest=Math.max(dg.newest,m.gameCreation||0);if(m.gameCreation<since){dg.old++;continue;}
         if(!isSummonersRift(m)){skipSet.add(id);continue;}
         const score=m.participants.filter(p=>regPuuids.has(p.puuid)).length;
         if(score<dg.needN){dg.few++;dg.fewMax=Math.max(dg.fewMax,score);continue;}
@@ -5315,7 +5315,7 @@ async function riotImportResult(btn){
       }
       if(best)break;
     }
-    if(!best){alert((skipSet.size?"칼바람 같은 소환사의 협곡이 아닌 경기 "+skipSet.size+"건은 제외했어요. (소환사의 협곡만 기록해요)\n\n":"")+"이번 경기에 해당하는 롤 경기를 아직 못 찾았어요.\n게임이 끝나고 1~2분 뒤에 다시 눌러보세요.\n(라이엇 ID가 맞게 등록됐는지도 확인해보세요)\n\n[진단] 찾은 경기 "+dg.found+"건 · 이미 기록됨 "+dg.done+" · 시작 전 경기 "+dg.old+" · 멤버 불일치 "+dg.few+(dg.few?"(최대 "+dg.fewMax+"/"+dg.needN+"명 일치)":"")+" · 조회 오류 "+dg.err+(dg.errMsg?" ("+dg.errMsg+")":""));return;}
+    if(!best){alert((skipSet.size?"칼바람 같은 소환사의 협곡이 아닌 경기 "+skipSet.size+"건은 제외했어요. (소환사의 협곡만 기록해요)\n\n":"")+"이번 경기에 해당하는 롤 경기를 아직 못 찾았어요.\n게임이 끝나고 1~2분 뒤에 다시 눌러보세요.\n(라이엇 ID가 맞게 등록됐는지도 확인해보세요)\n\n[진단] 찾은 경기 "+dg.found+"건 · 이미 기록됨 "+dg.done+" · 시작 전 경기 "+dg.old+" · 멤버 불일치 "+dg.few+(dg.few?"(최대 "+dg.fewMax+"/"+dg.needN+"명 일치)":"")+" · 조회 오류 "+dg.err+(dg.errMsg?" ("+dg.errMsg+")":"")+"\n기준 시각 "+new Date(dg.since).toLocaleString('ko-KR',{hour:'2-digit',minute:'2-digit'})+" · 가장 최근 경기 시작 "+(dg.newest?new Date(dg.newest).toLocaleString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'없음')+" · 지금 "+new Date().toLocaleString('ko-KR',{hour:'2-digit',minute:'2-digit'}));return;}
     // 승리 팀 판정: 앱 팀 단위로 일관되는지 확인
     const win=[{w:0,l:0},{w:0,l:0}];const champs={};const stats={};let matched=0;
     assigns.forEach(a=>{
