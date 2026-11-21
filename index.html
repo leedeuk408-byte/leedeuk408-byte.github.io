@@ -3640,6 +3640,8 @@ function renderDevPanel(){
         <div id="devBfOut" class="dev-result" aria-live="polite"></div>
         <button class="ghost" id="devBfDiagBtn" style="margin-top:8px">경기별 진단 보기</button>
         <pre id="devBfDiag" style="white-space:pre-wrap;font-size:.74rem;margin-top:6px;user-select:text"></pre>
+        <button class="ghost" id="devRcBtn" style="margin-top:8px">라이엇 연결 점검 (방금 판이 목록에 있나)</button>
+        <pre id="devRcOut" style="white-space:pre-wrap;font-size:.74rem;margin-top:6px;user-select:text"></pre>
       </div>
       <div class="card dev-card"><h2>삭제된 선수 복구</h2>
         <div id="devRestoreList"></div>
@@ -3669,6 +3671,7 @@ function renderDevPanel(){
     document.getElementById("devPickBtn").onclick=devRefundPick;
     document.getElementById("devBfBtn").onclick=devBackfill;
     document.getElementById("devBfDiagBtn").onclick=devBfDiag;
+    document.getElementById("devRcBtn").onclick=devRiotCheck;
     document.getElementById("devRefundAll").onclick=()=>devRefund(null);
     document.getElementById("devRefundSel").onclick=()=>{const ids=[...document.querySelectorAll("#devRefundList input:checked")].map(i=>i.value);if(!ids.length){alert("환불할 선수를 먼저 골라주세요.");return;}devRefund(ids);};
   }
@@ -4019,6 +4022,40 @@ function riotStatArr(best,part){
   const tK=mates.reduce((x,q)=>x+(q.k||0),0),tD=mates.reduce((x,q)=>x+(q.dmg||0),0);
   return [part.k||0,part.d||0,part.a||0,part.dmg||0,part.taken||0,part.gold||0,part.cs||0,part.vis||0,Math.round(part.cc||0),
     tK?Math.round(100*((part.k||0)+(part.a||0))/tK):0,tD?Math.round(100*(part.dmg||0)/tD):0,best.gameDuration||0];
+}
+async function devRiotCheck(){
+  if(myName!==DEV_NAME||!devUnlocked())return;
+  const out=document.getElementById('devRcOut'),btn=document.getElementById('devRcBtn');
+  btn.disabled=true;out.textContent='점검 중…';
+  const L=[];const t=x=>x?new Date(x).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'-';
+  try{
+    L.push('지금 '+t(Date.now()));
+    try{const h=await fetch(RIOT_PROXY+'/');L.push('프록시 응답 '+h.status);}catch(e){L.push('프록시 연결 실패: '+e.message);out.textContent=L.join('\n');return;}
+    const cm=remote.currentMatch;
+    let pls=cm&&cm.assignments?cm.assignments.map(a=>players.find(p=>p.id===a.id)).filter(p=>p&&p.puuid):[];
+    if(!pls.length)pls=players.filter(p=>p.puuid);
+    pls=pls.slice(0,3);
+    L.push('점검 선수: '+pls.map(p=>p.name).join(', '));
+    const done=new Set(remote.riotImported||[]);const seen={};
+    for(const pl of pls){
+      for(const kind of ['all','custom','tourney']){
+        try{const ids=await riotApi('/matches?puuid='+encodeURIComponent(pl.puuid)+'&kind='+kind+'&count=5');L.push(pl.name+' · '+kind+' · '+(ids||[]).length+'건'+((ids||[]).length?' · '+(ids||[]).join(','):''));(ids||[]).forEach(i=>{seen[i]=1;});}
+        catch(e){L.push(pl.name+' · '+kind+' · 오류 '+(e.status||'')+' '+(e.message||''));}
+        await sleep(80);
+      }
+    }
+    const ids=Object.keys(seen).slice(0,12);
+    L.push('--');
+    const rows=[];
+    for(const id of ids){
+      try{const m=await riotApi('/match?id='+encodeURIComponent(id));await sleep(80);
+        rows.push({t:m.gameCreation,s:t(m.gameCreation)+' · '+Math.round((m.gameDuration||0)/60)+'분 · queue '+m.queueId+' · '+m.gameMode+' · '+m.gameType+' · 맵 '+m.mapId+(m.tournamentCode?' · 토너먼트':'')+(done.has(id)?' · 이미 기록됨':' · 미기록')});
+      }catch(e){rows.push({t:0,s:id+' · 상세 오류 '+(e.message||e.status)});}
+    }
+    rows.sort((a,b)=>b.t-a.t).forEach(r=>L.push(r.s));
+    out.textContent=L.join('\n');
+  }catch(e){L.push('실패: '+(e&&e.message?e.message:e));out.textContent=L.join('\n');}
+  finally{btn.disabled=false;}
 }
 async function devBfDiag(){
   if(myName!==DEV_NAME||!devUnlocked())return;
