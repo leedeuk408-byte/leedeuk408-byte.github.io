@@ -5239,7 +5239,7 @@ function itemQueueAdd(type,target){
     const pl=ps[i];
     if(itemOwned(pl,type)<=0)throw new Error("보유한 아이템이 없어요. 상점에서 먼저 사주세요.");
     const q=[...(data.itemQueue||[])];
-    if(q.some(x=>x.by===pl.id&&x.type===type))throw new Error("이미 다음 판에 쓰기로 한 아이템이에요. (같은 종류는 한 판에 1장)");
+    if(q.some(x=>x.by===pl.id))throw new Error("이미 다음 판에 쓰기로 한 아이템이 있어요. (한 판에 아이템은 1개만 쓸 수 있어요. 바꾸려면 먼저 취소하세요)");
     if(type==='nomeet'){if(!target||target===pl.id)throw new Error("같은 팀이 되고 싶지 않은 상대를 골라주세요.");if(!ps.some(x=>x.id===target))throw new Error("선택한 선수가 명단에 없어요.");}
     if(type==='lane'&&!(pl.tiers&&pl.tiers[target]!=null))throw new Error("내가 등록한 라인만 고정할 수 있어요.");
     if(type==='side'&&target!==0&&target!==1)throw new Error("블루/레드를 골라주세요.");
@@ -5275,9 +5275,9 @@ function renderItemPanel(force){
   const chips=ITEMS.map((it,i)=>`<span class="ip-chip${own[i]>0?' has':''}">${escapeHtml(it.name)} <b>${own[i]}</b></span>`).join('');
   const opts=usable.filter(it=>itemOwned(me,it.id)>0).map(it=>`<option value="${it.id}">${escapeHtml(it.name)}</option>`).join('');
   const qHtml=q.length?q.map(it=>`<div class="ip-q"><span>${escapeHtml(itemLabel(it))}</span>${(it.by===me.id||devUnlocked())?`<button type="button" data-qc="${it.id}">취소</button>`:''}</div>`).join(''):'<div class="ip-none">다음 판에 쓰기로 한 아이템이 없어요.</div>';
-  box.innerHTML=`<div class="ip-head"><b>내 아이템</b><span class="ip-sub">한 판만 적용 · 팀이 만들어지기 전에 예약해요</span></div>
+  box.innerHTML=`<div class="ip-head"><b>내 아이템</b><span class="ip-sub">한 판에 1개만 · 팀이 만들어지기 전에 예약해요</span></div>
     <div class="ip-chips">${chips}</div>
-    ${opts?`<div class="ip-form"><select id="ipType">${opts}</select><span id="ipArg"></span><button type="button" class="ghost" id="ipGo">다음 판에 적용</button></div>`:'<div class="ip-none">쓸 수 있는 아이템이 없어요. 상점에서 살 수 있어요.</div>'}
+    ${(opts&&!q.some(x=>x.by===me.id))?`<div class="ip-form"><select id="ipType">${opts}</select><span id="ipArg"></span><button type="button" class="ghost" id="ipGo">다음 판에 적용</button></div>`:(opts?'<div class="ip-none">이번 판 아이템은 이미 정했어요. 바꾸려면 아래에서 취소하세요. (한 판에 1개)</div>':'<div class="ip-none">쓸 수 있는 아이템이 없어요. 상점에서 살 수 있어요.</div>')}
     <div class="ip-queue"><div class="ip-qh">다음 판 적용 예정</div>${qHtml}</div>`;
   box.querySelectorAll('[data-qc]').forEach(b=>b.onclick=()=>itemQueueCancel(b.dataset.qc));
   const typeSel=document.getElementById('ipType');if(!typeSel)return;
