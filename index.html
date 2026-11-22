@@ -2322,7 +2322,7 @@ const REPEAT_WEIGHT=0.5;     // 3연속 같은 라인 1명당 -0.5 (약한 선�
 const VARIETY_BAND=1;        // 최고 점수에서 이 범위 안의 후보들 중 무작위로 뽑아서 매번 다양하게
 function laneActive(pl,key){ return pl.tiers[key]!=null && !(pl.laneOff&&pl.laneOff[key]); }
 function prefScore(pl,key){ if(pl.preferLane===key)return PREFER_BONUS; if(pl.avoidLane===key)return -AVOID_PENALTY; return 0; }
-function searchTeamPool(chosen,penalizedIds,ctx){
+function searchTeamPool(chosen,penalizedIds,ctx,restarts){
   const slots=[];[0,1].forEach(team=>POSITIONS.forEach(p=>slots.push({team,pos:p.key})));
   // 방장이 고정로 고정한 라인은 비활성이어도 우선 (명시적 선택), 고정이 없으면 활성 라인만
   function canFill(pl,slot){
@@ -2368,7 +2368,7 @@ function searchTeamPool(chosen,penalizedIds,ctx){
     })(0);
   }
   // 무작위로 여러 번 다시 시작해서 서로 다른 조합을 폭넓게 모음 (한 번 깊게 파면 비슷한 조합만 나옴)
-  for(let r=0;r<40;r++)runOnce(6000);
+  for(let r=0;r<(restarts||40);r++)runOnce(6000);
   if(pool.length===0)runOnce(300000); // 제약이 빡빡해서 못 찾았으면 한 번 길게 시도
   return {pool,bestDiff};
 }
@@ -2456,7 +2456,7 @@ function computeRerollDraw(ticketType,cmArg){
   const intensity=document.getElementById("intensitySel")?document.getElementById("intensitySel").value:"default";
   // 리롤이어도 이번 매치에서 이미 확정된 페널티 대상자 목록은 그대로 유지 (매치 생성 시점에 이미 소모됨)
   const penalizedIds=new Set(cm.penalizedIds||[]);
-  const res=searchTeamPool(chosen,penalizedIds,(cm.items&&cm.items.length)?itemCtx(cm.items):null);
+  const res=searchTeamPool(chosen,penalizedIds,(cm.items&&cm.items.length)?itemCtx(cm.items):null,6); // 리롤은 탐색 횟수를 줄여 빠르게(균형 품질은 동일)
   // 지금과 같은 매치업(색만 바뀐 것 포함)은 가능하면 피하고, 나머지에서 점수 상위권 중 무작위 선택
   const best=pickFromPool(res.pool,res.bestDiff,intensity,[currentBlueSig,currentRedSig]);
   if(!best)return null;
@@ -2919,7 +2919,9 @@ function renderSharedMatchArea(){
     ensureMyName();
     if(!myName){alert("이름을 먼저 설정해주세요.");return;}
     if(basicUsedByMe){alert(myName+"님은 이번 판의 기본 리롤권을 모두 사용했어요.");return;}
-    makeTeamsForReroll('basic');
+    basicBtn.disabled=true;const _t0=basicBtn.textContent;basicBtn.textContent='리롤 중…';
+    setTimeout(()=>{if(document.body.contains(basicBtn)){basicBtn.disabled=false;basicBtn.textContent=_t0;}},1800);
+    setTimeout(()=>makeTeamsForReroll('basic'),30);
   };
   const bonusBtn=document.getElementById("bonusRerollBtn");
   if(bonusBtn)bonusBtn.onclick=()=>{
@@ -2929,7 +2931,8 @@ function renderSharedMatchArea(){
     if(!confirm("임시 리롤권을 1장 사용할까요? (쓰면 보유 장수가 1장 줄어요)"))return;
     bonusBtn.disabled=true; // prevent double-click while the transaction is in flight
     setTimeout(()=>{if(document.body.contains(bonusBtn))bonusBtn.disabled=false;},2500);
-    useBonusRerollAtomically();
+    bonusBtn.textContent='리롤 중…';
+    setTimeout(()=>useBonusRerollAtomically(),30);
   };
   const pleadBtn=document.getElementById("pleadBtn");
   if(pleadBtn)pleadBtn.onclick=()=>{
