@@ -597,6 +597,32 @@ h2,h3,h4{letter-spacing:-.01em}
   .vs-bar-track i.blue{background:#6F8BFF}.vs-bar-track i.red{background:#FF6B5E}
   .vs-cell{border-radius:16px;min-height:62px}
   /* champion tier view */
+  .ix-sec{padding:20px 20px 14px}
+  .ix-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+  .ix-head small{display:block;color:var(--ink-dim);font-size:.78rem;margin-top:2px}
+  .ix-sw{font-size:.82rem;color:var(--ink-dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .ix-scroll{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;-webkit-overflow-scrolling:touch}
+  .ix-card{flex:0 0 min(420px,86%);scroll-snap-align:start;background:linear-gradient(160deg,#0d1620,#000);color:#f2f2f2;border:2px solid var(--ac);border-radius:26px;padding:20px}
+  .ix-top{display:flex;gap:14px;align-items:center}
+  .ix-img{width:68px;height:68px;border-radius:16px;border:2px solid var(--ac);object-fit:cover;flex:0 0 auto;background:#111}
+  .ix-top h3{margin:0;color:var(--ac);font-size:1.5rem;font-weight:900;line-height:1.15}
+  .ix-top p{margin:3px 0 0;color:#aab;font-size:.8rem;line-height:1.35}
+  .ix-grp{font-size:.68rem;font-weight:700;color:#000;background:var(--ac);border-radius:6px;padding:1px 6px}
+  .ix-win{margin-top:14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+  .ix-win b{font-size:1.55rem;font-weight:900}
+  .ix-win span{font-size:1.2rem;font-weight:800;color:var(--ac)}
+  .ix-win small{color:#889;font-size:.78rem}
+  .ix-minis{margin-top:10px;display:grid;gap:4px}
+  .ix-mini{display:grid;grid-template-columns:34px 1fr auto;gap:8px;font-size:.84rem;color:#cdd;border-top:1px solid #ffffff14;padding-top:4px}
+  .ix-mini i{font-style:normal;color:#889}
+  .ix-last{color:#ff9a8a}
+  .ix-sec.nolast .ix-lastwrap{display:none}
+  .ix-full{margin-top:8px;font-size:.8rem}
+  .ix-full summary{cursor:pointer;color:#99a}
+  .ix-full table{color:#dde}
+  .ix-dots{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin-top:6px}
+  .ix-dots i{width:6px;height:6px;border-radius:50%;background:var(--ink-dim);opacity:.35}
+  .ix-dots i.on{opacity:1;width:16px;border-radius:4px}
   .ct-hero{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;background:var(--hero);color:#fff;border-radius:28px;padding:36px 44px;margin-bottom:20px}
   .ct-hero h1{font-size:2.2rem;font-weight:800;letter-spacing:-.02em;color:#fff;margin:10px 0}
   .ct-hero p{color:rgba(255,255,255,.78);font-size:.92rem;max-width:520px}
@@ -4024,8 +4050,11 @@ function riotStatArr(best,part){
   const mates=best.participants.filter(q=>q.team===part.team);
   const tK=mates.reduce((x,q)=>x+(q.k||0),0),tD=mates.reduce((x,q)=>x+(q.dmg||0),0);
   return [part.k||0,part.d||0,part.a||0,part.dmg||0,part.taken||0,part.gold||0,part.cs||0,part.vis||0,Math.round(part.cc||0),
-    tK?Math.round(100*((part.k||0)+(part.a||0))/tK):0,tD?Math.round(100*(part.dmg||0)/tD):0,best.gameDuration||0];
+    tK?Math.round(100*((part.k||0)+(part.a||0))/tK):0,tD?Math.round(100*(part.dmg||0)/tD):0,best.gameDuration||0].concat(riotStatExtra(part));
 }
+// 12번 이후 = 라이엇에서 추가로 가져온 값 (없으면 길이 12 그대로)
+const ST_X=['pd','md','td','wp','wk','cw','pot','mit','heal','healT','shd','obj','tur','mk','fb','dead','spree','solo'];
+function riotStatExtra(part){if(typeof part.pd!=='number')return [];return ST_X.map(k=>Math.round(part[k]||0));}
 async function devRiotCheck(){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const out=document.getElementById('devRcOut'),btn=document.getElementById('devRcBtn');
@@ -4088,7 +4117,7 @@ async function devBfDiag(){
   }catch(e){out.textContent='실패: '+(e&&e.message?e.message:e);}
   finally{btn.disabled=false;}
 }
-function sxNeed(sx,rows){return !sx||sx.length<rows.length||sx.some((r,i)=>rows[i]&&((!r.champ&&rows[i].champ)||(rows[i].pv&&!r.pv)));}
+function sxNeed(sx,rows){return !sx||sx.length<rows.length||sx.some((r,i)=>rows[i]&&((!r.champ&&rows[i].champ)||(rows[i].pv&&!r.pv)||(rows[i].st&&rows[i].st.length>12&&(!r.st||r.st.length<=12))));}
 async function devBackfill(){
   if(myName!==DEV_NAME||!devUnlocked())return;
   const out=document.getElementById('devBfOut'),btn=document.getElementById('devBfBtn');
@@ -4683,7 +4712,7 @@ const PF_EXTRA=[
 function histX(pl){const out=[];(pl.hist||[]).forEach(h=>{if(h.sx&&h.sx.length){h.sx.forEach(r=>out.push({...h,pos:r.pos,opp:r.opp||null,result:r.result,champ:r.champ||null,st:r.st||null}));}else out.push(h);});return out;}
 function pfGame(h){
   const st=h.st;if(!st||!st[11])return null;const mins=st[11]/60;
-  return {pos:h.pos,res:h.result,champ:h.champ,k:st[0],d:st[1],a:st[2],dpm:st[3]/mins,tpm:st[4]/mins,gpm:st[5]/mins,cspm:st[6]/mins,vpm:st[7]/mins,ccpm:st[8]/mins,kp:st[9],share:st[10],dpmDeath:st[1]/mins,mins,dur:st[11],dmg:st[3],gold:st[5],cs:st[6],vis:st[7],eff:st[5]?st[3]/st[5]:0,opp:h.opp||null,ban:null};
+  return {pos:h.pos,res:h.result,champ:h.champ,k:st[0],d:st[1],a:st[2],dpm:st[3]/mins,tpm:st[4]/mins,gpm:st[5]/mins,cspm:st[6]/mins,vpm:st[7]/mins,ccpm:st[8]/mins,kp:st[9],share:st[10],dpmDeath:st[1]/mins,mins,dur:st[11],dmg:st[3],gold:st[5],cs:st[6],vis:st[7],eff:st[5]?st[3]/st[5]:0,opp:h.opp||null,ban:null,x:st.length>12?{pd:st[12],md:st[13],td:st[14],wp:st[15],wk:st[16],cw:st[17],pot:st[18],mit:st[19],heal:st[20],healT:st[21],shd:st[22],obj:st[23],tur:st[24],mk:st[25],fb:st[26],dead:st[27],spree:st[28],solo:st[29]}:null};
 }
 function pfAll(){const out=[];players.forEach(p=>histX(p).forEach(h=>{const g=pfGame(h);if(g){g.pid=p.id;out.push(g);}}));return out;}
 function pfAnalyze(pid,lane){
@@ -4717,6 +4746,82 @@ function pfRadar(idx){
   const poly=PF_AXES.map((ax,i)=>pt(i,idx[ax.k]).join(',')).join(' ');
   const labels=PF_AXES.map((ax,i)=>{const ang=-Math.PI/2+i*2*Math.PI/N;const x=C+(R+18)*Math.cos(ang),y=C+(R+18)*Math.sin(ang)+4;return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="11" fill="currentColor">${ax.label}</text>`;}).join('');
   return `<svg viewBox="-24 -8 308 276" width="100%" style="max-width:320px;color:var(--ink)"><polygon points="${ring(200)}" fill="none" stroke="currentColor" opacity=".15"/><polygon points="${ring(100)}" fill="none" stroke="currentColor" opacity=".35" stroke-dasharray="3 3"/><polygon points="${poly}" fill="#4a7cff" fill-opacity=".3" stroke="#4a7cff" stroke-width="2"/>${labels}</svg>`;
+}
+/* ===== 지표 랭킹 (분석 탭 상단) ===== */
+const IXS={showLast:true};
+const IX_DEFS=[
+ {k:'dpm',g:'화력',c:'#ff8a8a',t:'DPS KING',d:'분당 챔피언 피해량이 가장 높은 소환사',f:g=>g.dpm,u:v=>Math.round(v).toLocaleString()+' DMG/분',min:8},
+ {k:'share',g:'화력',c:'#ff8a8a',t:'팀 딜 비중',d:'팀 전체 딜량 중 본인 비중이 가장 높은 소환사',f:g=>g.share,u:v=>Math.round(v)+'%',min:8},
+ {k:'eff',g:'화력',c:'#ff8a8a',t:'골드 효율',d:'받은 골드 대비 딜량이 가장 높은 소환사',f:g=>g.eff,u:v=>v.toFixed(2)+' 딜/골드',min:8},
+ {k:'pdm',g:'화력',c:'#ffb35c',t:'물리 피해왕',d:'경기당 물리 피해가 가장 높은 소환사',f:g=>g.x?g.x.pd:null,u:v=>Math.round(v).toLocaleString(),min:3},
+ {k:'mdm',g:'화력',c:'#b39bff',t:'마법 피해왕',d:'경기당 마법 피해가 가장 높은 소환사',f:g=>g.x?g.x.md:null,u:v=>Math.round(v).toLocaleString(),min:3},
+ {k:'obj',g:'화력',c:'#ffb35c',t:'오브젝트 사냥꾼',d:'경기당 오브젝트(용·바론 등)에 가한 피해가 가장 높은 소환사',f:g=>g.x?g.x.obj:null,u:v=>Math.round(v).toLocaleString(),min:3},
+ {k:'tur',g:'화력',c:'#ffb35c',t:'포탑 철거반',d:'경기당 포탑에 가한 피해가 가장 높은 소환사',f:g=>g.x?g.x.tur:null,u:v=>Math.round(v).toLocaleString(),min:3},
+ {k:'kda',g:'전투',c:'#ffd34d',t:'KDA',d:'(킬+어시)÷데스가 가장 높은 소환사',agg:'kda',u:v=>v.toFixed(2),min:8},
+ {k:'k',g:'전투',c:'#ffd34d',t:'경기당 킬',d:'경기당 킬이 가장 많은 소환사',f:g=>g.k,u:v=>v.toFixed(1)+'킬',min:8},
+ {k:'a',g:'전투',c:'#ffd34d',t:'경기당 어시스트',d:'경기당 어시스트가 가장 많은 소환사',f:g=>g.a,u:v=>v.toFixed(1)+'개',min:8},
+ {k:'kp',g:'전투',c:'#ffd34d',t:'킬 관여율',d:'팀 킬 중 직접 관여한 비율이 가장 높은 소환사',f:g=>g.kp,u:v=>Math.round(v)+'%',min:8},
+ {k:'solo',g:'전투',c:'#ffd34d',t:'솔로킬 장인',d:'경기당 솔로킬이 가장 많은 소환사',f:g=>g.x?g.x.solo:null,u:v=>v.toFixed(2)+'회',min:3},
+ {k:'fb',g:'전투',c:'#ffd34d',t:'퍼스트 블러드',d:'퍼블을 가장 자주 따낸 소환사',f:g=>g.x?g.x.fb:null,u:v=>Math.round(v*100)+'%',min:3},
+ {k:'mk',g:'전투',c:'#ffd34d',t:'멀티킬 최고 기록',d:'한 경기 최대 연속 킬(더블~펜타) 기록',f:g=>g.x?g.x.mk:null,agg:'max',u:v=>({1:'싱글',2:'더블킬',3:'트리플킬',4:'쿼드라킬',5:'펜타킬'})[v]||v+'킬',min:3,hi:true},
+ {k:'spree',g:'전투',c:'#ffd34d',t:'학살 기록',d:'한 경기 최고 연속 킬(데스 없이) 기록',f:g=>g.x?g.x.spree:null,agg:'max',u:v=>v+'연속 킬',min:3,hi:true},
+ {k:'d',g:'생존',c:'#7ad0ff',t:'불사신',d:'경기당 데스가 가장 적은 소환사',f:g=>g.d,u:v=>v.toFixed(1)+'데스',min:8,lowGood:true},
+ {k:'tpm',g:'생존',c:'#7ad0ff',t:'걸어 다니는 샌드백',d:'분당 받은 피해가 가장 높은 소환사',f:g=>g.tpm,u:v=>Math.round(v).toLocaleString()+'/분',min:8},
+ {k:'mit',g:'생존',c:'#7ad0ff',t:'피해 경감왕',d:'분당 방어·실드로 줄인 피해가 가장 높은 소환사',f:g=>g.x?g.x.mit/g.mins:null,u:v=>Math.round(v).toLocaleString()+'/분',min:3},
+ {k:'dead',g:'생존',c:'#7ad0ff',t:'회색 화면 시청자',d:'경기당 죽어 있던 시간이 가장 긴 소환사',f:g=>g.x?g.x.dead/60:null,u:v=>v.toFixed(1)+'분',min:3},
+ {k:'heal',g:'지원',c:'#6fe3b8',t:'팀 힐러',d:'경기당 아군 회복·보호막이 가장 많은 소환사',f:g=>g.x?g.x.healT+g.x.shd:null,u:v=>Math.round(v).toLocaleString(),min:3},
+ {k:'vpm',g:'운영',c:'#4ee0a0',t:'맵 전기공',d:'분당 시야 점수가 가장 높은 소환사',f:g=>g.vpm,u:v=>v.toFixed(2)+'/분',min:8},
+ {k:'wp',g:'운영',c:'#4ee0a0',t:'와드 설치왕',d:'경기당 와드를 가장 많이 설치한 소환사',f:g=>g.x?g.x.wp:null,u:v=>v.toFixed(1)+'개',min:3},
+ {k:'wk',g:'운영',c:'#4ee0a0',t:'와드 청소부',d:'경기당 상대 와드를 가장 많이 제거한 소환사',f:g=>g.x?g.x.wk:null,u:v=>v.toFixed(1)+'개',min:3},
+ {k:'cw',g:'운영',c:'#4ee0a0',t:'제어 와드 수집가',d:'경기당 제어 와드를 가장 많이 구매한 소환사',f:g=>g.x?g.x.cw:null,u:v=>v.toFixed(1)+'개',min:3},
+ {k:'ccpm',g:'운영',c:'#4ee0a0',t:'군중 제어의 신',d:'분당 CC로 묶은 시간이 가장 긴 소환사',f:g=>g.ccpm,u:v=>v.toFixed(1)+'초/분',min:8},
+ {k:'gpm',g:'성장',c:'#ffd34d',t:'골드 먹는 하마',d:'분당 골드가 가장 높은 소환사',f:g=>g.gpm,u:v=>Math.round(v)+'/분',min:8},
+ {k:'cspm',g:'성장',c:'#ffd34d',t:'CS 농부',d:'분당 CS가 가장 높은 소환사',f:g=>g.cspm,u:v=>v.toFixed(1)+'/분',min:8},
+ {k:'pot',g:'성장',c:'#ff9bd2',t:'포션 중독자',d:'경기당 소모품을 가장 많이 산 소환사',f:g=>g.x?g.x.pot:null,u:v=>v.toFixed(1)+'개',min:3}
+];
+function ixCompute(){
+  const byPid={};
+  pfAll().forEach(g=>{(byPid[g.pid]=byPid[g.pid]||[]).push(g);});
+  const nm=id=>(players.find(p=>p.id===id)||{}).name||'?';
+  const topChamp=gs=>{const c={};gs.forEach(g=>{if(g.champ)c[g.champ]=(c[g.champ]||0)+1;});const e=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];return e?e[0]:null;};
+  const out=[];
+  IX_DEFS.forEach(df=>{
+    const rows=[];
+    Object.entries(byPid).forEach(([pid,gs])=>{
+      let use=gs,v;
+      if(df.agg==='kda'){const k=gs.reduce((s,g)=>s+g.k,0),a=gs.reduce((s,g)=>s+g.a,0),d=gs.reduce((s,g)=>s+g.d,0);v=(k+a)/Math.max(d,1);}
+      else{use=gs.filter(g=>{const x=df.f(g);return x!=null&&!isNaN(x);});if(!use.length)return;const vals=use.map(df.f);v=df.agg==='max'?Math.max(...vals):vals.reduce((s,x)=>s+x,0)/vals.length;}
+      if(use.length<df.min)return;
+      rows.push({pid,name:nm(pid),v,n:use.length,champ:topChamp(use)});
+    });
+    if(!rows.length)return;
+    rows.sort((a,b)=>df.lowGood?a.v-b.v:b.v-a.v);
+    out.push({df,rows});
+  });
+  return out;
+}
+function ixHtml(){
+  const data=ixCompute();
+  if(!data.length)return '';
+  const cards=data.map(({df,rows})=>{
+    const w=rows[0],last=rows.length>2?rows[rows.length-1]:null;
+    const mini=rows.slice(1,3).map((r,i)=>`<div class="ix-mini"><i>${i+2}</i><span>${escapeHtml(r.name)}</span><b>${df.u(r.v)}</b></div>`).join('');
+    const lastHtml=last?`<div class="ix-mini ix-last"><i>꼴찌</i><span>${escapeHtml(last.name)}</span><b>${df.u(last.v)}</b></div>`:'';
+    const full=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.name)}</td><td>${df.u(r.v)}</td><td>${r.n}판</td></tr>`).join('');
+    return `<article class="ix-card" style="--ac:${df.c}">
+      <div class="ix-top">${w.champ?chImg(w.champ,'ix-img'):'<span class="ix-img ix-noimg"></span>'}<div><span class="ix-grp">${df.g}</span><h3>${df.t}</h3><p>${df.d}</p></div></div>
+      <div class="ix-win"><b>${escapeHtml(w.name)}</b><span>${df.u(w.v)}</span><small>총 ${w.n}경기</small></div>
+      <div class="ix-minis">${mini}<div class="ix-lastwrap">${lastHtml}</div></div>
+      <details class="ix-full"><summary>전체 순위</summary><table class="pf-raw"><tr><th>#</th><th>선수</th><th>값</th><th>표본</th></tr>${full}</table></details>
+    </article>`;}).join('');
+  const dots=data.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('');
+  return `<section class="card ix-sec${IXS.showLast?'':' nolast'}"><div class="ix-head"><div><b>지표 랭킹</b><small>각 지표 1위·2~3위·꼴찌 (지표 저장 경기가 지표별 최소 판수 이상인 선수만)</small></div><label class="ix-sw"><input type="checkbox" id="ixLast" ${IXS.showLast?'checked':''}> 꼴찌 보기</label></div><div class="ix-scroll" id="ixScroll">${cards}</div><div class="ix-dots" id="ixDots">${dots}</div></section>`;
+}
+function ixBind(el){
+  const sc=el.querySelector('#ixScroll');if(!sc)return;
+  const dots=[...el.querySelectorAll('#ixDots i')];
+  sc.addEventListener('scroll',()=>{const w=sc.firstElementChild?sc.firstElementChild.getBoundingClientRect().width+12:1;const i=Math.min(dots.length-1,Math.round(sc.scrollLeft/w));dots.forEach((d,j)=>d.classList.toggle('on',j===i));},{passive:true});
+  const cb=el.querySelector('#ixLast');if(cb)cb.onchange=()=>{IXS.showLast=cb.checked;el.querySelector('.ix-sec').classList.toggle('nolast',!cb.checked);};
 }
 function renderProf(){
   const el=document.getElementById('profPanel');if(!el)return;
@@ -4810,7 +4915,7 @@ function renderProf(){
   const logTbl=`<table class="pf-raw" style="margin-top:12px"><tr><th>최근 경기</th><th>라인</th><th>결과</th><th>K/D/A</th><th>딜</th><th>골드</th><th>CS</th><th>시야</th><th>시간</th></tr>${logRows}</table>`;
   const laneTxt=Object.entries(r.lanes).sort((a,b)=>b[1]-a[1]).map(x=>LB(x[0])+' '+x[1]+'판').join(' · ');
   const champRows=Object.entries(r.champs).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([c,v])=>`<tr><td>${chImg(c,'ct-img')} ${escapeHtml(chName(c))}</td><td>${v.n}판</td><td>${Math.round(100*v.w/v.n)}%</td></tr>`).join('');
-  el.innerHTML=hero+`<section class="card"><div class="pf-chips">${chips}</div>
+  el.innerHTML=hero+ixHtml()+`<section class="card"><div class="pf-chips">${chips}</div>
     ${laneChips}<div class="pf-grid"><div style="text-align:center"><h2 style="margin:0 0 4px">${escapeHtml(pl.name)}</h2><div style="color:var(--ink-dim);font-size:.85rem;margin-bottom:6px">${r.n}판 ${r.w}승 ${r.n-r.w}패 · ${laneTxt}</div>${pfRadar(r.idx)}</div>
     <div><div style="margin-bottom:10px">${strong.length?strong.map(x=>`<span class="pf-tag s">▲ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):'<span class="pf-tag" style="background:rgba(0,0,0,.06)">뚜렷한 강점 없음</span>'}${weak.length?weak.map(x=>`<span class="pf-tag w">▼ ${x.ax.label} ${Math.round(x.v)}</span>`).join(''):''}</div>
       <div class="pf-sw">${bars}</div><div style="margin:12px 0 4px;color:var(--ink-dim);font-size:.8rem">세부 지표</div><div class="pf-sw">${xbars}</div>
@@ -4819,6 +4924,7 @@ function renderProf(){
       ${sTbl}${durTbl}${muTbl}${champRows?`<table class="pf-raw" style="margin-top:12px"><tr><th>챔피언</th><th>판</th><th>승률</th></tr>${champRows}</table>`:''}${logTbl}
     </div></div>
     <div class="hint" style="margin-top:12px">${r.n<5?'⚠️ 표본이 '+r.n+'판뿐이라 참고용이에요. ':''}${PF.lane!=='ALL'?LBL(PF.lane)+' 라인 기록만 봐요. ':''}${r.fb?'⚠️ 같은 라인 비교 표본이 4판 미만인 라인은 전체 평균과 비교했어요. ':''}같은 라인 평균과 비교한 값이에요. 생존은 분당 데스가 적을수록 높아요.</div></section>`;
+  ixBind(el);
   el.querySelectorAll('.pf-chip[data-pid]').forEach(b=>b.onclick=()=>{PF.pid=b.dataset.pid;PF.lane='ALL';renderProf();});
   el.querySelectorAll('.pf-chip[data-lane]').forEach(b=>b.onclick=()=>{PF.lane=b.dataset.lane;renderProf();});
 }
@@ -5363,10 +5469,7 @@ async function riotImportResult(btn){
       const part=best.participants.find(p=>p.puuid===pl.puuid);if(!part)return;
       matched++;champs[pl.id]=part.champion;
       if(typeof part.dmg==='number'){
-        const mates=best.participants.filter(q=>q.team===part.team);
-        const tK=mates.reduce((x,q)=>x+(q.k||0),0),tD=mates.reduce((x,q)=>x+(q.dmg||0),0);
-        stats[pl.id]=[part.k||0,part.d||0,part.a||0,part.dmg||0,part.taken||0,part.gold||0,part.cs||0,part.vis||0,Math.round(part.cc||0),
-          tK?Math.round(100*((part.k||0)+(part.a||0))/tK):0,tD?Math.round(100*(part.dmg||0)/tD):0,best.gameDuration||0];
+        stats[pl.id]=riotStatArr(best,part);
       }
       if(part.win)win[a.team].w++;else win[a.team].l++;
     });
