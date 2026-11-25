@@ -597,31 +597,29 @@ h2,h3,h4{letter-spacing:-.01em}
   .vs-bar-track i.blue{background:#6F8BFF}.vs-bar-track i.red{background:#FF6B5E}
   .vs-cell{border-radius:16px;min-height:62px}
   /* champion tier view */
-  .ix-sec{padding:20px 20px 14px}
-  .ix-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+  .ix-sec{margin-bottom:24px}
+  .ix-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 2px 12px}
   .ix-head small{display:block;color:var(--ink-dim);font-size:.78rem;margin-top:2px}
   .ix-sw{font-size:.82rem;color:var(--ink-dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
-  .ix-scroll{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;-webkit-overflow-scrolling:touch}
-  .ix-card{flex:0 0 min(420px,86%);scroll-snap-align:start;background:linear-gradient(160deg,#0d1620,#000);color:#f2f2f2;border:2px solid var(--ac);border-radius:26px;padding:20px}
-  .ix-top{display:flex;gap:14px;align-items:center}
-  .ix-img{width:68px;height:68px;border-radius:16px;border:2px solid var(--ac);object-fit:cover;flex:0 0 auto;background:#111}
-  .ix-top h3{margin:0;color:var(--ac);font-size:1.5rem;font-weight:900;line-height:1.15}
-  .ix-top p{margin:3px 0 0;color:#aab;font-size:.8rem;line-height:1.35}
-  .ix-grp{font-size:.68rem;font-weight:700;color:#000;background:var(--ac);border-radius:6px;padding:1px 6px}
-  .ix-win{margin-top:14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
-  .ix-win b{font-size:1.55rem;font-weight:900}
-  .ix-win span{font-size:1.2rem;font-weight:800;color:var(--ac)}
-  .ix-win small{color:#889;font-size:.78rem}
-  .ix-minis{margin-top:10px;display:grid;gap:4px}
-  .ix-mini{display:grid;grid-template-columns:34px 1fr auto;gap:8px;font-size:.84rem;color:#cdd;border-top:1px solid #ffffff14;padding-top:4px}
-  .ix-mini i{font-style:normal;color:#889}
-  .ix-last{color:#ff9a8a}
+  .ix-scroll{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
+  .ix-card{flex:0 0 min(460px,88%);scroll-snap-align:start;position:relative;background:linear-gradient(135deg,color-mix(in srgb,var(--ac) 14%,var(--panel)),var(--panel) 70%);border:1.5px solid color-mix(in srgb,var(--ac) 55%,var(--line));border-radius:26px;padding:22px 22px 14px;box-shadow:var(--shadow)}
+  .ix-top{display:flex;gap:18px;align-items:center}
+  .ix-ico{position:relative;flex:0 0 auto}
+  .ix-img{display:block;width:84px;height:84px;border-radius:20px;border:2px solid var(--ac);object-fit:cover;background:var(--panel-2)}
+  .ix-badge{position:absolute;right:-10px;bottom:-10px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;background:var(--panel);border:2px solid var(--ac)}
+  .ix-txt h3{margin:0;color:color-mix(in srgb,var(--ac) 80%,var(--ink));font-size:1.55rem;font-weight:900;line-height:1.15}
+  .ix-txt p{margin:5px 0 0;color:var(--ink-dim);font-size:.82rem;line-height:1.4}
+  .ix-win{margin-top:16px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+  .ix-win b{font-size:1.6rem;font-weight:900}
+  .ix-val{font-size:1.2rem;font-weight:800;color:color-mix(in srgb,var(--ac) 80%,var(--ink))}
+  .ix-win small{color:var(--ink-dim);font-size:.78rem}
+  .ix-sub{margin-top:8px;color:var(--ink-dim);font-size:.78rem;line-height:1.5}
+  .ix-sub em{font-style:normal;color:#e0705e}
   .ix-sec.nolast .ix-lastwrap{display:none}
-  .ix-full{margin-top:8px;font-size:.8rem}
-  .ix-full summary{cursor:pointer;color:#99a}
-  .ix-full table{color:#dde}
-  .ix-dots{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin-top:6px}
-  .ix-dots i{width:6px;height:6px;border-radius:50%;background:var(--ink-dim);opacity:.35}
+  .ix-full{margin-top:6px;font-size:.8rem}
+  .ix-full summary{cursor:pointer;color:var(--ink-dim);padding:4px 0}
+  .ix-dots{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin-top:2px}
+  .ix-dots i{width:6px;height:6px;border-radius:50%;background:var(--ink-dim);opacity:.35;transition:all .2s}
   .ix-dots i.on{opacity:1;width:16px;border-radius:4px}
   .ct-hero{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;background:var(--hero);color:#fff;border-radius:28px;padding:36px 44px;margin-bottom:20px}
   .ct-hero h1{font-size:2.2rem;font-weight:800;letter-spacing:-.02em;color:#fff;margin:10px 0}
@@ -4779,6 +4777,7 @@ const IX_DEFS=[
  {k:'cspm',g:'성장',c:'#ffd34d',t:'CS 농부',d:'분당 CS가 가장 높은 소환사',f:g=>g.cspm,u:v=>v.toFixed(1)+'/분',min:8},
  {k:'pot',g:'성장',c:'#ff9bd2',t:'포션 중독자',d:'경기당 소모품을 가장 많이 산 소환사',f:g=>g.x?g.x.pot:null,u:v=>v.toFixed(1)+'개',min:3}
 ];
+const IX_EMO={dpm:'💥',share:'🎯',eff:'💰',pdm:'🗡️',mdm:'🔮',obj:'🐉',tur:'🏰',kda:'⚔️',k:'🔪',a:'🤝',kp:'🔥',solo:'☠️',fb:'🩸',mk:'⚡',spree:'🌪️',d:'🛡️',tpm:'🧱',mit:'🛡️',dead:'👻',heal:'💚',vpm:'👁️',wp:'🧿',wk:'🧹',cw:'🔭',ccpm:'⛓️',gpm:'🪙',cspm:'🌾',pot:'💊'};
 function ixCompute(){
   const byPid={};
   pfAll().forEach(g=>{(byPid[g.pid]=byPid[g.pid]||[]).push(g);});
@@ -4792,7 +4791,7 @@ function ixCompute(){
       if(df.agg==='kda'){const k=gs.reduce((s,g)=>s+g.k,0),a=gs.reduce((s,g)=>s+g.a,0),d=gs.reduce((s,g)=>s+g.d,0);v=(k+a)/Math.max(d,1);}
       else{use=gs.filter(g=>{const x=df.f(g);return x!=null&&!isNaN(x);});if(!use.length)return;const vals=use.map(df.f);v=df.agg==='max'?Math.max(...vals):vals.reduce((s,x)=>s+x,0)/vals.length;}
       if(use.length<df.min)return;
-      rows.push({pid,name:nm(pid),v,n:use.length,champ:topChamp(use)});
+      rows.push({pid,name:nm(pid),v,n:use.length,wr:Math.round(100*use.filter(g=>g.res==='W').length/use.length),champ:topChamp(use)});
     });
     if(!rows.length)return;
     rows.sort((a,b)=>df.lowGood?a.v-b.v:b.v-a.v);
@@ -4805,17 +4804,17 @@ function ixHtml(){
   if(!data.length)return '';
   const cards=data.map(({df,rows})=>{
     const w=rows[0],last=rows.length>2?rows[rows.length-1]:null;
-    const mini=rows.slice(1,3).map((r,i)=>`<div class="ix-mini"><i>${i+2}</i><span>${escapeHtml(r.name)}</span><b>${df.u(r.v)}</b></div>`).join('');
-    const lastHtml=last?`<div class="ix-mini ix-last"><i>꼴찌</i><span>${escapeHtml(last.name)}</span><b>${df.u(last.v)}</b></div>`:'';
+    const sub=rows.slice(1,3).map((r,i)=>`${i+2}위 ${escapeHtml(r.name)} ${df.u(r.v)}`).join(' · ');
+    const lastTxt=last?`<span class="ix-lastwrap"> · 꼴찌 <em>${escapeHtml(last.name)} ${df.u(last.v)}</em></span>`:'';
     const full=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.name)}</td><td>${df.u(r.v)}</td><td>${r.n}판</td></tr>`).join('');
     return `<article class="ix-card" style="--ac:${df.c}">
-      <div class="ix-top">${w.champ?chImg(w.champ,'ix-img'):'<span class="ix-img ix-noimg"></span>'}<div><span class="ix-grp">${df.g}</span><h3>${df.t}</h3><p>${df.d}</p></div></div>
-      <div class="ix-win"><b>${escapeHtml(w.name)}</b><span>${df.u(w.v)}</span><small>총 ${w.n}경기</small></div>
-      <div class="ix-minis">${mini}<div class="ix-lastwrap">${lastHtml}</div></div>
+      <div class="ix-top"><div class="ix-ico">${w.champ?chImg(w.champ,'ix-img'):'<span class="ix-img ix-noimg"></span>'}<span class="ix-badge">${IX_EMO[df.k]||'📊'}</span></div><div class="ix-txt"><h3>${df.t}</h3><p>${df.d}</p></div></div>
+      <div class="ix-win"><b>${escapeHtml(w.name)}</b><span class="ix-val">${df.u(w.v)}</span><small>총 ${w.n}경기 · 승률 ${w.wr}%</small></div>
+      <div class="ix-sub">${sub}${lastTxt}</div>
       <details class="ix-full"><summary>전체 순위</summary><table class="pf-raw"><tr><th>#</th><th>선수</th><th>값</th><th>표본</th></tr>${full}</table></details>
     </article>`;}).join('');
   const dots=data.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('');
-  return `<section class="card ix-sec${IXS.showLast?'':' nolast'}"><div class="ix-head"><div><b>지표 랭킹</b><small>각 지표 1위·2~3위·꼴찌 (지표 저장 경기가 지표별 최소 판수 이상인 선수만)</small></div><label class="ix-sw"><input type="checkbox" id="ixLast" ${IXS.showLast?'checked':''}> 꼴찌 보기</label></div><div class="ix-scroll" id="ixScroll">${cards}</div><div class="ix-dots" id="ixDots">${dots}</div></section>`;
+  return `<section class="ix-sec${IXS.showLast?'':' nolast'}"><div class="ix-head"><div><b>지표 랭킹</b><small>옆으로 넘겨서 지표별 1위를 확인하세요 · 선수당 지표별 최소 판수 이상만 집계</small></div><label class="ix-sw"><input type="checkbox" id="ixLast" ${IXS.showLast?'checked':''}> 꼴찌 보기</label></div><div class="ix-scroll" id="ixScroll">${cards}</div><div class="ix-dots" id="ixDots">${dots}</div></section>`;
 }
 function ixBind(el){
   const sc=el.querySelector('#ixScroll');if(!sc)return;
