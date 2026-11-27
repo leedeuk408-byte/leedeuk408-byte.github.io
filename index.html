@@ -811,13 +811,21 @@ h2,h3,h4{letter-spacing:-.01em}
   /* ===== 이름 꾸밈/칭호 추가분 ===== */
   .sk-nx{background-image:linear-gradient(100deg,var(--a),var(--b),var(--c),var(--a));background-size:200% 100%;animation:skFlow 8s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important;filter:drop-shadow(0 0 .42em color-mix(in srgb,var(--b) 30%,transparent))}
   :root[data-theme="light"] .sk-nx{filter:drop-shadow(0 .5px .6px color-mix(in srgb,var(--c) 30%,transparent))}
-  /* 이름 가독성: 배경 스킨이 있을 때 이름 뒤에 테마색 알약(어떤 이름 꾸밈 × 어떤 배경 조합이든 대비 확보) */
-  :root{--pill-bg:rgba(12,14,22,.76);--pill-ink:#F4F5F9;--pill-bd:rgba(255,255,255,.16)}
-  :root[data-theme="light"]{--pill-bg:rgba(255,255,255,.86);--pill-ink:#0F1722;--pill-bd:rgba(15,23,34,.16)}
-  .vs-cell[class*="sk-b-"] .nm-pill,.modal[class*="sk-b-"] .nm-pill{display:inline-block;padding:2px 13px;border-radius:999px;background:var(--pill-bg);border:1px solid var(--pill-bd);color:var(--pill-ink);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 1px 8px rgba(0,0,0,.2)}
-  .nm-pill-t{margin-left:4px}
-  .vs-cell[class*="sk-b-"] .nm-pill-t,.modal[class*="sk-b-"] .nm-pill-t{padding:1px 10px}
-  .vs-cell[class*="sk-b-"] .nm-pill>span:not([class*="sk-n"]),.modal[class*="sk-b-"] .nm-pill>span:not([class*="sk-n"]){color:var(--pill-ink)}
+  /* 이름 가독성: 배경 스킨 위에 테마색 그라데이션 스크림을 깔아 이름 쪽만 차분하게 눌러줘요 (어떤 이름 꾸밈 × 배경 조합이든 대비 확보) */
+  :root{--pill-bg:rgba(10,12,20,.80);--pill-ink:#F4F5F9}
+  :root[data-theme="light"]{--pill-bg:rgba(255,255,255,.88);--pill-ink:#0F1722}
+  .vs-cell[class*="sk-b-"]{position:relative;isolation:isolate}
+  .vs-cell[class*="sk-b-"]::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background:linear-gradient(90deg,var(--pill-bg) 0%,var(--pill-bg) 40%,transparent 88%)}
+  .vs-cell.red[class*="sk-b-"]::before{background:linear-gradient(270deg,var(--pill-bg) 0%,var(--pill-bg) 40%,transparent 88%)}
+  .vs-cell[class*="sk-b-"] .vs-name{color:var(--pill-ink)}
+  .vs-cell[class*="sk-b-"] .vs-name>.nm-pill>span:not([class*="sk-n"]){color:var(--pill-ink)}
+  .modal[class*="sk-b-"] .prof-head{position:relative;isolation:isolate;padding:10px 16px;margin:-10px -16px 6px;border-radius:14px}
+  .modal[class*="sk-b-"] .prof-head::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:linear-gradient(90deg,var(--pill-bg) 0%,var(--pill-bg) 55%,transparent 100%)}
+  .modal[class*="sk-b-"] .prof-head .prof-big:not([class*="sk-n"]){color:var(--pill-ink)}
+  @media(max-width:820px){.vs-cell.red[class*="sk-b-"]::before{background:linear-gradient(90deg,var(--pill-bg) 0%,var(--pill-bg) 55%,transparent 100%)}}
+  .vs-stk{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;font-size:.72rem;font-weight:800;line-height:1.5;vertical-align:middle}
+  .vs-stk.w{color:var(--win);background:color-mix(in srgb,var(--win) 16%,transparent)}
+  .vs-stk.l{color:var(--loss);background:color-mix(in srgb,var(--loss) 16%,transparent)}
   .sk-tx{background-image:linear-gradient(100deg,var(--a) 20%,var(--b) 50%,var(--c) 80%,var(--a));background-size:220% 100%;animation:skFlow 7s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;font-weight:800}
   .sk-tx.sk-en{font-family:"Barlow Condensed",sans-serif;font-size:.88em;letter-spacing:.2em}
   .sk-n-coral{--a:#FF8A7A;--b:#FFB199;--c:#FF5E7E}
@@ -2870,13 +2878,13 @@ function renderSharedMatchArea(){
   (cm.assignments||[]).forEach(a=>{const pl=players.find(p=>p.id===a.id);if(pl)byTeam[a.team].push({slot:{pos:a.pos},player:pl});});
   byTeam[0].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);byTeam[1].sort((a,b)=>posIndex[a.slot.pos]-posIndex[b.slot.pos]);
   const readyList=cm.readyBy||[];
-  function teamHtml(list,cls,title,sum){let rows="";list.forEach(m=>{const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
+  function teamHtml(list,cls,title,sum){let rows="";list.forEach(m=>{const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const sk0=laneStreak(m.player,m.slot.pos);const pf=sk0.count>=2?`<span class="vs-stk ${sk0.type==='W'?'w':'l'}">${sk0.count}${sk0.type==='W'?'연승':'연패'}</span>`:"";const king=isKing(m.player,m.slot.pos);
     const tierCell=`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const readyTag=cm.locked?'':(readyList.includes(m.player.name)?' <span style="color:var(--win);font-size:0.7rem;font-weight:700">✅준비</span>':' <span style="color:var(--ink-dim);font-size:0.7rem">⏳준비중</span>');
     rows+=`<div class="slot"><span class="slot-pos">${label}</span><span class="slot-name">${escapeHtml(m.player.name)}${lk}${pf}${readyTag}</span>${tierCell}</div>`;});
     return `<div class="team ${cls}"><div class="team-head"><span class="team-title">${title}</span><span class="team-sum">전력 ${sum}</span></div>${rows}</div>`;}
 
-  function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
+  function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const sk0=laneStreak(m.player,m.slot.pos);const pf=sk0.count>=2?`<span class="vs-stk ${sk0.type==='W'?'w':'l'}">${sk0.count}${sk0.type==='W'?'연승':'연패'}</span>`:"";const king=isKing(m.player,m.slot.pos);
     const tierCell=`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const dot=cm.locked?'':(readyList.includes(m.player.name)?'<span class="rdy on" title="준비완료">✅</span>':'<span class="rdy" title="준비중">⏳</span>');
     return `<div class="vs-cell ${side}${skinBgCls(players.find(q=>q.id===m.player.id))}${skinFrCls(players.find(q=>q.id===m.player.id))}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="nm-pill"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span></span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${king?kingTitleHtml(label):''}${lk}${pf}</span>${tierCell}</div>`;}
