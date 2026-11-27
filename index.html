@@ -811,6 +811,13 @@ h2,h3,h4{letter-spacing:-.01em}
   /* ===== 이름 꾸밈/칭호 추가분 ===== */
   .sk-nx{background-image:linear-gradient(100deg,var(--a),var(--b),var(--c),var(--a));background-size:200% 100%;animation:skFlow 8s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-decoration:none!important;filter:drop-shadow(0 0 .42em color-mix(in srgb,var(--b) 30%,transparent))}
   :root[data-theme="light"] .sk-nx{filter:drop-shadow(0 .5px .6px color-mix(in srgb,var(--c) 30%,transparent))}
+  /* 이름 가독성: 배경 스킨이 있을 때 이름 뒤에 테마색 알약(어떤 이름 꾸밈 × 어떤 배경 조합이든 대비 확보) */
+  :root{--pill-bg:rgba(12,14,22,.76);--pill-ink:#F4F5F9;--pill-bd:rgba(255,255,255,.16)}
+  :root[data-theme="light"]{--pill-bg:rgba(255,255,255,.86);--pill-ink:#0F1722;--pill-bd:rgba(15,23,34,.16)}
+  .vs-cell[class*="sk-b-"] .nm-pill,.modal[class*="sk-b-"] .nm-pill{display:inline-block;padding:2px 13px;border-radius:999px;background:var(--pill-bg);border:1px solid var(--pill-bd);color:var(--pill-ink);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 1px 8px rgba(0,0,0,.2)}
+  .nm-pill-t{margin-left:4px}
+  .vs-cell[class*="sk-b-"] .nm-pill-t,.modal[class*="sk-b-"] .nm-pill-t{padding:1px 10px}
+  .vs-cell[class*="sk-b-"] .nm-pill>span:not([class*="sk-n"]),.modal[class*="sk-b-"] .nm-pill>span:not([class*="sk-n"]){color:var(--pill-ink)}
   .sk-tx{background-image:linear-gradient(100deg,var(--a) 20%,var(--b) 50%,var(--c) 80%,var(--a));background-size:220% 100%;animation:skFlow 7s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;font-weight:800}
   .sk-tx.sk-en{font-family:"Barlow Condensed",sans-serif;font-size:.88em;letter-spacing:.2em}
   .sk-n-coral{--a:#FF8A7A;--b:#FFB199;--c:#FF5E7E}
@@ -2287,7 +2294,7 @@ function openProfile(id){
   }
 
   document.getElementById("profBody").innerHTML=`
-    <div class="prof-head"><span class="prof-big${skinNameCls(pl)}">${escapeHtml(pl.name)}</span>${skinTitleHtml(pl)}${kingHtmlFor(pl)}</div>
+    <div class="prof-head"><span class="nm-pill"><span class="prof-big${skinNameCls(pl)}">${escapeHtml(pl.name)}</span></span>${skinTitleHtml(pl)}${kingHtmlFor(pl)}</div>
     <div class="tags" style="margin-bottom:10px">${tagsHtml}</div>
     <div class="prof-line">가능 라인: <b>${posText}</b></div>
     <div class="prof-stats">
@@ -2872,7 +2879,7 @@ function renderSharedMatchArea(){
   function vsCell(m,side){const label=POSITIONS.find(p=>p.key===m.slot.pos).label;const tier=m.player.tiers[m.slot.pos];const lk=locks[m.player.id]===m.slot.pos?" 고정":"";const pf=m.player.preferLane===m.slot.pos?" 선호":(m.player.avoidLane===m.slot.pos?" 기피":"");const king=isKing(m.player,m.slot.pos);
     const tierCell=`<span class="slot-tier tierlabel-${tier}">${tier}티어</span>`;
     const dot=cm.locked?'':(readyList.includes(m.player.name)?'<span class="rdy on" title="준비완료">✅</span>':'<span class="rdy" title="준비중">⏳</span>');
-    return `<div class="vs-cell ${side}${skinBgCls(players.find(q=>q.id===m.player.id))}${skinFrCls(players.find(q=>q.id===m.player.id))}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${king?kingTitleHtml(label):''}${lk}${pf}</span>${tierCell}</div>`;}
+    return `<div class="vs-cell ${side}${skinBgCls(players.find(q=>q.id===m.player.id))}${skinFrCls(players.find(q=>q.id===m.player.id))}">${dot}${champBadge(m.player.id,cm)}<span class="vs-name"><span class="nm-pill"><span class="${skinNameCls(players.find(q=>q.id===m.player.id)).trim()}">${escapeHtml(m.player.name)}</span></span>${skinTitleHtml(players.find(q=>q.id===m.player.id))}${king?kingTitleHtml(label):''}${lk}${pf}</span>${tierCell}</div>`;}
   function vsHtml(A,B,sumA,sumB){
     if(A.length!==5||B.length!==5||A.some((m,i)=>m.slot.pos!==B[i].slot.pos)){
       return `<div class="teams">${teamHtml(A,"blue","블루 팀",sumA)}${teamHtml(B,"red","레드 팀",sumB)}</div>`;}
@@ -5047,7 +5054,7 @@ function skinFrCls(pl){const k=skinEq(pl,'f');return k?' '+k.cls:'';}
 function kingTitleHtml(label){return `<span class="sk-title sk-t-king"><span class="kg-lane">${escapeHtml(label)}</span><b>KING</b></span>`;}
 function kingLanesOf(pl){return POSITIONS.filter(p=>pl&&pl.tiers&&pl.tiers[p.key]!=null&&isKing(pl,p.key)).map(p=>p.label);}
 function kingHtmlFor(pl){const l=kingLanesOf(pl);return l.length?kingTitleHtml(l.join('·')):'';}
-function skinTitleHtml(pl){const k=skinEq(pl,'t');return k?`<span class="sk-title ${k.cls||''}">${escapeHtml(k.text)}</span>`:'';}
+function skinTitleHtml(pl){const k=skinEq(pl,'t');return k?`<span class="nm-pill nm-pill-t"><span class="sk-title ${k.cls||''}">${escapeHtml(k.text)}</span></span>`:'';}
 function skinBgCls(pl){const k=skinEq(pl,'b');return k?' '+k.cls:'';}
 function skinMe(){return myName?players.find(p=>p.name===myName):null;}
 const SHOP={tab:'e'};
@@ -5067,7 +5074,7 @@ function renderShop(){
   const itemSec=`<div class="shop-cat">아이템 (한 판만 적용 · 대기실에서 예약)</div><div class="shop-grid shop-items">`+ITEMS.map(it=>{const n=itemOwned(me,it.id);return `<div class="shop-item"><b>${escapeHtml(it.name)}</b><span class="shop-desc">${escapeHtml(it.desc)}</span><span class="shop-own">보유 ${n}장</span><button class="buy" data-ibuy="${it.id}"${bal<it.price?' disabled':''}>${it.price}P</button></div>`;}).join('')+`</div>`;
   const tabsHtml='<div class="shop-tabs">'+Object.keys(SKIN_CATS).map(c=>`<button type="button" class="shop-tab${SHOP.tab===c?' on':''}" data-tab="${c}">${SKIN_CATS[c]}<small>${(me.skins||[]).filter(id=>{const k=skinById(id);return k&&k.cat===c;}).length}/${SKINS.filter(k=>k.cat===c).length}</small></button>`).join('')+`<button type="button" class="shop-tab${SHOP.tab==='i'?' on':''}" data-tab="i">아이템</button></div>`;
   el.innerHTML=`<div class="shop-head"><div><h3>상점</h3><div style="font-size:.78rem;color:var(--ink-dim);line-height:1.5">기본 100P · 참가 +30 · 승 +15 · 패 +10 · 연승 판당 +10 · 연패 판당 +5 · BEST +10 · WORST −5</div></div><div class="shop-coin">${bal}<small>내 포인트</small></div></div>
-    <div class="shop-preview"><span class="nm${skinNameCls(me)}">${escapeHtml(me.name)}</span>${skinTitleHtml(me)}</div>${tabsHtml}${SHOP.tab==='i'?itemSec:sec}
+    <div class="shop-preview"><span class="nm-pill"><span class="nm${skinNameCls(me)}">${escapeHtml(me.name)}</span></span>${skinTitleHtml(me)}</div>${tabsHtml}${SHOP.tab==='i'?itemSec:sec}
     <button class="primary" style="width:100%;margin-top:18px" onclick="document.getElementById('shopModal').classList.remove('on')">닫기</button>`;
   el.className='modal'+skinBgCls(me)+skinFrCls(me);
   el.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{SHOP.tab=b.dataset.tab;renderShop();const bd=document.getElementById('shopBody');if(bd)bd.scrollTop=0;});
