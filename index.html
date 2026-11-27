@@ -4771,7 +4771,7 @@ function pfRadar(idx){
   return `<svg viewBox="-24 -8 308 276" width="100%" style="max-width:320px;color:var(--ink)"><polygon points="${ring(200)}" fill="none" stroke="currentColor" opacity=".15"/><polygon points="${ring(100)}" fill="none" stroke="currentColor" opacity=".35" stroke-dasharray="3 3"/><polygon points="${poly}" fill="#4a7cff" fill-opacity=".3" stroke="#4a7cff" stroke-width="2"/>${labels}</svg>`;
 }
 /* ===== 지표 랭킹 (분석 탭 상단) ===== */
-const IXS={showLast:true,all:false};
+const IXS={showLast:true,all:false,lane:'ALL'};
 const IX_DEFS=[
  {k:'dpm',g:'화력',c:'#ff8a8a',t:'DPS KING',d:'분당 챔피언 피해량이 가장 높은 소환사',f:g=>g.dpm,u:v=>Math.round(v).toLocaleString()+' DMG/분',min:8},
  {k:'share',g:'화력',c:'#ff8a8a',t:'팀 딜 비중',d:'팀 전체 딜량 중 본인 비중이 가장 높은 소환사',f:g=>g.share,u:v=>Math.round(v)+'%',min:8},
@@ -4805,7 +4805,7 @@ const IX_DEFS=[
 const IX_EMO={dpm:'💥',share:'🎯',eff:'💰',pdm:'🗡️',mdm:'🔮',obj:'🐉',tur:'🏰',kda:'⚔️',k:'🔪',a:'🤝',kp:'🔥',solo:'☠️',fb:'🩸',mk:'⚡',spree:'🌪️',d:'🛡️',tpm:'🧱',mit:'🛡️',dead:'👻',heal:'💚',vpm:'👁️',wp:'🧿',wk:'🧹',cw:'🔭',ccpm:'⛓️',gpm:'🪙',cspm:'🌾',pot:'💊'};
 function ixCompute(){
   const byPid={};ixBuildTs();
-  pfAll().forEach(g=>{if(!IXS.all&&!(g.ts&&ymOf(g.ts)===RK.ym))return;(byPid[g.pid]=byPid[g.pid]||[]).push(g);});
+  pfAll().forEach(g=>{if(IXS.lane!=='ALL'&&g.pos!==IXS.lane)return;if(!IXS.all&&!(g.ts&&ymOf(g.ts)===RK.ym))return;(byPid[g.pid]=byPid[g.pid]||[]).push(g);});
   const nm=id=>(players.find(p=>p.id===id)||{}).name||'?';
   const topChamp=gs=>{const c={};gs.forEach(g=>{if(g.champ)c[g.champ]=(c[g.champ]||0)+1;});const e=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];return e?e[0]:null;};
   const out=[];
@@ -4815,7 +4815,7 @@ function ixCompute(){
       let use=gs,v;
       if(df.agg==='kda'){const k=gs.reduce((s,g)=>s+g.k,0),a=gs.reduce((s,g)=>s+g.a,0),d=gs.reduce((s,g)=>s+g.d,0);v=(k+a)/Math.max(d,1);}
       else{use=gs.filter(g=>{const x=df.f(g);return x!=null&&!isNaN(x);});if(!use.length)return;const vals=use.map(df.f);v=df.agg==='max'?Math.max(...vals):vals.reduce((s,x)=>s+x,0)/vals.length;}
-      if(use.length<(IXS.all?df.min:(df.min>=8?3:2)))return;
+      if(use.length<Math.max(2,Math.ceil((IXS.all?df.min:(df.min>=8?3:2))/(IXS.lane==='ALL'?1:2))))return;
       rows.push({pid,name:nm(pid),v,n:use.length,wr:Math.round(100*use.filter(g=>g.res==='W').length/use.length),champ:topChamp(use)});
     });
     if(!rows.length)return;
@@ -4828,7 +4828,9 @@ function ixHtml(){
   const cur=ymOf(Date.now());if(!RK.ym)RK.ym=cur;
   const data=ixCompute();
   const mchips='<div class="pf-chips" style="margin:0 2px 12px"><button type="button" class="pf-chip'+(IXS.all?' on':'')+'" data-ixall="1">전체</button>'+rkMonths().map(k=>`<button type="button" class="pf-chip${!IXS.all&&k===RK.ym?' on':''}" data-ixym="${k}">${ymLabel(k)}${k===cur?'<small>이번 달</small>':''}</button>`).join('')+'</div>';
-  const ttl=IXS.all?'전체 기간':ymLabel(RK.ym)+' 시즌';
+  const laneName=IXS.lane==='ALL'?'':' · '+(POSITIONS.find(p=>p.key===IXS.lane)||{}).label;
+  const lchips='<div class="pf-chips" style="margin:-4px 2px 12px"><button type="button" class="pf-chip'+(IXS.lane==='ALL'?' on':'')+'" data-ixlane="ALL">전체 라인</button>'+POSITIONS.map(p=>`<button type="button" class="pf-chip${IXS.lane===p.key?' on':''}" data-ixlane="${p.key}">${p.label}</button>`).join('')+'</div>';
+  const ttl=(IXS.all?'전체 기간':ymLabel(RK.ym)+' 시즌')+laneName;
   const cards=data.map(({df,rows})=>{
     const w=rows[0],last=rows.length>2?rows[rows.length-1]:null;
     const sub=rows.slice(1,3).map((r,i)=>`${i+2}위 ${escapeHtml(r.name)} ${df.u(r.v)}`).join(' · ');
@@ -4841,9 +4843,10 @@ function ixHtml(){
       <details class="ix-full"><summary>전체 순위</summary><table class="pf-raw"><tr><th>#</th><th>선수</th><th>값</th><th>표본</th></tr>${full}</table></details>
     </article>`;}).join('');
   const dots=data.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('');
-  return `<section class="ix-sec${IXS.showLast?'':' nolast'}"><div class="ix-head"><div><b>지표 랭킹 · ${ttl}</b><small>월 선택은 랭킹 탭의 시즌과 같이 움직여요 · 지표 저장 경기가 있는 선수만 집계(월별은 3판 이상)</small></div><label class="ix-sw"><input type="checkbox" id="ixLast" ${IXS.showLast?'checked':''}> 꼴찌 보기</label></div>${mchips}${data.length?`<div class="ix-scroll" id="ixScroll">${cards}</div><div class="ix-dots" id="ixDots">${dots}</div>`:'<div class="hint" style="padding:18px 4px">이 기간에는 지표가 저장된 경기가 아직 부족해요. (롤 자동 가져오기로 기록된 경기만 집계돼요)</div>'}</section>`;
+  return `<section class="ix-sec${IXS.showLast?'':' nolast'}"><div class="ix-head"><div><b>지표 랭킹 · ${ttl}</b><small>월 선택은 랭킹 탭의 시즌과 같이 움직여요 · 지표 저장 경기가 있는 선수만 집계(월별은 3판, 라인별은 절반 이상)</small></div><label class="ix-sw"><input type="checkbox" id="ixLast" ${IXS.showLast?'checked':''}> 꼴찌 보기</label></div>${mchips}${lchips}${data.length?`<div class="ix-scroll" id="ixScroll">${cards}</div><div class="ix-dots" id="ixDots">${dots}</div>`:'<div class="hint" style="padding:18px 4px">이 기간에는 지표가 저장된 경기가 아직 부족해요. (롤 자동 가져오기로 기록된 경기만 집계돼요)</div>'}</section>`;
 }
 function ixBind(el){
+  el.querySelectorAll('.ix-sec [data-ixlane]').forEach(b=>b.onclick=()=>{IXS.lane=b.dataset.ixlane;renderProf();});
   el.querySelectorAll('.ix-sec [data-ixym]').forEach(b=>b.onclick=()=>{IXS.all=false;RK.ym=b.dataset.ixym;renderProf();});
   el.querySelectorAll('.ix-sec [data-ixall]').forEach(b=>b.onclick=()=>{IXS.all=true;renderProf();});
   const sc=el.querySelector('#ixScroll');if(!sc)return;
